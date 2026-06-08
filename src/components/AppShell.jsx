@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
 const navItems = [
-  { label: "Dashboard", path: "/workforce" },
+  { label: "Overview", path: "/workforce" },
   { label: "Daily Record", path: "/workforce/daily-record" },
   { label: "Daily Compliance", path: "/workforce/compliance" },
   { label: "FTE", path: "/workforce/fte-compliance" },

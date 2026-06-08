@@ -6,9 +6,9 @@ function getHourStatus(hours, countedDay) {
   const value = Number(hours) || 0;
   if (!countedDay) return { label: "< 4 HRS", className: "muted" };
   if (value >= 12) return { label: "12+ HRS", className: "bad" };
-  if (value > 10) return { label: "> 10 HRS", className: "bad" };
+  if (value > 10) return { label: "> 10 HRS", className: "orange" };
   if (value > 8) return { label: "> 8 HRS", className: "warn" };
-  return { label: "COUNTED", className: "ok" };
+  return { label: "GOOD", className: "ok" };
 }
 
 function fmt(value) {
@@ -45,7 +45,7 @@ export default function WorkforceDailyRecordPage() {
       title="Details of Daily Working Hours"
       subtitle="Daily Hikvision scan summary. More than 4 hours counts as 1 working day"
       summaryStats={[
-        { value: total, label: "TOTAL ROWS" },
+        { value: total, label: "TOTAL WORKFORCE" },
         { value: rows.filter((r) => r.counted_day).length, label: "COUNTED DAYS", variant: "green" },
         { value: rows.filter((r) => Number(r.work_hours) >= 12).length, label: "12+ HRS", variant: "red" },
       ]}

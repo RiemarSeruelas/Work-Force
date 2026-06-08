@@ -52,6 +52,7 @@ export const useWorkforceStore = create((set, get) => ({
   selectedYear: currentWeek.year,
   selectedWeek: currentWeek.week,
   group: "ALL",
+  trendPeriod: "DAILY",
   search: "",
 
   summary: null,
@@ -75,15 +76,17 @@ export const useWorkforceStore = create((set, get) => ({
   setSelectedWeek: (value) =>
     set({ selectedWeek: Number(value) || getCurrentIsoWeekManilaClient().week }),
   setGroup: (value) => set({ group: value || "ALL" }),
+  setTrendPeriod: (value) => set({ trendPeriod: value || "DAILY" }),
   setSearch: (value) => set({ search: value || "" }),
 
   fetchSummary: async () => {
     set({ loading: true, error: "" });
     try {
-      const { workforceDate, group } = get();
+      const { workforceDate, group, trendPeriod } = get();
       const params = new URLSearchParams({
         date: workforceDate,
         group,
+        period: trendPeriod,
         _t: String(Date.now()),
       });
       const res = await fetch(`/api/workforce/summary?${params.toString()}`, {
