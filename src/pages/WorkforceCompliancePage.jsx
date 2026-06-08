@@ -12,7 +12,7 @@ function BarList({ title, rows, field, colorClass }) {
   const max = Math.max(...rows.map((r) => Number(r[field]) || 0), 1);
 
   return (
-    <div className="chart-card">
+    <div className="chart-card compact-chart-card">
       <h3>{title}</h3>
       <div className="bar-list">
         {rows.length === 0 && <div className="empty-cell">No compliance data found.</div>}
@@ -21,7 +21,9 @@ function BarList({ title, rows, field, colorClass }) {
           return (
             <div className="bar-row" key={`${title}-${row.persongroup}`}>
               <div className="bar-name">{row.persongroup || "Unknown"}</div>
-              <div className="bar-track"><div className={`bar-fill ${colorClass}`} style={{ width: `${(value / max) * 100}%` }} /></div>
+              <div className="bar-track">
+                <div className={`bar-fill ${colorClass}`} style={{ width: `${(value / max) * 100}%` }} />
+              </div>
               <div className="bar-num">{value}</div>
             </div>
           );
@@ -48,10 +50,41 @@ export default function WorkforceCompliancePage({ group = "ALL" }) {
   const rows = useMemo(() => compliance?.rows || [], [compliance]);
   const totals = compliance?.totals || {};
 
+  const controls = (
+    <>
+      <label className="summary-filter-field summary-filter-small">
+        <span>Year</span>
+        <input
+          className="summary-input"
+          type="number"
+          value={selectedYear}
+          onChange={(e) => setSelectedYear(e.target.value)}
+        />
+      </label>
+
+      <label className="summary-filter-field summary-filter-small">
+        <span>Week</span>
+        <input
+          className="summary-input"
+          type="number"
+          min="1"
+          max="53"
+          value={selectedWeek}
+          onChange={(e) => setSelectedWeek(e.target.value)}
+        />
+      </label>
+
+      <button className="summary-refresh-btn" onClick={() => fetchCompliance(group)} disabled={loading}>
+        {loading ? "Loading..." : "Refresh"}
+      </button>
+    </>
+  );
+
   return (
     <AppShell
       title={getTitle(group)}
       subtitle={compliance ? `Week ${compliance.week}: ${compliance.startDate} to ${compliance.endDate}` : "Weekly workforce compliance"}
+      summaryControls={controls}
       summaryStats={[
         { value: totals.population ?? 0, label: "POPULATION" },
         { value: totals.greaterThan60Hours ?? 0, label: "> 60 HOURS", variant: "red" },
@@ -59,17 +92,9 @@ export default function WorkforceCompliancePage({ group = "ALL" }) {
         { value: group, label: "GROUP", variant: "green" },
       ]}
     >
-      <aside className="panel left-panel">
-        <div className="panel-title">Week Filters</div>
-        <label className="field-label">Year</label>
-        <input className="styled-input" type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} />
-        <label className="field-label">Week No.</label>
-        <input className="styled-input" type="number" min="1" max="53" value={selectedWeek} onChange={(e) => setSelectedWeek(e.target.value)} />
-        <button className="primary-action-btn" onClick={() => fetchCompliance(group)} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
-        {error && <div className="error-box">{error}</div>}
-      </aside>
+      <section className="panel center-panel workforce-full-span">
+        {error && <div className="error-box page-error">{error}</div>}
 
-      <section className="panel center-panel workforce-center-span">
         <div className="compliance-grid">
           <BarList title="Greater than 60 Hours" rows={rows} field="greater_than_60_hours" colorClass="fill-red" />
           <BarList title="51-60 Hours" rows={rows} field="hours_51_60" colorClass="fill-blue" />

@@ -41,10 +41,38 @@ export default function WorkforceDashboardPage() {
   const over8Pct = safePercent(over8, totalPeople);
   const over10Pct = safePercent(over10, totalPeople);
 
+  const controls = (
+    <>
+      <label className="summary-filter-field">
+        <span>Date</span>
+        <input
+          className="summary-input"
+          type="date"
+          value={workforceDate}
+          onChange={(e) => setWorkforceDate(e.target.value)}
+        />
+      </label>
+
+      <label className="summary-filter-field">
+        <span>Group</span>
+        <select className="summary-input" value={group} onChange={(e) => setGroup(e.target.value)}>
+          <option value="ALL">All Workforce</option>
+          <option value="FTE">FTE</option>
+          <option value="CONTRACTOR">Contractor</option>
+        </select>
+      </label>
+
+      <button className="summary-refresh-btn" onClick={fetchSummary} disabled={loading}>
+        {loading ? "Refreshing..." : "Refresh"}
+      </button>
+    </>
+  );
+
   return (
     <AppShell
       title="Daily Workforce Monitoring"
       subtitle="Live workforce accounting based on the current 6 AM workforce day"
+      summaryControls={controls}
       summaryStats={[
         { value: totalPeople, label: "POPULATION" },
         { value: over8, label: "> 8 HOURS", variant: "amber" },
@@ -52,37 +80,9 @@ export default function WorkforceDashboardPage() {
         { value: avgHours, label: "AVG HOURS", variant: "green" },
       ]}
     >
-      <aside className="panel left-panel filter-panel">
-        <div className="panel-title">Control Panel</div>
+      <section className="center-panel workforce-full-span no-panel-bg">
+        {error && <div className="error-box page-error">{error}</div>}
 
-        <label className="field-label">Workforce Date</label>
-        <input
-          className="styled-input"
-          type="date"
-          value={workforceDate}
-          onChange={(e) => setWorkforceDate(e.target.value)}
-        />
-
-        <label className="field-label">Workforce Group</label>
-        <select className="styled-input" value={group} onChange={(e) => setGroup(e.target.value)}>
-          <option value="ALL">All Workforce</option>
-          <option value="FTE">FTE</option>
-          <option value="CONTRACTOR">Contractor</option>
-        </select>
-
-        <button className="primary-action-btn" onClick={fetchSummary} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh Dashboard"}
-        </button>
-
-        <div className="note-card">
-          <div className="note-title">Current Window</div>
-          <div className="note-text">{workforceDate} 06:00 AM until next day 05:59 AM.</div>
-        </div>
-
-        {error && <div className="error-box">{error}</div>}
-      </aside>
-
-      <section className="center-panel workforce-center-span no-panel-bg">
         <div className="kpi-grid">
           <div className="metric-card kpi-card kpi-total">
             <div className="metric-label">Total Workforce</div>
