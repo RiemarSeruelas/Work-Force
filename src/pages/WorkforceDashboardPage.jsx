@@ -13,6 +13,13 @@ function formatDateTime(value) {
   });
 }
 
+function safePercent(part, total) {
+  const p = Number(part) || 0;
+  const t = Number(total) || 0;
+  if (!t) return 0;
+  return Math.round((p / t) * 100);
+}
+
 export default function WorkforceDashboardPage() {
   const workforceDate = useWorkforceStore((s) => s.workforceDate);
   const setWorkforceDate = useWorkforceStore((s) => s.setWorkforceDate);
@@ -27,19 +34,27 @@ export default function WorkforceDashboardPage() {
     fetchSummary?.();
   }, [fetchSummary, workforceDate, group]);
 
+  const totalPeople = Number(summary?.totalPeople) || 0;
+  const over8 = Number(summary?.greaterThan8Hours) || 0;
+  const over10 = Number(summary?.greaterThan10Hours) || 0;
+  const avgHours = Number(summary?.avgWorkHours) || 0;
+  const over8Pct = safePercent(over8, totalPeople);
+  const over10Pct = safePercent(over10, totalPeople);
+
   return (
     <AppShell
       title="Daily Workforce Monitoring"
       subtitle="Live workforce accounting based on the current 6 AM workforce day"
       summaryStats={[
-        { value: summary?.totalPeople ?? 0, label: "PEOPLE" },
-        { value: summary?.greaterThan8Hours ?? 0, label: "> 8 HOURS", variant: "amber" },
-        { value: summary?.greaterThan10Hours ?? 0, label: "> 10 HOURS", variant: "red" },
-        { value: summary?.avgWorkHours ?? 0, label: "AVG HOURS", variant: "green" },
+        { value: totalPeople, label: "POPULATION" },
+        { value: over8, label: "> 8 HOURS", variant: "amber" },
+        { value: over10, label: "> 10 HOURS", variant: "red" },
+        { value: avgHours, label: "AVG HOURS", variant: "green" },
       ]}
     >
-      <aside className="panel left-panel">
-        <div className="panel-title">Filters</div>
+      <aside className="panel left-panel filter-panel">
+        <div className="panel-title">Control Panel</div>
+
         <label className="field-label">Workforce Date</label>
         <input
           className="styled-input"
@@ -48,7 +63,7 @@ export default function WorkforceDashboardPage() {
           onChange={(e) => setWorkforceDate(e.target.value)}
         />
 
-        <label className="field-label">Group</label>
+        <label className="field-label">Workforce Group</label>
         <select className="styled-input" value={group} onChange={(e) => setGroup(e.target.value)}>
           <option value="ALL">All Workforce</option>
           <option value="FTE">FTE</option>
@@ -56,38 +71,83 @@ export default function WorkforceDashboardPage() {
         </select>
 
         <button className="primary-action-btn" onClick={fetchSummary} disabled={loading}>
-          {loading ? "Refreshing..." : "Refresh"}
+          {loading ? "Refreshing..." : "Refresh Dashboard"}
         </button>
+
+        <div className="note-card">
+          <div className="note-title">Current Window</div>
+          <div className="note-text">{workforceDate} 06:00 AM until next day 05:59 AM.</div>
+        </div>
 
         {error && <div className="error-box">{error}</div>}
       </aside>
 
-      <section className="panel center-panel workforce-center-span">
-        <div className="dashboard-grid">
-          <div className="metric-card large-metric">
-            <div className="metric-label">Current Workforce Day</div>
-            <div className="metric-value">{workforceDate}</div>
-            <div className="mini-info-text">Window: 6:00 AM to 5:59 AM next day</div>
+      <section className="center-panel workforce-center-span no-panel-bg">
+        <div className="kpi-grid">
+          <div className="metric-card kpi-card kpi-total">
+            <div className="metric-label">Total Workforce</div>
+            <div className="metric-value">{totalPeople}</div>
+            <div className="mini-info-text">People detected in selected workforce day</div>
           </div>
 
-          <div className="metric-card large-metric">
-            <div className="metric-label">Latest Scan</div>
-            <div className="metric-value small-value">{formatDateTime(summary?.latestScan)}</div>
+          <div className="metric-card kpi-card status-amber">
+            <div className="metric-label">Greater Than 8 Hours</div>
+            <div className="metric-value">{over8}</div>
+            <div className="mini-info-text">{over8Pct}% of current population</div>
           </div>
 
-          <div className="metric-card status-green">
-            <div className="metric-label">People Accounted</div>
-            <div className="metric-value">{summary?.totalPeople ?? 0}</div>
+          <div className="metric-card kpi-card status-red">
+            <div className="metric-label">Greater Than 10 Hours</div>
+            <div className="metric-value">{over10}</div>
+            <div className="mini-info-text">{over10Pct}% of current population</div>
           </div>
 
-          <div className="metric-card status-amber">
-            <div className="metric-label">Greater than 8 Hours</div>
-            <div className="metric-value">{summary?.greaterThan8Hours ?? 0}</div>
+          <div className="metric-card kpi-card status-green">
+            <div className="metric-label">Average Working Hours</div>
+            <div className="metric-value">{avgHours}</div>
+            <div className="mini-info-text">Based on first and last scan</div>
+          </div>
+        </div>
+
+        <div className="dashboard-main-grid">
+          <div className="chart-card compliance-overview-card">
+            <div className="chart-header-row">
+              <div>
+                <h3>Working Hours Compliance</h3>
+                <p>Quick view for overtime risk and high-hour exposure.</p>
+              </div>
+              <span className="soft-pill">{group}</span>
+            </div>
+
+            <div className="progress-stack">
+              <div className="progress-row">
+                <div className="progress-label"><span>&gt; 8 Hours</span><b>{over8}</b></div>
+                <div className="progress-track"><div className="progress-fill fill-amber" style={{ width: `${over8Pct}%` }} /></div>
+              </div>
+              <div className="progress-row">
+                <div className="progress-label"><span>&gt; 10 Hours</span><b>{over10}</b></div>
+                <div className="progress-track"><div className="progress-fill fill-red" style={{ width: `${over10Pct}%` }} /></div>
+              </div>
+              <div className="progress-row">
+                <div className="progress-label"><span>Normal / Below Threshold</span><b>{Math.max(totalPeople - over8, 0)}</b></div>
+                <div className="progress-track"><div className="progress-fill fill-green" style={{ width: `${safePercent(Math.max(totalPeople - over8, 0), totalPeople)}%` }} /></div>
+              </div>
+            </div>
           </div>
 
-          <div className="metric-card status-red">
-            <div className="metric-label">Greater than 10 Hours</div>
-            <div className="metric-value">{summary?.greaterThan10Hours ?? 0}</div>
+          <div className="chart-card scan-card">
+            <h3>Latest Scan</h3>
+            <div className="latest-scan-value">{formatDateTime(summary?.latestScan)}</div>
+            <div className="scan-meta-grid">
+              <div>
+                <span>Workforce Date</span>
+                <b>{workforceDate}</b>
+              </div>
+              <div>
+                <span>Shift Window</span>
+                <b>06:00 - 05:59</b>
+              </div>
+            </div>
           </div>
         </div>
       </section>

@@ -15,6 +15,7 @@ function BarList({ title, rows, field, colorClass }) {
     <div className="chart-card">
       <h3>{title}</h3>
       <div className="bar-list">
+        {rows.length === 0 && <div className="empty-cell">No compliance data found.</div>}
         {rows.slice(0, 8).map((row) => {
           const value = Number(row[field]) || 0;
           return (
@@ -59,7 +60,7 @@ export default function WorkforceCompliancePage({ group = "ALL" }) {
       ]}
     >
       <aside className="panel left-panel">
-        <div className="panel-title">Filters</div>
+        <div className="panel-title">Week Filters</div>
         <label className="field-label">Year</label>
         <input className="styled-input" type="number" value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)} />
         <label className="field-label">Week No.</label>

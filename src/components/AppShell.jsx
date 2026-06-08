@@ -2,11 +2,11 @@ import { Link, useLocation } from "react-router-dom";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
 const navItems = [
-  { label: "Live", path: "/workforce" },
+  { label: "Dashboard", path: "/workforce" },
   { label: "Daily Record", path: "/workforce/daily-record" },
   { label: "Daily Compliance", path: "/workforce/compliance" },
-  { label: "FTE Compliance", path: "/workforce/fte-compliance" },
-  { label: "Contractor Compliance", path: "/workforce/contractor-compliance" },
+  { label: "FTE", path: "/workforce/fte-compliance" },
+  { label: "Contractor", path: "/workforce/contractor-compliance" },
   { label: "Population", path: "/workforce/population" },
 ];
 
@@ -24,10 +24,10 @@ export default function AppShell({ title, subtitle, summaryStats = [], children 
     <div className="app-shell" data-theme={theme}>
       <header className="topbar">
         <div className="brand-card">
-          <div className="brand-icon">👷</div>
-          <div>
-            <div className="brand-title">CAVITE FOODS WORKFORCE MONITORING</div>
-            <div className="brand-subtitle">6:00 AM to 5:59 AM workforce day</div>
+          <div className="brand-icon">CF</div>
+          <div className="brand-copy">
+            <div className="brand-title">Cavite Foods Workforce</div>
+            <div className="brand-subtitle">Monitoring dashboard · 6:00 AM to 5:59 AM</div>
           </div>
         </div>
 
@@ -35,11 +35,11 @@ export default function AppShell({ title, subtitle, summaryStats = [], children 
           <button className="top-nav-btn" onClick={toggleTheme}>
             {theme === "dark" ? "☀ Light" : "🌙 Dark"}
           </button>
-          <button className="top-nav-btn" onClick={logout}>Logout</button>
+          <button className="top-nav-btn logout-btn" onClick={logout}>Logout</button>
         </div>
       </header>
 
-      <nav className="second-nav">
+      <nav className="second-nav" aria-label="Workforce dashboard navigation">
         {navItems.map((item) => (
           <Link key={item.path} to={item.path} className="top-nav-link">
             <button className={`second-nav-btn ${location.pathname === item.path ? "active" : ""}`}>
@@ -50,7 +50,8 @@ export default function AppShell({ title, subtitle, summaryStats = [], children 
       </nav>
 
       <section className="summary-strip">
-        <div>
+        <div className="summary-copy">
+          <div className="summary-eyebrow">Workforce Monitoring</div>
           <div className="summary-title">{title}</div>
           <div className="summary-subtitle">{subtitle}</div>
         </div>

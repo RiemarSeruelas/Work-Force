@@ -28,7 +28,7 @@ export default function WorkforcePopulationPage() {
       ]}
     >
       <aside className="panel left-panel">
-        <div className="panel-title">Filters</div>
+        <div className="panel-title">Population Filters</div>
         <label className="field-label">Workforce Date</label>
         <input className="styled-input" type="date" value={workforceDate} onChange={(e) => setWorkforceDate(e.target.value)} />
         <button className="primary-action-btn" onClick={fetchPopulation} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>

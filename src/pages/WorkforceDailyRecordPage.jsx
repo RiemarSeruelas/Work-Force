@@ -2,6 +2,13 @@ import { useEffect } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
+function getHourStatus(hours) {
+  const value = Number(hours) || 0;
+  if (value > 10) return { label: "> 10 HRS", className: "bad" };
+  if (value > 8) return { label: "> 8 HRS", className: "warn" };
+  return { label: "OK", className: "ok" };
+}
+
 function fmt(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -70,6 +77,7 @@ export default function WorkforceDailyRecordPage() {
                   <th>Last Scan</th>
                   <th>Work Hours</th>
                   <th>Scan Count</th>
+                  <th>Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -81,10 +89,16 @@ export default function WorkforceDailyRecordPage() {
                     <td>{fmt(row.last_scan)}</td>
                     <td>{Number(row.work_hours || 0).toFixed(2)}</td>
                     <td>{row.scan_count}</td>
+                    <td>
+                      {(() => {
+                        const status = getHourStatus(row.work_hours);
+                        return <span className={`status-chip ${status.className}`}>{status.label}</span>;
+                      })()}
+                    </td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan="6" className="empty-cell">No workforce records found.</td></tr>
+                  <tr><td colSpan="7" className="empty-cell">No workforce records found.</td></tr>
                 )}
               </tbody>
             </table>
