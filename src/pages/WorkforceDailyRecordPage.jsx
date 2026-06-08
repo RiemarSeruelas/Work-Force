@@ -2,13 +2,12 @@ import { useEffect } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
-function getHourStatus(hours, countedDay) {
+function getHourStatus(hours) {
   const value = Number(hours) || 0;
-  if (!countedDay) return { label: "< 4 HRS", className: "muted" };
   if (value >= 12) return { label: "12+ HRS", className: "bad" };
   if (value > 10) return { label: "> 10 HRS", className: "orange" };
   if (value > 8) return { label: "> 8 HRS", className: "warn" };
-  return { label: "GOOD", className: "ok" };
+  return { label: "< 8 HRS", className: "ok" };
 }
 
 function fmt(value) {
@@ -95,7 +94,7 @@ export default function WorkforceDailyRecordPage() {
                     <td>{row.counted_day ? "Yes" : "No"}</td>
                     <td>
                       {(() => {
-                        const status = getHourStatus(row.work_hours, row.counted_day);
+                        const status = getHourStatus(row.work_hours);
                         return <span className={`status-chip ${status.className}`}>{status.label}</span>;
                       })()}
                     </td>

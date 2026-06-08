@@ -48,9 +48,90 @@ function safePercent(part, total) {
   return Math.round((p / t) * 100);
 }
 
-function stackedWidth(value, total) {
-  const percent = safePercent(value, total);
-  return percent <= 0 ? "0%" : `${Math.max(percent, 4)}%`;
+function buildLinePoints(rows, lineKey) {
+  if (!rows.length) return "";
+
+  const maxLine = Math.max(...rows.map((row) => Number(row[lineKey]) || 0), 1);
+  const lastIndex = Math.max(rows.length - 1, 1);
+
+  return rows
+    .map((row, index) => {
+      const value = Number(row[lineKey]) || 0;
+      const x = (index / lastIndex) * 100;
+      const y = 100 - (value / maxLine) * 88 - 6;
+      return `${x},${Math.max(4, Math.min(96, y))}`;
+    })
+    .join(" ");
+}
+
+function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineKey, lineLabel }) {
+  const maxPopulation = Math.max(...rows.map((row) => Number(row.population) || 0), 1);
+  const points = buildLinePoints(rows, lineKey);
+
+  return (
+    <div className="chart-card powerbi-timeseries-card">
+      <div className="chart-header-row compact-chart-header">
+        <div>
+          <h3>{title}</h3>
+          <p>{description}</p>
+        </div>
+        <span className="soft-pill">{lineLabel}</span>
+      </div>
+
+      <div className="powerbi-chart-area">
+        <div className="powerbi-y-axis">
+          <span>{maxPopulation}</span>
+          <span>{Math.round(maxPopulation / 2)}</span>
+          <span>0</span>
+        </div>
+
+        <div className="powerbi-plot">
+          {points && (
+            <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <polyline points={points} fill="none" vectorEffect="non-scaling-stroke" />
+            </svg>
+          )}
+
+          {rows.map((row) => {
+            const population = Number(row.population) || 0;
+            const barHeight = population ? Math.max((population / maxPopulation) * 100, 4) : 0;
+
+            return (
+              <div className="powerbi-column" key={row.period_start}>
+                <div className="powerbi-bar-slot">
+                  <div className="powerbi-stacked-bar" style={{ height: `${barHeight}%` }}>
+                    {segments.map((segment) => {
+                      const value = Number(row[segment.key]) || 0;
+                      const height = population ? (value / population) * 100 : 0;
+
+                      return (
+                        <div
+                          key={segment.key}
+                          className={`powerbi-segment ${segment.className}`}
+                          style={{ height: `${height}%` }}
+                          title={`${segment.label}: ${value}`}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="powerbi-x-label">{formatSeriesDate(row.period_start, period)}</div>
+              </div>
+            );
+          })}
+
+          {rows.length === 0 && <div className="empty-cell">No time series data found.</div>}
+        </div>
+      </div>
+
+      <div className="powerbi-legend">
+        {segments.map((segment) => (
+          <span key={segment.key}><i className={`legend-box ${segment.className}`} /> {segment.label}</span>
+        ))}
+        <span><i className="line-legend" /> {lineLabel}</span>
+      </div>
+    </div>
+  );
 }
 
 export default function WorkforceDashboardPage() {
@@ -78,7 +159,6 @@ export default function WorkforceDashboardPage() {
   const over10Pct = safePercent(over10, totalPeople);
   const over12Pct = safePercent(over12, totalPeople);
   const series = Array.isArray(summary?.timeSeries) ? summary.timeSeries : [];
-  const maxPopulation = Math.max(...series.map((row) => Number(row.population) || 0), 1);
 
   const controls = (
     <>
@@ -127,7 +207,7 @@ export default function WorkforceDashboardPage() {
   return (
     <AppShell
       title="Workforce Monitoring Overview"
-      subtitle="Population counts anyone who entered. Working-day count requires more than 4 hours."
+      subtitle="Population counts anyone who entered. Day count only applies when total time is more than 4 hours."
       summaryControls={controls}
       summaryStats={[
         { value: totalPeople, label: "TOTAL WORKFORCE" },
@@ -136,10 +216,10 @@ export default function WorkforceDashboardPage() {
         { value: over12, label: "12+ HOURS", variant: "red" },
       ]}
     >
-      <section className="center-panel workforce-full-span no-panel-bg">
+      <section className="center-panel workforce-full-span no-panel-bg overview-page-fit">
         {error && <div className="error-box page-error">{error}</div>}
 
-        <div className="kpi-grid compact-kpi-grid">
+        <div className="kpi-grid compact-kpi-grid overview-kpi-grid">
           <div className="metric-card kpi-card kpi-total">
             <div className="metric-label">Total Workforce</div>
             <div className="metric-value">{totalPeople}</div>
@@ -165,79 +245,39 @@ export default function WorkforceDashboardPage() {
           </div>
         </div>
 
-        <div className="dashboard-main-grid dashboard-timeseries-grid dashboard-timeseries-wide">
-          <div className="chart-card compliance-overview-card">
-            <div className="chart-header-row">
-              <div>
-                <h3>Working Hours Risk</h3>
-                <p>Risk buckets are based on actual first scan to last scan.</p>
-              </div>
-              <span className="soft-pill">{group}</span>
-            </div>
+        <div className="overview-timeseries-stack">
+          <VerticalTimeSeriesChart
+            title="Working Hours Compliance"
+            description="Stacked population by work-hour bucket with an average-hours line."
+            rows={series}
+            period={trendPeriod}
+            lineKey="average_hours"
+            lineLabel="Average Working Hours"
+            segments={[
+              { key: "hours_8_or_less", label: "< 8 hours", className: "stack-green" },
+              { key: "hours_8_10", label: "> 8 hours", className: "stack-yellow" },
+              { key: "hours_10_12", label: "> 10 hours", className: "stack-orange" },
+              { key: "hours_12_plus", label: "12+ hours", className: "stack-red" },
+            ]}
+          />
 
-            <div className="progress-stack">
-              <div className="progress-row">
-                <div className="progress-label"><span>&gt; 8 Hours</span><b>{over8}</b></div>
-                <div className="progress-track"><div className="progress-fill fill-amber" style={{ width: `${over8Pct}%` }} /></div>
-              </div>
-              <div className="progress-row">
-                <div className="progress-label"><span>&gt; 10 Hours</span><b>{over10}</b></div>
-                <div className="progress-track"><div className="progress-fill fill-orange" style={{ width: `${over10Pct}%` }} /></div>
-              </div>
-              <div className="progress-row">
-                <div className="progress-label"><span>12 Hours and Above</span><b>{over12}</b></div>
-                <div className="progress-track"><div className="progress-fill fill-red" style={{ width: `${over12Pct}%` }} /></div>
-              </div>
-            </div>
-          </div>
+          <VerticalTimeSeriesChart
+            title="Working Days Compliance"
+            description="More than 4 hours counts as one day. Stacked by number of counted days."
+            rows={series}
+            period={trendPeriod}
+            lineKey="average_days"
+            lineLabel="Average Working Days"
+            segments={[
+              { key: "days_5_or_less", label: "5 days and below", className: "stack-green" },
+              { key: "days_6", label: "6 days", className: "stack-blue" },
+              { key: "days_over_6", label: "Greater than 6 days", className: "stack-navy" },
+            ]}
+          />
+        </div>
 
-          <div className="chart-card time-series-card stacked-timeseries-card">
-            <div className="chart-header-row">
-              <div>
-                <h3>Working Hours Time Series</h3>
-                <p>Stacked by hours bucket. Highest axis uses total workforce for the period.</p>
-              </div>
-              <span className="soft-pill">{trendPeriod}</span>
-            </div>
-
-            <div className="stacked-chart-wrap">
-              {series.map((row) => {
-                const population = Number(row.population) || 0;
-                const hours8OrLess = Number(row.hours_8_or_less) || 0;
-                const hours8To10 = Number(row.hours_8_10) || 0;
-                const hours10To12 = Number(row.hours_10_12) || 0;
-                const hours12Plus = Number(row.hours_12_plus) || 0;
-                const barWidth = stackedWidth(population, maxPopulation);
-
-                return (
-                  <div className="stacked-chart-row" key={row.period_start}>
-                    <div className="stacked-chart-label">{formatSeriesDate(row.period_start, trendPeriod)}</div>
-                    <div className="stacked-chart-axis">
-                      <div className="stacked-bar" style={{ width: barWidth }}>
-                        <div className="stack-segment stack-green" style={{ width: stackedWidth(hours8OrLess, population) }} title="8 hours and below" />
-                        <div className="stack-segment stack-yellow" style={{ width: stackedWidth(hours8To10, population) }} title="8 to 10 hours" />
-                        <div className="stack-segment stack-orange" style={{ width: stackedWidth(hours10To12, population) }} title="10 to 12 hours" />
-                        <div className="stack-segment stack-red" style={{ width: stackedWidth(hours12Plus, population) }} title="12 hours and above" />
-                      </div>
-                      <div className="series-line-dot" style={{ left: barWidth }} title={`Population ${population}`} />
-                    </div>
-                    <div className="stacked-chart-value">{population}</div>
-                  </div>
-                );
-              })}
-
-              {series.length === 0 && <div className="empty-cell">No time series data found.</div>}
-            </div>
-
-            <div className="stacked-legend">
-              <span><i className="legend-box stack-green" /> ≤ 8 hrs</span>
-              <span><i className="legend-box stack-yellow" /> &gt; 8 hrs</span>
-              <span><i className="legend-box stack-orange" /> &gt; 10 hrs</span>
-              <span><i className="legend-box stack-red" /> 12+ hrs</span>
-            </div>
-          </div>
-
-          <div className="chart-card scan-card">
+        <div className="overview-bottom-strip">
+          <div className="chart-card scan-card compact-scan-card">
             <h3>Latest Scan</h3>
             <div className="latest-scan-value">{formatDateTime(summary?.latestScan)}</div>
             <div className="scan-meta-grid">
@@ -249,6 +289,21 @@ export default function WorkforceDashboardPage() {
                 <span>Shift Window</span>
                 <b>06:00 - 05:59</b>
               </div>
+            </div>
+          </div>
+
+          <div className="chart-card compact-risk-card">
+            <div className="chart-header-row compact-chart-header">
+              <div>
+                <h3>Current Day Risk</h3>
+                <p>Same-day risk buckets from first scan to last scan.</p>
+              </div>
+              <span className="soft-pill">{group}</span>
+            </div>
+            <div className="mini-risk-grid">
+              <div><span>&gt; 8 Hrs</span><b>{over8}</b><small>{over8Pct}%</small></div>
+              <div><span>&gt; 10 Hrs</span><b>{over10}</b><small>{over10Pct}%</small></div>
+              <div><span>12+ Hrs</span><b>{over12}</b><small>{over12Pct}%</small></div>
             </div>
           </div>
         </div>

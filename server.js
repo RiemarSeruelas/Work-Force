@@ -200,11 +200,16 @@ app.get("/api/workforce/summary", async (req, res) => {
         SELECT
           workforce_date,
           COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
-          GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) AS work_hours
+          GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) AS work_hours,
+          CASE
+            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 4
+              THEN 1
+            ELSE 0
+          END AS counted_day
         FROM scans
         GROUP BY workforce_date, COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
       ),
-      bucketed AS (
+      period_person AS (
         SELECT
           CASE
             WHEN $2::text = 'MONTHLY' THEN date_trunc('month', workforce_date)::date
@@ -212,17 +217,30 @@ app.get("/api/workforce/summary", async (req, res) => {
             ELSE workforce_date
           END AS period_start,
           person_key,
-          work_hours
+          SUM(work_hours) AS total_hours,
+          SUM(counted_day)::int AS working_days
         FROM daily
+        GROUP BY
+          CASE
+            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', workforce_date)::date
+            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', workforce_date)::date
+            ELSE workforce_date
+          END,
+          person_key
       )
       SELECT
         period_start::text AS period_start,
         COUNT(*)::int AS population,
-        COUNT(*) FILTER (WHERE work_hours <= 8)::int AS hours_8_or_less,
-        COUNT(*) FILTER (WHERE work_hours > 8 AND work_hours <= 10)::int AS hours_8_10,
-        COUNT(*) FILTER (WHERE work_hours > 10 AND work_hours < 12)::int AS hours_10_12,
-        COUNT(*) FILTER (WHERE work_hours >= 12)::int AS hours_12_plus
-      FROM bucketed
+        COUNT(*) FILTER (WHERE total_hours <= 8)::int AS hours_8_or_less,
+        COUNT(*) FILTER (WHERE total_hours > 8 AND total_hours <= 10)::int AS hours_8_10,
+        COUNT(*) FILTER (WHERE total_hours > 10 AND total_hours < 12)::int AS hours_10_12,
+        COUNT(*) FILTER (WHERE total_hours >= 12)::int AS hours_12_plus,
+        COUNT(*) FILTER (WHERE working_days <= 5)::int AS days_5_or_less,
+        COUNT(*) FILTER (WHERE working_days = 6)::int AS days_6,
+        COUNT(*) FILTER (WHERE working_days > 6)::int AS days_over_6,
+        ROUND(AVG(total_hours)::numeric, 2) AS average_hours,
+        ROUND(AVG(working_days)::numeric, 2) AS average_days
+      FROM period_person
       GROUP BY period_start
       ORDER BY period_start ASC
       `,

@@ -852,3 +852,456 @@ button:hover { transform: translateY(-1px); }
     text-align: left;
   }
 }
+
+/* =========================================================
+   Requested fix: PowerBI-style time series, daily status rules,
+   and tighter compliance page with no global desktop scrolling.
+========================================================= */
+@media (min-width: 1181px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+    max-height: 100%;
+    overflow: hidden;
+  }
+
+  .app-shell {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    min-height: 100vh;
+    overflow: hidden !important;
+  }
+
+  .workspace {
+    height: calc(100vh - 144px);
+    max-height: calc(100vh - 144px);
+    overflow: hidden !important;
+    padding: 10px 14px 12px;
+    gap: 10px;
+  }
+}
+
+.topbar {
+  min-height: 56px;
+  padding: 8px 14px;
+}
+
+.summary-strip {
+  min-height: 70px;
+  padding: 9px 14px;
+}
+
+.overview-page-fit {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.overview-kpi-grid {
+  margin-bottom: 0;
+  gap: 8px;
+}
+
+.overview-kpi-grid .kpi-card {
+  min-height: 76px;
+  padding: 10px 12px;
+}
+
+.overview-kpi-grid .metric-value {
+  font-size: 22px;
+}
+
+.overview-kpi-grid .mini-info-text {
+  font-size: 10px;
+  margin-top: 5px;
+}
+
+.overview-timeseries-stack {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 8px;
+}
+
+.powerbi-timeseries-card {
+  min-height: 0;
+  padding: 9px 11px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.powerbi-timeseries-card .chart-header-row {
+  margin-bottom: 4px;
+}
+
+.powerbi-timeseries-card h3 {
+  font-size: 12px;
+}
+
+.powerbi-timeseries-card p {
+  font-size: 10px;
+  margin-top: 2px;
+}
+
+.powerbi-chart-area {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 7px;
+}
+
+.powerbi-y-axis {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 4px 0 22px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.powerbi-plot {
+  position: relative;
+  min-width: 0;
+  height: 100%;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(24px, 1fr);
+  align-items: stretch;
+  gap: 5px;
+  padding: 4px 4px 18px;
+  border-left: 1px solid rgba(15, 23, 42, 0.12);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.12);
+  background:
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.16) 1px, transparent 1px) 0 4px / 100% 33.33%,
+    transparent;
+}
+
+.app-shell[data-theme="dark"] .powerbi-plot {
+  border-color: rgba(226, 232, 240, 0.16);
+}
+
+.powerbi-column {
+  min-width: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 16px;
+  align-items: stretch;
+  justify-items: center;
+  gap: 2px;
+}
+
+.powerbi-bar-slot {
+  width: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: end;
+  justify-content: center;
+}
+
+.powerbi-stacked-bar {
+  width: min(100%, 34px);
+  min-height: 1px;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  border-radius: 2px 2px 0 0;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.powerbi-segment {
+  width: 100%;
+  min-height: 0;
+}
+
+.powerbi-x-label {
+  width: 100%;
+  color: var(--muted);
+  font-size: 8px;
+  font-weight: 900;
+  text-align: center;
+  line-height: 1.05;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.powerbi-line-overlay {
+  position: absolute;
+  inset: 4px 4px 18px 4px;
+  pointer-events: none;
+  z-index: 4;
+  overflow: visible;
+}
+
+.powerbi-line-overlay polyline {
+  stroke: #111827;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.app-shell[data-theme="dark"] .powerbi-line-overlay polyline {
+  stroke: #f8fafc;
+}
+
+.powerbi-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px 11px;
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.line-legend {
+  display: inline-block;
+  width: 16px;
+  height: 2px;
+  border-radius: 999px;
+  background: #111827;
+  margin-right: 5px;
+  transform: translateY(-2px);
+}
+
+.stack-green,
+.fill-green {
+  background: #16a34a !important;
+}
+
+.stack-yellow,
+.fill-amber {
+  background: #facc15 !important;
+}
+
+.stack-orange,
+.fill-orange {
+  background: #ea580c !important;
+}
+
+.stack-red,
+.fill-red {
+  background: #dc2626 !important;
+}
+
+.stack-blue,
+.fill-blue {
+  background: #0ea5e9 !important;
+}
+
+.stack-navy,
+.fill-navy {
+  background: #1e3a8a !important;
+}
+
+.overview-bottom-strip {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.55fr) minmax(360px, 1fr);
+  gap: 8px;
+  min-height: 86px;
+}
+
+.compact-scan-card,
+.compact-risk-card {
+  padding: 10px 12px;
+  min-height: 0;
+}
+
+.compact-scan-card .latest-scan-value {
+  font-size: 14px;
+  margin-top: 6px;
+}
+
+.compact-scan-card .scan-meta-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.compact-scan-card .scan-meta-grid div {
+  padding: 7px;
+}
+
+.mini-risk-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.mini-risk-grid div {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-soft);
+  padding: 8px;
+}
+
+.mini-risk-grid span,
+.mini-risk-grid small {
+  display: block;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mini-risk-grid b {
+  display: block;
+  font-size: 18px;
+  margin: 2px 0;
+  color: var(--text);
+}
+
+/* Daily record status rule: no <4 gray bucket. Anything up to 8 is green. */
+.status-chip.ok {
+  background: rgba(22, 163, 74, 0.14) !important;
+  color: #15803d !important;
+}
+
+.status-chip.warn {
+  background: rgba(250, 204, 21, 0.24) !important;
+  color: #a16207 !important;
+}
+
+.status-chip.orange {
+  background: rgba(234, 88, 12, 0.16) !important;
+  color: #ea580c !important;
+}
+
+.status-chip.bad {
+  background: rgba(220, 38, 38, 0.14) !important;
+  color: #dc2626 !important;
+}
+
+/* Compliance page: compact enough to fit a desktop viewport without page scroll. */
+.compliance-page-panel {
+  height: 100%;
+  min-height: 0;
+  padding: 7px;
+  overflow: hidden;
+}
+
+.compliance-shell-grid {
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: minmax(330px, 0.95fr) 18px minmax(330px, 0.95fr) minmax(260px, 0.68fr);
+  gap: 7px;
+}
+
+.compliance-left-grid,
+.compliance-right-grid {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.compact-chart-card {
+  min-height: 0 !important;
+  height: 100%;
+  padding: 7px;
+  overflow: hidden;
+}
+
+.compact-card-title {
+  font-size: 11px;
+  margin-bottom: 4px;
+}
+
+.compliance-bar-list {
+  gap: 2px;
+  max-height: none !important;
+  overflow: hidden !important;
+  padding-right: 0;
+}
+
+.bar-row-button {
+  min-height: 18px;
+  padding: 1px 2px;
+  border-radius: 5px;
+}
+
+.bar-row {
+  grid-template-columns: minmax(132px, 0.48fr) minmax(90px, 1fr) 25px;
+  gap: 5px;
+}
+
+.full-bar-name {
+  font-size: 8.4px;
+  line-height: 1.02;
+}
+
+.bar-track {
+  height: 9px;
+}
+
+.bar-num {
+  font-size: 9px;
+}
+
+.compliance-middle-gap {
+  border-left-width: 1px;
+  border-right-width: 1px;
+}
+
+.compliance-drilldown-card {
+  height: 100%;
+  min-height: 0;
+  padding: 7px;
+  overflow: hidden;
+}
+
+.compliance-drilldown-card h3 {
+  font-size: 11px;
+}
+
+.compliance-drilldown-card p {
+  font-size: 9px;
+}
+
+.drilldown-list {
+  max-height: calc(100vh - 250px);
+  gap: 3px;
+}
+
+.drilldown-row {
+  min-height: 22px;
+  padding: 4px 5px;
+  grid-template-columns: minmax(0, 1fr) 48px 38px;
+  gap: 4px;
+  border-radius: 6px;
+}
+
+.drilldown-name {
+  font-size: 9.3px;
+}
+
+.drilldown-meta {
+  font-size: 8.5px;
+}
+
+@media (max-width: 1180px) {
+  html,
+  body,
+  #root,
+  .app-shell {
+    height: auto;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .overview-bottom-strip,
+  .overview-timeseries-stack {
+    grid-template-columns: 1fr;
+  }
+}
