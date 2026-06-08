@@ -401,3 +401,147 @@ button:hover { transform: translateY(-1px); }
   .bar-row, .population-bars .bar-row { grid-template-columns: 1fr; gap: 5px; }
   .bar-num { text-align: left; }
 }
+
+/* Latest workforce logic polish */
+.dashboard-timeseries-grid {
+  grid-template-columns: minmax(280px, 0.8fr) minmax(420px, 1.35fr) minmax(240px, 0.65fr);
+  align-items: stretch;
+}
+
+.time-series-card {
+  min-height: 285px;
+}
+
+.time-series-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 8px;
+}
+
+.time-series-row {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr) 42px 78px;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.time-series-date,
+.time-series-value,
+.time-series-risk {
+  font-size: 11px;
+  font-weight: 850;
+  color: var(--text);
+}
+
+.time-series-risk {
+  color: var(--muted);
+  text-align: right;
+}
+
+.time-series-track {
+  height: 12px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.25);
+}
+
+.time-series-fill {
+  height: 100%;
+  border-radius: 999px;
+  min-width: 4px;
+}
+
+.status-chip.muted {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--muted);
+}
+
+.people-ranking-card {
+  margin-top: 12px;
+}
+
+.people-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.people-ranking-row {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) 82px 92px;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface-soft);
+}
+
+.people-rank {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--green-100);
+  color: var(--green-700);
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.people-main {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.people-main b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.people-main span,
+.people-days,
+.people-hours {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.people-hours {
+  color: var(--red);
+  text-align: right;
+}
+
+@media (max-width: 1180px) {
+  .dashboard-timeseries-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .time-series-row {
+    grid-template-columns: 54px minmax(0, 1fr) 34px;
+  }
+
+  .time-series-risk {
+    grid-column: 2 / -1;
+    text-align: left;
+  }
+
+  .people-ranking-row {
+    grid-template-columns: 30px minmax(0, 1fr);
+  }
+
+  .people-days,
+  .people-hours {
+    grid-column: 2;
+    text-align: left;
+  }
+}

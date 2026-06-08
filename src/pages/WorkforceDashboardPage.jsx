@@ -13,6 +13,17 @@ function formatDateTime(value) {
   });
 }
 
+function formatTrendDate(value) {
+  if (!value) return "-";
+  const date = new Date(`${value}T12:00:00+08:00`);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function safePercent(part, total) {
   const p = Number(part) || 0;
   const t = Number(total) || 0;
@@ -37,9 +48,12 @@ export default function WorkforceDashboardPage() {
   const totalPeople = Number(summary?.totalPeople) || 0;
   const over8 = Number(summary?.greaterThan8Hours) || 0;
   const over10 = Number(summary?.greaterThan10Hours) || 0;
-  const avgHours = Number(summary?.avgWorkHours) || 0;
+  const over12 = Number(summary?.greaterThan12Hours) || 0;
   const over8Pct = safePercent(over8, totalPeople);
   const over10Pct = safePercent(over10, totalPeople);
+  const over12Pct = safePercent(over12, totalPeople);
+  const trend = Array.isArray(summary?.dailyTrend) ? summary.dailyTrend : [];
+  const trendMax = Math.max(...trend.map((row) => Number(row.population) || 0), 1);
 
   const controls = (
     <>
@@ -55,7 +69,11 @@ export default function WorkforceDashboardPage() {
 
       <label className="summary-filter-field">
         <span>Group</span>
-        <select className="summary-input" value={group} onChange={(e) => setGroup(e.target.value)}>
+        <select
+          className="summary-input"
+          value={group}
+          onChange={(e) => setGroup(e.target.value)}
+        >
           <option value="ALL">All Workforce</option>
           <option value="FTE">FTE</option>
           <option value="CONTRACTOR">Contractor</option>
@@ -70,14 +88,14 @@ export default function WorkforceDashboardPage() {
 
   return (
     <AppShell
-      title="Daily Workforce Monitoring"
-      subtitle="Live workforce accounting based on the current 6 AM workforce day"
+      title="Workforce Hours Overview"
+      subtitle="Daily headcount and high-hour exposure for the 6 AM workforce day"
       summaryControls={controls}
       summaryStats={[
         { value: totalPeople, label: "POPULATION" },
         { value: over8, label: "> 8 HOURS", variant: "amber" },
         { value: over10, label: "> 10 HOURS", variant: "red" },
-        { value: avgHours, label: "AVG HOURS", variant: "green" },
+        { value: over12, label: "12+ HOURS", variant: "red" },
       ]}
     >
       <section className="center-panel workforce-full-span no-panel-bg">
@@ -87,34 +105,34 @@ export default function WorkforceDashboardPage() {
           <div className="metric-card kpi-card kpi-total">
             <div className="metric-label">Total Workforce</div>
             <div className="metric-value">{totalPeople}</div>
-            <div className="mini-info-text">People detected in selected workforce day</div>
+            <div className="mini-info-text">Only people with more than 4 hours count as a working day</div>
           </div>
 
           <div className="metric-card kpi-card status-amber">
             <div className="metric-label">Greater Than 8 Hours</div>
             <div className="metric-value">{over8}</div>
-            <div className="mini-info-text">{over8Pct}% of current population</div>
+            <div className="mini-info-text">{over8Pct}% of counted population</div>
           </div>
 
           <div className="metric-card kpi-card status-red">
             <div className="metric-label">Greater Than 10 Hours</div>
             <div className="metric-value">{over10}</div>
-            <div className="mini-info-text">{over10Pct}% of current population</div>
+            <div className="mini-info-text">{over10Pct}% of counted population</div>
           </div>
 
-          <div className="metric-card kpi-card status-green">
-            <div className="metric-label">Average Working Hours</div>
-            <div className="metric-value">{avgHours}</div>
-            <div className="mini-info-text">Based on first and last scan</div>
+          <div className="metric-card kpi-card status-red">
+            <div className="metric-label">12 Hours and Above</div>
+            <div className="metric-value">{over12}</div>
+            <div className="mini-info-text">{over12Pct}% high-hour exposure</div>
           </div>
         </div>
 
-        <div className="dashboard-main-grid">
+        <div className="dashboard-main-grid dashboard-timeseries-grid">
           <div className="chart-card compliance-overview-card">
             <div className="chart-header-row">
               <div>
-                <h3>Working Hours Compliance</h3>
-                <p>Quick view for overtime risk and high-hour exposure.</p>
+                <h3>Working Hours Risk</h3>
+                <p>Highest count is shown first in each page and chart section.</p>
               </div>
               <span className="soft-pill">{group}</span>
             </div>
@@ -129,9 +147,40 @@ export default function WorkforceDashboardPage() {
                 <div className="progress-track"><div className="progress-fill fill-red" style={{ width: `${over10Pct}%` }} /></div>
               </div>
               <div className="progress-row">
-                <div className="progress-label"><span>Normal / Below Threshold</span><b>{Math.max(totalPeople - over8, 0)}</b></div>
-                <div className="progress-track"><div className="progress-fill fill-green" style={{ width: `${safePercent(Math.max(totalPeople - over8, 0), totalPeople)}%` }} /></div>
+                <div className="progress-label"><span>12 Hours and Above</span><b>{over12}</b></div>
+                <div className="progress-track"><div className="progress-fill fill-red" style={{ width: `${over12Pct}%` }} /></div>
               </div>
+            </div>
+          </div>
+
+          <div className="chart-card time-series-card">
+            <div className="chart-header-row">
+              <div>
+                <h3>7-Day Workforce Time Series</h3>
+                <p>Counted people per workforce day. A day is counted only when hours are greater than 4.</p>
+              </div>
+            </div>
+
+            <div className="time-series-wrap">
+              {trend.map((row) => {
+                const population = Number(row.population) || 0;
+                const over12Value = Number(row.greater_than_12_hours) || 0;
+                return (
+                  <div className="time-series-row" key={row.workforce_date}>
+                    <div className="time-series-date">{formatTrendDate(row.workforce_date)}</div>
+                    <div className="time-series-track">
+                      <div
+                        className="time-series-fill fill-green"
+                        style={{ width: `${safePercent(population, trendMax)}%` }}
+                      />
+                    </div>
+                    <div className="time-series-value">{population}</div>
+                    <div className="time-series-risk">12+ hrs: {over12Value}</div>
+                  </div>
+                );
+              })}
+
+              {trend.length === 0 && <div className="empty-cell">No time series data found.</div>}
             </div>
           </div>
 

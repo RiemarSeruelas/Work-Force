@@ -3,20 +3,23 @@ import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
 function getTitle(group) {
-  if (group === "FTE") return "Cavite Foods Workforce Compliance for FTE";
-  if (group === "CONTRACTOR") return "Cavite Foods Workforce Compliance for Contractors";
-  return "Cavite Foods Workforce Compliance";
+  if (group === "FTE") return "FTE Workforce Compliance";
+  if (group === "CONTRACTOR") return "Contractor Workforce Compliance";
+  return "Workforce Compliance";
 }
 
 function BarList({ title, rows, field, colorClass }) {
-  const max = Math.max(...rows.map((r) => Number(r[field]) || 0), 1);
+  const sortedRows = [...rows].sort(
+    (a, b) => (Number(b[field]) || 0) - (Number(a[field]) || 0)
+  );
+  const max = Math.max(...sortedRows.map((r) => Number(r[field]) || 0), 1);
 
   return (
     <div className="chart-card compact-chart-card">
       <h3>{title}</h3>
       <div className="bar-list">
-        {rows.length === 0 && <div className="empty-cell">No compliance data found.</div>}
-        {rows.slice(0, 8).map((row) => {
+        {sortedRows.length === 0 && <div className="empty-cell">No compliance data found.</div>}
+        {sortedRows.slice(0, 8).map((row) => {
           const value = Number(row[field]) || 0;
           return (
             <div className="bar-row" key={`${title}-${row.persongroup}`}>
@@ -48,6 +51,7 @@ export default function WorkforceCompliancePage({ group = "ALL" }) {
   }, [fetchCompliance, selectedYear, selectedWeek, group]);
 
   const rows = useMemo(() => compliance?.rows || [], [compliance]);
+  const people = useMemo(() => compliance?.people || [], [compliance]);
   const totals = compliance?.totals || {};
 
   const controls = (
@@ -83,13 +87,17 @@ export default function WorkforceCompliancePage({ group = "ALL" }) {
   return (
     <AppShell
       title={getTitle(group)}
-      subtitle={compliance ? `Week ${compliance.week}: ${compliance.startDate} to ${compliance.endDate}` : "Weekly workforce compliance"}
+      subtitle={
+        compliance
+          ? `Week ${compliance.week}: ${compliance.startDate} to ${compliance.endDate}. More than 4 hours counts as 1 day.`
+          : "Weekly workforce compliance. Hours reset every Monday."
+      }
       summaryControls={controls}
       summaryStats={[
         { value: totals.population ?? 0, label: "POPULATION" },
         { value: totals.greaterThan60Hours ?? 0, label: "> 60 HOURS", variant: "red" },
         { value: totals.nonCompliantWorkingDays ?? 0, label: "> 6 DAYS", variant: "amber" },
-        { value: group, label: "GROUP", variant: "green" },
+        { value: totals.days5OrLess ?? 0, label: "≤ 5 DAYS", variant: "green" },
       ]}
     >
       <section className="panel center-panel workforce-full-span">
@@ -102,7 +110,32 @@ export default function WorkforceCompliancePage({ group = "ALL" }) {
           <BarList title="Less than 40 Hours" rows={rows} field="less_than_40_hours" colorClass="fill-green" />
           <BarList title="Greater than 6 Days" rows={rows} field="greater_than_6_days" colorClass="fill-red" />
           <BarList title="6 Days" rows={rows} field="days_6" colorClass="fill-blue" />
-          <BarList title="5 Days" rows={rows} field="days_5" colorClass="fill-navy" />
+          <BarList title="5 Days and Below" rows={rows} field="days_5_or_less" colorClass="fill-green" />
+        </div>
+
+        <div className="chart-card people-ranking-card">
+          <div className="chart-header-row">
+            <div>
+              <h3>Highest Weekly Hours</h3>
+              <p>Sorted from highest to lowest. Day count only includes days with more than 4 hours.</p>
+            </div>
+          </div>
+
+          <div className="people-ranking-list">
+            {people.map((person, index) => (
+              <div className="people-ranking-row" key={`${person.person}-${index}`}>
+                <div className="people-rank">{index + 1}</div>
+                <div className="people-main">
+                  <b>{person.person || "Unknown"}</b>
+                  <span>{person.persongroup || "Unknown"}</span>
+                </div>
+                <div className="people-days">{person.working_days} days</div>
+                <div className="people-hours">{Number(person.total_hours || 0).toFixed(2)} hrs</div>
+              </div>
+            ))}
+
+            {people.length === 0 && <div className="empty-cell">No weekly person data found.</div>}
+          </div>
         </div>
       </section>
     </AppShell>

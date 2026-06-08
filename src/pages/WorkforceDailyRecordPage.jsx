@@ -2,11 +2,13 @@ import { useEffect } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
-function getHourStatus(hours) {
+function getHourStatus(hours, countedDay) {
   const value = Number(hours) || 0;
+  if (!countedDay) return { label: "< 4 HRS", className: "muted" };
+  if (value >= 12) return { label: "12+ HRS", className: "bad" };
   if (value > 10) return { label: "> 10 HRS", className: "bad" };
   if (value > 8) return { label: "> 8 HRS", className: "warn" };
-  return { label: "OK", className: "ok" };
+  return { label: "COUNTED", className: "ok" };
 }
 
 function fmt(value) {
@@ -41,11 +43,11 @@ export default function WorkforceDailyRecordPage() {
   return (
     <AppShell
       title="Details of Daily Working Hours"
-      subtitle="Daily record from Hikvision scans grouped per person"
+      subtitle="Daily Hikvision scan summary. More than 4 hours counts as 1 working day"
       summaryStats={[
-        { value: total, label: "ROWS" },
-        { value: rows.filter((r) => Number(r.work_hours) > 8).length, label: "> 8 HRS", variant: "amber" },
-        { value: rows.filter((r) => Number(r.work_hours) > 10).length, label: "> 10 HRS", variant: "red" },
+        { value: total, label: "TOTAL ROWS" },
+        { value: rows.filter((r) => r.counted_day).length, label: "COUNTED DAYS", variant: "green" },
+        { value: rows.filter((r) => Number(r.work_hours) >= 12).length, label: "12+ HRS", variant: "red" },
       ]}
     >
       <aside className="panel left-panel">
@@ -77,6 +79,7 @@ export default function WorkforceDailyRecordPage() {
                   <th>Last Scan</th>
                   <th>Work Hours</th>
                   <th>Scan Count</th>
+                  <th>Day Count</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -89,16 +92,17 @@ export default function WorkforceDailyRecordPage() {
                     <td>{fmt(row.last_scan)}</td>
                     <td>{Number(row.work_hours || 0).toFixed(2)}</td>
                     <td>{row.scan_count}</td>
+                    <td>{row.counted_day ? "Yes" : "No"}</td>
                     <td>
                       {(() => {
-                        const status = getHourStatus(row.work_hours);
+                        const status = getHourStatus(row.work_hours, row.counted_day);
                         return <span className={`status-chip ${status.className}`}>{status.label}</span>;
                       })()}
                     </td>
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan="7" className="empty-cell">No workforce records found.</td></tr>
+                  <tr><td colSpan="8" className="empty-cell">No workforce records found.</td></tr>
                 )}
               </tbody>
             </table>
