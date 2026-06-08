@@ -1,0 +1,27 @@
+{
+  "name": "workforce-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "vite": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "react-router-dom": "latest",
+    "zustand": "latest",
+    "express": "latest",
+    "cors": "latest",
+    "pg": "latest",
+    "dotenv": "latest",
+    "exceljs": "latest",
+    "file-saver": "latest"
+  },
+  "devDependencies": {}
+}
