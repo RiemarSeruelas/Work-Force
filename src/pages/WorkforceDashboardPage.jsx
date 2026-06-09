@@ -52,23 +52,29 @@ function safePercent(part, total) {
   return Math.round((p / t) * 100);
 }
 
+function getStackedBarHeightPercent(row, maxPopulation) {
+  const population = Math.max(Number(row?.population) || 0, 0);
+  const safeMax = Math.max(Number(maxPopulation) || 0, 1);
+
+  if (!population) return 0;
+
+  // Must match the actual CSS bar height exactly. This keeps the connector
+  // glued to the top of the visible stacked column instead of floating away.
+  return Math.max((Math.min(population, safeMax) / safeMax) * 100, 4);
+}
+
 function buildTopOfBarLinePoints(rows, maxPopulation) {
   if (!rows.length) return "";
 
-  const safeMax = Math.max(Number(maxPopulation) || 0, 1);
   const count = Math.max(rows.length, 1);
 
   return rows
     .map((row, index) => {
-      const population = Math.max(Number(row.population) || 0, 0);
+      const barHeight = getStackedBarHeightPercent(row, maxPopulation);
       const x = ((index + 0.5) / count) * 100;
+      const y = 100 - barHeight;
 
-      // The line is intentionally tied to the top of the full stacked column,
-      // not average hours/days. This keeps the line sitting on top of the red
-      // segment/top of the population bar like the Power BI reference.
-      const y = 100 - (Math.min(population, safeMax) / safeMax) * 100;
-
-      return `${Math.max(2, Math.min(98, x))},${Math.max(0, Math.min(100, y))}`;
+      return `${Math.max(1.5, Math.min(98.5, x))},${Math.max(0, Math.min(99, y))}`;
     })
     .join(" ");
 }
@@ -95,15 +101,9 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
         </div>
 
         <div className="powerbi-plot">
-          {points ? (
-            <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <polyline points={points} fill="none" vectorEffect="non-scaling-stroke" />
-            </svg>
-          ) : null}
-
           {rows.map((row) => {
             const population = Number(row.population) || 0;
-            const barHeight = population ? Math.max((population / maxPopulation) * 100, 4) : 0;
+            const barHeight = getStackedBarHeightPercent(row, maxPopulation);
 
             return (
               <div className="powerbi-column" key={row.period_start}>
@@ -129,6 +129,12 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
               </div>
             );
           })}
+
+          {points ? (
+            <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <polyline className="powerbi-connected-topline" points={points} />
+            </svg>
+          ) : null}
 
           {rows.length === 0 && <div className="empty-cell">No time series data found.</div>}
         </div>
@@ -259,10 +265,10 @@ export default function WorkforceDashboardPage() {
             rows={series}
             period={trendPeriod}
             segments={[
-              { key: "hours_8_or_less", label: "< 8 hours", className: "stack-green" },
+              { key: "hours_8_or_less", label: "< 8 hours", className: "stack-blue" },
               { key: "hours_8_10", label: "> 8 hours", className: "stack-yellow" },
-              { key: "hours_10_12", label: "> 10 hours", className: "stack-orange" },
-              { key: "hours_12_plus", label: "12+ hours", className: "stack-red" },
+              { key: "hours_10_12", label: "8-12 hours", className: "stack-orange" },
+              { key: "hours_12_plus", label: "> 12 hours", className: "stack-red" },
             ]}
           />
 

@@ -189,8 +189,8 @@ export default function WorkforceCompliancePage() {
         <div className="compliance-shell-grid">
           <div className="compliance-left-grid">
             <BarList title="Greater than 60 Hours" rows={rows} field="greater_than_60_hours" colorClass="fill-red" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="40-60 Hours" rows={rows} field="hours_40_60" colorClass="fill-blue" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="Less than 40 Hours" rows={rows} field="less_than_40_hours" colorClass="fill-green" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="40-60 Hours" rows={rows} field="hours_40_60" colorClass="fill-orange" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="Less than 40 Hours" rows={rows} field="less_than_40_hours" colorClass="fill-amber" selected={selectedBucket} onSelect={setSelectedBucket} />
           </div>
 
           <div className="compliance-middle-gap" aria-hidden="true" />
