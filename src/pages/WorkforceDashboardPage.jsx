@@ -148,7 +148,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
             );
           })}
 
-          {false && lineSegments.length > 0 ? (
+          {lineSegments.length > 0 ? (
             <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               {lineSegments.map((points, index) => (
                 <polyline key={index} className="powerbi-connected-topline" points={points} />
