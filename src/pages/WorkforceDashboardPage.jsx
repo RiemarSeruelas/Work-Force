@@ -148,7 +148,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
             );
           })}
 
-          {lineSegments.length > 0 ? (
+          {false && lineSegments.length > 0 ? (
             <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
               {lineSegments.map((points, index) => (
                 <polyline key={index} className="powerbi-connected-topline" points={points} />
@@ -257,19 +257,19 @@ export default function WorkforceDashboardPage() {
           </div>
 
           <div className="metric-card kpi-card status-amber">
-            <div className="metric-label">Greater Than 8 Hours</div>
+            <div className="metric-label">&gt; 8 Hours</div>
             <div className="metric-value">{over8}</div>
             <div className="mini-info-text">{over8Pct}% of total workforce.</div>
           </div>
 
           <div className="metric-card kpi-card status-orange">
-            <div className="metric-label">Greater Than 10 Hours</div>
+            <div className="metric-label">&gt; 10 Hours</div>
             <div className="metric-value">{over10}</div>
             <div className="mini-info-text">{over10Pct}% of total workforce.</div>
           </div>
 
           <div className="metric-card kpi-card status-red">
-            <div className="metric-label">Greater Than 12 Hours</div>
+            <div className="metric-label">&gt; 12 Hours</div>
             <div className="metric-value">{over12}</div>
             <div className="mini-info-text">{over12Pct}% high-hour exposure.</div>
           </div>

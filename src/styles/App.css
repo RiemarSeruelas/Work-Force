@@ -2461,3 +2461,178 @@ button:hover { transform: translateY(-1px); }
     grid-template-columns: 1fr !important;
   }
 }
+
+/* =========================================================
+   Final visual cleanup: restore dark dashboard card styling,
+   compact KPI cards, and replace unstable chart line with
+   stable dash caps at the top of each bar.
+========================================================= */
+
+/* The SVG connector kept drifting, so hide it and keep only
+   the small dash attached directly to every column top. */
+.powerbi-line-overlay,
+.powerbi-connected-topline {
+  display: none !important;
+}
+
+.powerbi-bar-topline {
+  display: block !important;
+  position: absolute !important;
+  top: -4px !important;
+  left: 50% !important;
+  right: auto !important;
+  width: calc(100% + 10px) !important;
+  max-width: 48px !important;
+  height: 4px !important;
+  min-height: 4px !important;
+  transform: translateX(-50%) !important;
+  border-radius: 999px !important;
+  background: #f8fafc !important;
+  z-index: 120 !important;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.44),
+    0 2px 5px rgba(15, 23, 42, 0.34) !important;
+}
+
+/* Light mode was too washed out. Keep the dashboard content as
+   a dark PowerBI-like surface even when the app is in light mode. */
+.app-shell:not([data-theme="dark"]) .workspace {
+  background: #e7edf7 !important;
+}
+
+.app-shell:not([data-theme="dark"]) .overview-page-fit,
+.app-shell:not([data-theme="dark"]) .compliance-page-panel {
+  color: #f8fafc !important;
+}
+
+.app-shell:not([data-theme="dark"]) .metric-card,
+.app-shell:not([data-theme="dark"]) .chart-card,
+.app-shell:not([data-theme="dark"]) .compact-chart-card,
+.app-shell:not([data-theme="dark"]) .compliance-drilldown-card,
+.app-shell:not([data-theme="dark"]) .population-card {
+  background: linear-gradient(180deg, #17243a 0%, #101b2e 100%) !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.14) !important;
+  color: #f8fafc !important;
+}
+
+.app-shell:not([data-theme="dark"]) .metric-label,
+.app-shell:not([data-theme="dark"]) .chart-card h3,
+.app-shell:not([data-theme="dark"]) .compact-card-title,
+.app-shell:not([data-theme="dark"]) .compliance-drilldown-card h3,
+.app-shell:not([data-theme="dark"]) .population-card h3 {
+  color: #e5edff !important;
+}
+
+.app-shell:not([data-theme="dark"]) .mini-info-text,
+.app-shell:not([data-theme="dark"]) .chart-card p,
+.app-shell:not([data-theme="dark"]) .powerbi-y-axis,
+.app-shell:not([data-theme="dark"]) .powerbi-x-label,
+.app-shell:not([data-theme="dark"]) .powerbi-legend,
+.app-shell:not([data-theme="dark"]) .drilldown-meta {
+  color: #a9bbd8 !important;
+}
+
+/* KPI cards: one clean row, readable labels, less bulky. */
+.overview-kpi-grid-five {
+  grid-template-columns: 1.05fr 0.92fr 0.92fr 0.92fr 1.1fr !important;
+  gap: 10px !important;
+}
+
+.overview-kpi-grid-five .kpi-card {
+  min-height: 84px !important;
+  padding: 12px 14px !important;
+  border-radius: 18px !important;
+}
+
+.overview-kpi-grid-five .metric-label {
+  font-size: 11px !important;
+  white-space: nowrap !important;
+  letter-spacing: 0.055em !important;
+  text-transform: uppercase !important;
+}
+
+.overview-kpi-grid-five .metric-value {
+  font-size: 25px !important;
+  line-height: 1.05 !important;
+  margin-top: 6px !important;
+}
+
+.overview-kpi-grid-five .mini-info-text {
+  font-size: 10px !important;
+  line-height: 1.2 !important;
+  margin-top: 5px !important;
+}
+
+.latest-scan-kpi .metric-value {
+  font-size: 18px !important;
+  line-height: 1.15 !important;
+  word-break: normal !important;
+}
+
+/* Make non-total KPI cards look intentional instead of plain white. */
+.kpi-card:not(.kpi-total)::before {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.18), transparent 68%) !important;
+}
+
+.kpi-total {
+  background: linear-gradient(135deg, #133b91, #2563eb) !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+}
+
+.status-amber .metric-value,
+.status-orange .metric-value {
+  color: #f97316 !important;
+}
+
+.status-red .metric-value {
+  color: #ef4444 !important;
+}
+
+/* Chart surface polish. */
+.powerbi-timeseries-card {
+  border-radius: 20px !important;
+  padding: 12px 14px !important;
+}
+
+.powerbi-plot {
+  background:
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.18) 1px, transparent 1px) 0 4px / 100% 33.33%,
+    rgba(15, 23, 42, 0.08) !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  overflow: hidden !important;
+}
+
+.powerbi-stacked-bar {
+  width: min(100%, 32px) !important;
+  overflow: visible !important;
+}
+
+.powerbi-segment {
+  overflow: hidden !important;
+}
+
+/* Legend text should match the requested bucket names. */
+.powerbi-legend span {
+  white-space: nowrap !important;
+}
+
+@media (max-width: 1450px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  .overview-kpi-grid-five .metric-label {
+    font-size: 10px !important;
+  }
+
+  .latest-scan-kpi .metric-value {
+    font-size: 15px !important;
+  }
+}
+
+@media (max-width: 1180px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
