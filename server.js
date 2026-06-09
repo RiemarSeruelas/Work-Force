@@ -158,8 +158,8 @@ app.get("/api/workforce/summary", async (req, res) => {
       SELECT
         COUNT(*)::int AS total_people,
         COUNT(*) FILTER (WHERE work_hours > 4)::int AS counted_days,
-        COUNT(*) FILTER (WHERE work_hours > 8)::int AS greater_than_8_hours,
-        COUNT(*) FILTER (WHERE work_hours > 10)::int AS greater_than_10_hours,
+        COUNT(*) FILTER (WHERE work_hours > 8 AND work_hours <= 10)::int AS greater_than_8_hours,
+        COUNT(*) FILTER (WHERE work_hours > 10 AND work_hours < 12)::int AS greater_than_10_hours,
         COUNT(*) FILTER (WHERE work_hours >= 12)::int AS greater_than_12_hours,
         COALESCE(MAX(last_scan), NOW() AT TIME ZONE 'Asia/Manila') AS latest_scan
       FROM computed

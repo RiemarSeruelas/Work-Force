@@ -259,19 +259,19 @@ export default function WorkforceDashboardPage() {
           <div className="metric-card kpi-card status-amber">
             <div className="metric-label">&gt; 8 Hours</div>
             <div className="metric-value">{over8}</div>
-            <div className="mini-info-text">{over8Pct}% of total workforce.</div>
+            <div className="mini-info-text">8-10 hour bucket · {over8Pct}% of total workforce.</div>
           </div>
 
           <div className="metric-card kpi-card status-orange">
             <div className="metric-label">&gt; 10 Hours</div>
             <div className="metric-value">{over10}</div>
-            <div className="mini-info-text">{over10Pct}% of total workforce.</div>
+            <div className="mini-info-text">10-12 hour bucket · {over10Pct}% of total workforce.</div>
           </div>
 
           <div className="metric-card kpi-card status-red">
             <div className="metric-label">&gt; 12 Hours</div>
             <div className="metric-value">{over12}</div>
-            <div className="mini-info-text">{over12Pct}% high-hour exposure.</div>
+            <div className="mini-info-text">12+ hour bucket · {over12Pct}% high-hour exposure.</div>
           </div>
 
           <div className="metric-card kpi-card latest-scan-kpi">
