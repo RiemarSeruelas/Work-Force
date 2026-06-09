@@ -65,20 +65,24 @@ export default function AppShell({
           {subtitle && <div className="summary-subtitle">{subtitle}</div>}
         </div>
 
-        <div className="summary-stats">
-          {summaryStats.map((stat, index) => (
-            <div className={`summary-stat ${stat.variant || ""}`} key={`${stat.label}-${index}`}>
-              <div className="summary-value">{stat.value}</div>
-              <div className="summary-label">{stat.label}</div>
+        <div className="summary-right">
+          {summaryStats.length > 0 && (
+            <div className="summary-stats">
+              {summaryStats.map((stat, index) => (
+                <div className={`summary-stat ${stat.variant || ""}`} key={`${stat.label}-${index}`}>
+                  <div className="summary-value">{stat.value}</div>
+                  <div className="summary-label">{stat.label}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )}
 
-        {summaryControls && (
-          <div className="summary-controls" aria-label="Page filters">
-            {summaryControls}
-          </div>
-        )}
+          {summaryControls && (
+            <div className="summary-controls" aria-label="Page filters">
+              {summaryControls}
+            </div>
+          )}
+        </div>
       </section>
 
       <main className="workspace workforce-workspace">{children}</main>

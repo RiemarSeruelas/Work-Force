@@ -2636,3 +2636,253 @@ button:hover { transform: translateY(-1px); }
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+/* =========================================================
+   Compliance layout repair
+   - Summary strip no longer becomes a huge empty banner.
+   - Stats + filters stay together on the far right.
+   - Compliance content uses a dark compact dashboard surface.
+========================================================= */
+.summary-strip {
+  min-height: 86px !important;
+  padding: 12px 20px !important;
+  display: grid !important;
+  grid-template-columns: minmax(240px, 1fr) auto !important;
+  grid-template-areas: "copy right" !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+.summary-copy {
+  grid-area: copy !important;
+  align-self: center !important;
+}
+
+.summary-right {
+  grid-area: right !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 10px !important;
+  flex-wrap: nowrap !important;
+  min-width: 0 !important;
+}
+
+.summary-stats {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+  flex-wrap: nowrap !important;
+  min-width: auto !important;
+}
+
+.summary-stat {
+  min-width: 72px !important;
+  height: 54px !important;
+  padding: 7px 9px !important;
+  display: grid !important;
+  place-items: center !important;
+  align-content: center !important;
+}
+
+.summary-value {
+  font-size: 18px !important;
+  line-height: 1 !important;
+}
+
+.summary-label {
+  font-size: 8px !important;
+  line-height: 1.05 !important;
+}
+
+.summary-controls {
+  margin: 0 !important;
+  justify-self: end !important;
+  display: flex !important;
+  align-items: end !important;
+  justify-content: flex-end !important;
+  gap: 7px !important;
+  flex-wrap: nowrap !important;
+  padding: 6px 8px !important;
+  max-width: none !important;
+}
+
+.summary-filter-field {
+  min-width: 118px !important;
+}
+
+.summary-filter-small {
+  min-width: 82px !important;
+  width: 82px !important;
+}
+
+.summary-filter-medium {
+  min-width: 150px !important;
+  width: 150px !important;
+}
+
+.summary-input,
+.summary-refresh-btn {
+  height: 34px !important;
+  font-size: 12px !important;
+}
+
+.compliance-page-panel {
+  padding: 14px !important;
+  background: linear-gradient(180deg, #101b2e 0%, #0c1627 100%) !important;
+  border-color: rgba(148, 163, 184, 0.24) !important;
+  color: #f8fafc !important;
+  overflow: hidden !important;
+}
+
+.compliance-shell-grid {
+  height: calc(100vh - 290px) !important;
+  min-height: 430px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.05fr) 26px minmax(0, 1.05fr) minmax(280px, 0.78fr) !important;
+  gap: 12px !important;
+  align-items: stretch !important;
+  overflow: hidden !important;
+}
+
+.compliance-left-grid,
+.compliance-right-grid {
+  min-height: 0 !important;
+  display: grid !important;
+  grid-template-rows: repeat(3, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  overflow: hidden !important;
+}
+
+.compact-chart-card {
+  min-height: 0 !important;
+  padding: 12px !important;
+  overflow: hidden !important;
+  background: linear-gradient(180deg, #17243a 0%, #101b2e 100%) !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+}
+
+.compact-card-title {
+  color: #f8fafc !important;
+  font-size: 15px !important;
+  margin-bottom: 8px !important;
+}
+
+.compliance-bar-list {
+  max-height: calc(100% - 30px) !important;
+  overflow-y: auto !important;
+  padding-right: 6px !important;
+}
+
+.bar-row {
+  min-height: 30px !important;
+  gap: 8px !important;
+  color: #f8fafc !important;
+}
+
+.full-bar-name {
+  white-space: normal !important;
+  line-height: 1.05 !important;
+  color: #f8fafc !important;
+}
+
+.bar-track {
+  min-width: 130px !important;
+  background: rgba(148, 163, 184, 0.28) !important;
+}
+
+.bar-fill {
+  display: block !important;
+  height: 100% !important;
+  border-radius: 999px !important;
+}
+
+.compliance-middle-gap {
+  border-left: 1px dashed rgba(96, 165, 250, 0.38) !important;
+  border-right: 1px dashed rgba(168, 85, 247, 0.28) !important;
+  border-radius: 999px !important;
+  background: linear-gradient(180deg, rgba(59, 130, 246, 0.08), rgba(168, 85, 247, 0.08)) !important;
+}
+
+.compliance-drilldown-card {
+  min-height: 0 !important;
+  overflow: hidden !important;
+  background: linear-gradient(180deg, #17243a 0%, #101b2e 100%) !important;
+  border-color: rgba(148, 163, 184, 0.25) !important;
+}
+
+.drilldown-list {
+  max-height: calc(100% - 48px) !important;
+  overflow-y: auto !important;
+  padding-right: 6px !important;
+}
+
+.drilldown-row {
+  min-height: 31px !important;
+  color: #f8fafc !important;
+}
+
+.drilldown-name {
+  color: #f8fafc !important;
+}
+
+.drilldown-meta {
+  color: #a9bbd8 !important;
+}
+
+/* Better scrollbars for the compliance internals. */
+.compliance-bar-list,
+.drilldown-list {
+  scrollbar-width: thin !important;
+  scrollbar-color: #60a5fa rgba(148, 163, 184, 0.16) !important;
+}
+
+.compliance-bar-list::-webkit-scrollbar,
+.drilldown-list::-webkit-scrollbar {
+  width: 8px !important;
+}
+
+.compliance-bar-list::-webkit-scrollbar-track,
+.drilldown-list::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.14) !important;
+  border-radius: 999px !important;
+}
+
+.compliance-bar-list::-webkit-scrollbar-thumb,
+.drilldown-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #60a5fa, #8b5cf6) !important;
+  border-radius: 999px !important;
+}
+
+@media (max-width: 1450px) {
+  .summary-strip {
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "copy"
+      "right" !important;
+    min-height: 120px !important;
+  }
+
+  .summary-right {
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+
+  .summary-controls,
+  .summary-stats {
+    flex-wrap: wrap !important;
+  }
+
+  .compliance-shell-grid {
+    height: auto !important;
+    min-height: 0 !important;
+    grid-template-columns: 1fr !important;
+    overflow: visible !important;
+  }
+
+  .compliance-left-grid,
+  .compliance-right-grid {
+    grid-template-rows: none !important;
+  }
+}
