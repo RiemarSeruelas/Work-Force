@@ -1305,3 +1305,273 @@ button:hover { transform: translateY(-1px); }
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   User requested polish: blue/purple theme, overview cleanup,
+   daily group column, and scrollable compliance sections.
+========================================================= */
+:root {
+  --bg: #eef2f8;
+  --surface: #ffffff;
+  --surface-soft: #f8fafd;
+  --surface-warm: #eef2ff;
+  --line: rgba(30, 64, 175, 0.14);
+  --text: #10213f;
+  --muted: #74809a;
+  --green-700: #2563eb;
+  --green-600: #2563eb;
+  --green-500: #3b82f6;
+  --green-100: #dbeafe;
+  --blue: #2563eb;
+  --navy: #132b74;
+  --purple-main: #7c1fb1;
+  --shadow: 0 10px 26px rgba(23, 42, 87, 0.08);
+}
+
+.app-shell[data-theme="dark"] {
+  --bg: #0f172a;
+  --surface: #162033;
+  --surface-soft: #111827;
+  --surface-warm: #172554;
+  --line: rgba(148, 163, 184, 0.22);
+  --text: #f1f5f9;
+  --muted: #94a3b8;
+  --shadow: 0 14px 35px rgba(0, 0, 0, 0.3);
+}
+
+.app-shell {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(59, 130, 246, 0.14), transparent 28%),
+    radial-gradient(circle at 86% 2%, rgba(124, 31, 177, 0.18), transparent 30%),
+    var(--bg);
+}
+
+.topbar {
+  background: linear-gradient(90deg, #061638 0%, #0d2b6b 42%, #1454b8 74%, #7c1fb1 100%) !important;
+  box-shadow: 0 8px 22px rgba(7, 26, 70, 0.26);
+}
+
+.summary-strip {
+  background: linear-gradient(90deg, #3b0764 0%, #581c87 35%, #1454b8 72%, #1e88e5 100%) !important;
+}
+
+.brand-icon {
+  background: linear-gradient(135deg, #38bdf8 0%, #2563eb 100%) !important;
+  color: #ffffff !important;
+}
+
+.top-nav-btn.active {
+  background: rgba(251, 191, 36, 0.22) !important;
+  color: #fde68a !important;
+  border-color: rgba(251, 191, 36, 0.42) !important;
+}
+
+.primary-action-btn,
+.summary-refresh-btn {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+}
+
+.kpi-total {
+  background: linear-gradient(135deg, #132b74, #2563eb) !important;
+}
+
+.overview-kpi-grid-five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.latest-scan-kpi .metric-value {
+  font-size: 13px !important;
+  line-height: 1.25;
+  margin-top: 8px;
+}
+
+.overview-timeseries-stack {
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+}
+
+.powerbi-timeseries-card {
+  padding: 10px 12px;
+}
+
+.powerbi-chart-area {
+  grid-template-columns: 30px minmax(0, 1fr);
+}
+
+.powerbi-plot {
+  gap: 4px;
+  padding: 4px 5px 18px;
+}
+
+.powerbi-stacked-bar {
+  width: min(100%, 28px);
+}
+
+.powerbi-line-overlay {
+  inset: 2px 5px 18px 5px;
+}
+
+.powerbi-line-overlay polyline {
+  stroke: #111827;
+  stroke-width: 2.6;
+}
+
+.stack-green,
+.fill-green {
+  background: #2563eb !important;
+}
+
+.stack-yellow,
+.fill-amber {
+  background: #facc15 !important;
+}
+
+.stack-orange,
+.fill-orange {
+  background: #ea580c !important;
+}
+
+.stack-red,
+.fill-red {
+  background: #dc2626 !important;
+}
+
+.stack-blue,
+.fill-blue {
+  background: #0ea5e9 !important;
+}
+
+.stack-navy,
+.fill-navy {
+  background: #7c1fb1 !important;
+}
+
+.data-table th {
+  background: #132b74 !important;
+}
+
+/* Compliance should not shrink into unreadable rows; each section scrolls inside instead. */
+.compliance-page-panel {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  padding: 10px;
+}
+
+.compliance-shell-grid {
+  height: 100%;
+  min-height: 0;
+  grid-template-columns: minmax(340px, 0.95fr) 24px minmax(340px, 0.95fr) minmax(290px, 0.72fr);
+  gap: 10px;
+}
+
+.compliance-left-grid,
+.compliance-right-grid {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.compact-chart-card {
+  padding: 10px !important;
+  min-height: 0 !important;
+  overflow: hidden;
+}
+
+.compact-card-title {
+  font-size: 13px !important;
+  margin-bottom: 7px !important;
+}
+
+.compliance-bar-list {
+  gap: 5px !important;
+  max-height: calc((100vh - 255px) / 3) !important;
+  overflow-y: auto !important;
+  padding-right: 5px !important;
+}
+
+.bar-row-button {
+  min-height: 25px !important;
+  padding: 3px 4px !important;
+}
+
+.bar-row {
+  grid-template-columns: minmax(165px, 0.5fr) minmax(110px, 1fr) 34px !important;
+  gap: 7px !important;
+}
+
+.full-bar-name,
+.bar-name {
+  font-size: 11px !important;
+  line-height: 1.12 !important;
+}
+
+.bar-track {
+  height: 12px !important;
+}
+
+.bar-num {
+  font-size: 10.5px !important;
+}
+
+.compliance-middle-gap {
+  border-left: 2px dashed rgba(37, 99, 235, 0.2) !important;
+  border-right: 2px dashed rgba(124, 31, 177, 0.14) !important;
+}
+
+.drilldown-list {
+  max-height: calc(100vh - 250px) !important;
+  overflow-y: auto !important;
+}
+
+.drilldown-row {
+  min-height: 30px !important;
+  padding: 6px 8px !important;
+}
+
+.drilldown-name {
+  font-size: 11px !important;
+}
+
+.drilldown-meta {
+  font-size: 10px !important;
+}
+
+.summary-filter-small {
+  min-width: 68px !important;
+  max-width: 82px;
+}
+
+.summary-filter-medium {
+  min-width: 118px;
+}
+
+.population-card {
+  width: min(1040px, 100%);
+  margin: 0 auto;
+}
+
+.population-card h3 {
+  text-align: center;
+}
+
+.population-bars {
+  max-height: calc(100vh - 280px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+@media (max-width: 1280px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: 1fr;
+  }
+}

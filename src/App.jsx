@@ -39,23 +39,8 @@ export default function App() {
           }
         />
 
-        <Route
-          path="/workforce/fte-compliance"
-          element={
-            <ProtectedRoute>
-              <WorkforceCompliancePage group="FTE" />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/workforce/contractor-compliance"
-          element={
-            <ProtectedRoute>
-              <WorkforceCompliancePage group="CONTRACTOR" />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/workforce/fte-compliance" element={<Navigate to="/workforce/compliance" replace />} />
+        <Route path="/workforce/contractor-compliance" element={<Navigate to="/workforce/compliance" replace />} />
 
         <Route
           path="/workforce/population"

@@ -4,9 +4,7 @@ import { useWorkforceStore } from "../store/useWorkforceStore.js";
 const navItems = [
   { label: "Overview", path: "/workforce" },
   { label: "Daily Record", path: "/workforce/daily-record" },
-  { label: "Daily Compliance", path: "/workforce/compliance" },
-  { label: "FTE", path: "/workforce/fte-compliance" },
-  { label: "Contractor", path: "/workforce/contractor-compliance" },
+  { label: "Compliance", path: "/workforce/compliance" },
   { label: "Population", path: "/workforce/population" },
 ];
 

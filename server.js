@@ -299,6 +299,10 @@ app.get("/api/workforce/daily-record", async (req, res) => {
           MAX("L_UID") AS l_uid,
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
+          CASE
+            WHEN LOWER(COALESCE(MAX("PersonGroup"), '')) LIKE '%contract%' THEN 'CONTRACTOR'
+            ELSE 'FTE'
+          END AS workforce_group,
           MIN(scan_ts) AS entry_time,
           MAX(scan_ts) AS last_scan,
           ROUND(GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours,
@@ -402,12 +406,11 @@ app.get("/api/workforce/compliance", async (req, res) => {
           persongroup,
           COUNT(*)::int AS population,
           COUNT(*) FILTER (WHERE total_hours > 60)::int AS greater_than_60_hours,
-          COUNT(*) FILTER (WHERE total_hours BETWEEN 51 AND 60)::int AS hours_51_60,
-          COUNT(*) FILTER (WHERE total_hours BETWEEN 41 AND 50)::int AS hours_41_50,
+          COUNT(*) FILTER (WHERE total_hours >= 40 AND total_hours <= 60)::int AS hours_40_60,
           COUNT(*) FILTER (WHERE total_hours < 40)::int AS less_than_40_hours,
           COUNT(*) FILTER (WHERE working_days > 6)::int AS greater_than_6_days,
-          COUNT(*) FILTER (WHERE working_days = 6)::int AS days_6,
-          COUNT(*) FILTER (WHERE working_days <= 5)::int AS days_5_or_less,
+          COUNT(*) FILTER (WHERE working_days >= 5 AND working_days <= 6)::int AS days_5_6,
+          COUNT(*) FILTER (WHERE working_days < 5)::int AS days_less_than_5,
           ROUND(AVG(total_hours)::numeric, 2) AS avg_hours,
           ROUND(AVG(working_days)::numeric, 2) AS avg_days
         FROM person_week
@@ -472,15 +475,13 @@ app.get("/api/workforce/compliance", async (req, res) => {
         total_hours,
         CASE
           WHEN total_hours > 60 THEN 'greater_than_60_hours'
-          WHEN total_hours BETWEEN 51 AND 60 THEN 'hours_51_60'
-          WHEN total_hours BETWEEN 41 AND 50 THEN 'hours_41_50'
-          WHEN total_hours < 40 THEN 'less_than_40_hours'
-          ELSE 'hours_40_51_gap'
+          WHEN total_hours >= 40 AND total_hours <= 60 THEN 'hours_40_60'
+          ELSE 'less_than_40_hours'
         END AS hours_category,
         CASE
           WHEN working_days > 6 THEN 'greater_than_6_days'
-          WHEN working_days = 6 THEN 'days_6'
-          ELSE 'days_5_or_less'
+          WHEN working_days >= 5 AND working_days <= 6 THEN 'days_5_6'
+          ELSE 'days_less_than_5'
         END AS days_category
       FROM person_week
       ORDER BY total_hours DESC, working_days DESC, person ASC
@@ -492,11 +493,22 @@ app.get("/api/workforce/compliance", async (req, res) => {
       (acc, row) => {
         acc.population += Number(row.population) || 0;
         acc.greaterThan60Hours += Number(row.greater_than_60_hours) || 0;
+        acc.hours40To60 += Number(row.hours_40_60) || 0;
+        acc.lessThan40Hours += Number(row.less_than_40_hours) || 0;
         acc.nonCompliantWorkingDays += Number(row.greater_than_6_days) || 0;
-        acc.days5OrLess += Number(row.days_5_or_less) || 0;
+        acc.days5To6 += Number(row.days_5_6) || 0;
+        acc.daysLessThan5 += Number(row.days_less_than_5) || 0;
         return acc;
       },
-      { population: 0, greaterThan60Hours: 0, nonCompliantWorkingDays: 0, days5OrLess: 0 }
+      {
+        population: 0,
+        greaterThan60Hours: 0,
+        hours40To60: 0,
+        lessThan40Hours: 0,
+        nonCompliantWorkingDays: 0,
+        days5To6: 0,
+        daysLessThan5: 0,
+      }
     );
 
     res.json({

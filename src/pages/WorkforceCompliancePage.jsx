@@ -3,19 +3,18 @@ import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
 function getTitle(group) {
-  if (group === "FTE") return "FTE Workforce Compliance";
-  if (group === "CONTRACTOR") return "Contractor Workforce Compliance";
+  if (group === "FTE") return "Workforce Compliance · FTE";
+  if (group === "CONTRACTOR") return "Workforce Compliance · Contractor";
   return "Workforce Compliance";
 }
 
 const CATEGORY_LABELS = {
   greater_than_60_hours: "Greater than 60 Hours",
-  hours_51_60: "51-60 Hours",
-  hours_41_50: "41-50 Hours",
+  hours_40_60: "40-60 Hours",
   less_than_40_hours: "Less than 40 Hours",
   greater_than_6_days: "Greater than 6 Days",
-  days_6: "6 Days",
-  days_5_or_less: "5 Days and Below",
+  days_5_6: "5-6 Days",
+  days_less_than_5: "Less than 5 Days",
 };
 
 function BarList({ title, rows, field, colorClass, onSelect, selected }) {
@@ -107,11 +106,13 @@ function PersonDrilldown({ selected, people }) {
   );
 }
 
-export default function WorkforceCompliancePage({ group = "ALL" }) {
+export default function WorkforceCompliancePage() {
   const selectedYear = useWorkforceStore((s) => s.selectedYear);
   const selectedWeek = useWorkforceStore((s) => s.selectedWeek);
   const setSelectedYear = useWorkforceStore((s) => s.setSelectedYear);
   const setSelectedWeek = useWorkforceStore((s) => s.setSelectedWeek);
+  const group = useWorkforceStore((s) => s.group);
+  const setGroup = useWorkforceStore((s) => s.setGroup);
   const compliance = useWorkforceStore((s) => s.compliance);
   const loading = useWorkforceStore((s) => s.loading);
   const error = useWorkforceStore((s) => s.error);
@@ -151,6 +152,19 @@ export default function WorkforceCompliancePage({ group = "ALL" }) {
         />
       </label>
 
+      <label className="summary-filter-field summary-filter-medium">
+        <span>Group</span>
+        <select
+          className="summary-input"
+          value={group}
+          onChange={(e) => setGroup(e.target.value)}
+        >
+          <option value="ALL">All</option>
+          <option value="FTE">FTE</option>
+          <option value="CONTRACTOR">Contractor</option>
+        </select>
+      </label>
+
       <button className="summary-refresh-btn" onClick={() => fetchCompliance(group)} disabled={loading}>
         {loading ? "Loading..." : "Refresh"}
       </button>
@@ -169,8 +183,8 @@ export default function WorkforceCompliancePage({ group = "ALL" }) {
       summaryStats={[
         { value: totals.population ?? 0, label: "POPULATION" },
         { value: totals.greaterThan60Hours ?? 0, label: "> 60 HOURS", variant: "red" },
-        { value: totals.nonCompliantWorkingDays ?? 0, label: "> 6 DAYS", variant: "amber" },
-        { value: totals.days5OrLess ?? 0, label: "≤ 5 DAYS", variant: "green" },
+        { value: totals.hours40To60 ?? 0, label: "40-60 HOURS", variant: "amber" },
+        { value: totals.nonCompliantWorkingDays ?? 0, label: "> 6 DAYS", variant: "red" },
       ]}
     >
       <section className="panel center-panel workforce-full-span compliance-page-panel">
@@ -179,16 +193,16 @@ export default function WorkforceCompliancePage({ group = "ALL" }) {
         <div className="compliance-shell-grid">
           <div className="compliance-left-grid">
             <BarList title="Greater than 60 Hours" rows={rows} field="greater_than_60_hours" colorClass="fill-red" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="51-60 Hours" rows={rows} field="hours_51_60" colorClass="fill-blue" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="41-50 Hours" rows={rows} field="hours_41_50" colorClass="fill-navy" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="40-60 Hours" rows={rows} field="hours_40_60" colorClass="fill-blue" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="Less than 40 Hours" rows={rows} field="less_than_40_hours" colorClass="fill-green" selected={selectedBucket} onSelect={setSelectedBucket} />
           </div>
 
           <div className="compliance-middle-gap" aria-hidden="true" />
 
           <div className="compliance-right-grid">
             <BarList title="Greater than 6 Days" rows={rows} field="greater_than_6_days" colorClass="fill-red" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="6 Days" rows={rows} field="days_6" colorClass="fill-blue" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="5 Days and Below" rows={rows} field="days_5_or_less" colorClass="fill-green" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="5-6 Days" rows={rows} field="days_5_6" colorClass="fill-blue" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="Less than 5 Days" rows={rows} field="days_less_than_5" colorClass="fill-green" selected={selectedBucket} onSelect={setSelectedBucket} />
           </div>
 
           <PersonDrilldown selected={selectedBucket} people={people} />

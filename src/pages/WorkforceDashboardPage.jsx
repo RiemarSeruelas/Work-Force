@@ -52,14 +52,14 @@ function buildLinePoints(rows, lineKey) {
   if (!rows.length) return "";
 
   const maxLine = Math.max(...rows.map((row) => Number(row[lineKey]) || 0), 1);
-  const lastIndex = Math.max(rows.length - 1, 1);
+  const count = Math.max(rows.length, 1);
 
   return rows
     .map((row, index) => {
       const value = Number(row[lineKey]) || 0;
-      const x = (index / lastIndex) * 100;
-      const y = 100 - (value / maxLine) * 88 - 6;
-      return `${x},${Math.max(4, Math.min(96, y))}`;
+      const x = ((index + 0.5) / count) * 100;
+      const y = 98 - (value / maxLine) * 92;
+      return `${Math.max(2, Math.min(98, x))},${Math.max(4, Math.min(96, y))}`;
     })
     .join(" ");
 }
@@ -156,7 +156,6 @@ export default function WorkforceDashboardPage() {
   const over10 = Number(summary?.greaterThan10Hours) || 0;
   const over12 = Number(summary?.greaterThan12Hours) || 0;
   const over8Pct = safePercent(over8, totalPeople);
-  const over10Pct = safePercent(over10, totalPeople);
   const over12Pct = safePercent(over12, totalPeople);
   const series = Array.isArray(summary?.timeSeries) ? summary.timeSeries : [];
 
@@ -219,7 +218,7 @@ export default function WorkforceDashboardPage() {
       <section className="center-panel workforce-full-span no-panel-bg overview-page-fit">
         {error && <div className="error-box page-error">{error}</div>}
 
-        <div className="kpi-grid compact-kpi-grid overview-kpi-grid">
+        <div className="kpi-grid compact-kpi-grid overview-kpi-grid overview-kpi-grid-five">
           <div className="metric-card kpi-card kpi-total">
             <div className="metric-label">Total Workforce</div>
             <div className="metric-value">{totalPeople}</div>
@@ -242,6 +241,12 @@ export default function WorkforceDashboardPage() {
             <div className="metric-label">12 Hours and Above</div>
             <div className="metric-value">{over12}</div>
             <div className="mini-info-text">{over12Pct}% high-hour exposure.</div>
+          </div>
+
+          <div className="metric-card kpi-card latest-scan-kpi">
+            <div className="metric-label">Latest Scan</div>
+            <div className="metric-value small-value">{formatDateTime(summary?.latestScan)}</div>
+            <div className="mini-info-text">Window: 06:00 to 05:59</div>
           </div>
         </div>
 
@@ -274,38 +279,6 @@ export default function WorkforceDashboardPage() {
               { key: "days_over_6", label: "Greater than 6 days", className: "stack-navy" },
             ]}
           />
-        </div>
-
-        <div className="overview-bottom-strip">
-          <div className="chart-card scan-card compact-scan-card">
-            <h3>Latest Scan</h3>
-            <div className="latest-scan-value">{formatDateTime(summary?.latestScan)}</div>
-            <div className="scan-meta-grid">
-              <div>
-                <span>Workforce Date</span>
-                <b>{workforceDate}</b>
-              </div>
-              <div>
-                <span>Shift Window</span>
-                <b>06:00 - 05:59</b>
-              </div>
-            </div>
-          </div>
-
-          <div className="chart-card compact-risk-card">
-            <div className="chart-header-row compact-chart-header">
-              <div>
-                <h3>Current Day Risk</h3>
-                <p>Same-day risk buckets from first scan to last scan.</p>
-              </div>
-              <span className="soft-pill">{group}</span>
-            </div>
-            <div className="mini-risk-grid">
-              <div><span>&gt; 8 Hrs</span><b>{over8}</b><small>{over8Pct}%</small></div>
-              <div><span>&gt; 10 Hrs</span><b>{over10}</b><small>{over10Pct}%</small></div>
-              <div><span>12+ Hrs</span><b>{over12}</b><small>{over12Pct}%</small></div>
-            </div>
-          </div>
         </div>
       </section>
     </AppShell>

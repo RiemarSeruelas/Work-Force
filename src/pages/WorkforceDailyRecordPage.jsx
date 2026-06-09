@@ -78,7 +78,7 @@ export default function WorkforceDailyRecordPage() {
                   <th>Last Scan</th>
                   <th>Work Hours</th>
                   <th>Scan Count</th>
-                  <th>Day Count</th>
+                  <th>Group</th>
                   <th>Status</th>
                 </tr>
               </thead>
@@ -91,7 +91,7 @@ export default function WorkforceDailyRecordPage() {
                     <td>{fmt(row.last_scan)}</td>
                     <td>{Number(row.work_hours || 0).toFixed(2)}</td>
                     <td>{row.scan_count}</td>
-                    <td>{row.counted_day ? "Yes" : "No"}</td>
+                    <td>{row.workforce_group || "FTE"}</td>
                     <td>
                       {(() => {
                         const status = getHourStatus(row.work_hours);
