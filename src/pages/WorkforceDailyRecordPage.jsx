@@ -2,11 +2,22 @@ import { useEffect } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
-function getHourStatus(hours) {
-  const value = Number(hours) || 0;
-  if (value >= 12) return { label: "12+ HRS", className: "bad" };
-  if (value > 10) return { label: "> 10 HRS", className: "orange" };
-  if (value > 8) return { label: "> 8 HRS", className: "warn" };
+function getHourBucket(row) {
+  if (row?.hours_bucket) return row.hours_bucket;
+
+  const value = Number(row?.work_hours) || 0;
+  if (value >= 12) return "hours_12_plus";
+  if (value > 10) return "hours_10_12";
+  if (value > 8) return "hours_8_10";
+  return "hours_8_or_less";
+}
+
+function getHourStatus(row) {
+  const bucket = getHourBucket(row);
+
+  if (bucket === "hours_12_plus") return { label: "12+ HRS", className: "bad" };
+  if (bucket === "hours_10_12") return { label: "> 10 HRS", className: "orange" };
+  if (bucket === "hours_8_10") return { label: "> 8 HRS", className: "warn" };
   return { label: "< 8 HRS", className: "ok" };
 }
 
@@ -39,10 +50,10 @@ export default function WorkforceDailyRecordPage() {
     fetchDailyRecord?.();
   }, [fetchDailyRecord, workforceDate, group]);
 
-  const under8 = rows.filter((r) => Number(r.work_hours) <= 8).length;
-  const over8 = rows.filter((r) => Number(r.work_hours) > 8 && Number(r.work_hours) <= 10).length;
-  const over10 = rows.filter((r) => Number(r.work_hours) > 10 && Number(r.work_hours) < 12).length;
-  const over12 = rows.filter((r) => Number(r.work_hours) >= 12).length;
+  const under8 = rows.filter((r) => getHourBucket(r) === "hours_8_or_less").length;
+  const over8 = rows.filter((r) => getHourBucket(r) === "hours_8_10").length;
+  const over10 = rows.filter((r) => getHourBucket(r) === "hours_10_12").length;
+  const over12 = rows.filter((r) => getHourBucket(r) === "hours_12_plus").length;
 
   return (
     <AppShell
@@ -101,7 +112,7 @@ export default function WorkforceDailyRecordPage() {
                     <td>{row.workforce_group || "FTE"}</td>
                     <td>
                       {(() => {
-                        const status = getHourStatus(row.work_hours);
+                        const status = getHourStatus(row);
                         return <span className={`status-chip ${status.className}`}>{status.label}</span>;
                       })()}
                     </td>

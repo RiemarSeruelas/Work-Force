@@ -305,8 +305,15 @@ app.get("/api/workforce/daily-record", async (req, res) => {
           END AS workforce_group,
           MIN(scan_ts) AS entry_time,
           MAX(scan_ts) AS last_scan,
+          GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) AS work_hours_raw,
           ROUND(GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours,
           COUNT(*) AS scan_count,
+          CASE
+            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) >= 12 THEN 'hours_12_plus'
+            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 10 THEN 'hours_10_12'
+            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 8 THEN 'hours_8_10'
+            ELSE 'hours_8_or_less'
+          END AS hours_bucket,
           CASE
             WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 4
               THEN TRUE
