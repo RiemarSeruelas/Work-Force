@@ -1476,11 +1476,10 @@ button:disabled {
 
 .powerbi-local-connector line {
   stroke: #cfd9e8 !important;
-  stroke-width: 1.6 !important;
+  stroke-width: 1.9 !important;
   stroke-linecap: round !important;
-  stroke-dasharray: 7 6 !important;
   vector-effect: non-scaling-stroke !important;
-  opacity: 0.9 !important;
+  opacity: 0.92 !important;
 }
 
 .app-shell[data-theme="dark"] .powerbi-local-connector line {
