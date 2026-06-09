@@ -39,14 +39,21 @@ export default function WorkforceDailyRecordPage() {
     fetchDailyRecord?.();
   }, [fetchDailyRecord, workforceDate, group]);
 
+  const under8 = rows.filter((r) => Number(r.work_hours) <= 8).length;
+  const over8 = rows.filter((r) => Number(r.work_hours) > 8 && Number(r.work_hours) <= 10).length;
+  const over10 = rows.filter((r) => Number(r.work_hours) > 10 && Number(r.work_hours) < 12).length;
+  const over12 = rows.filter((r) => Number(r.work_hours) >= 12).length;
+
   return (
     <AppShell
       title="Details of Daily Working Hours"
       subtitle=""
       summaryStats={[
         { value: total, label: "TOTAL WORKFORCE" },
-        { value: rows.filter((r) => r.counted_day).length, label: "COUNTED DAYS", variant: "green" },
-        { value: rows.filter((r) => Number(r.work_hours) >= 12).length, label: "12+ HRS", variant: "red" },
+        { value: under8, label: "< 8 HOURS", variant: "green" },
+        { value: over8, label: "> 8 HOURS", variant: "amber" },
+        { value: over10, label: "> 10 HOURS", variant: "orange" },
+        { value: over12, label: "12+ HRS", variant: "red" },
       ]}
     >
       <aside className="panel left-panel">

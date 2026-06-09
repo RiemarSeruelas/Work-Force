@@ -254,10 +254,9 @@ export default function WorkforceDashboardPage() {
         {error && <div className="error-box page-error">{error}</div>}
 
         <div className="kpi-grid compact-kpi-grid overview-kpi-grid overview-kpi-grid-five">
-          <div className="metric-card kpi-card kpi-total">
+          <div className="metric-card kpi-card kpi-total no-mini">
             <div className="metric-label">Total Workforce</div>
             <div className="metric-value">{totalPeople}</div>
-            <div className="mini-info-text">Anyone with an entry scan in the workforce window.</div>
           </div>
 
           <div className="metric-card kpi-card status-amber">
@@ -278,10 +277,9 @@ export default function WorkforceDashboardPage() {
             <div className="mini-info-text">12+ hour bucket · {over12Pct}% high-hour exposure.</div>
           </div>
 
-          <div className="metric-card kpi-card latest-scan-kpi">
+          <div className="metric-card kpi-card latest-scan-kpi no-mini">
             <div className="metric-label">Latest Scan</div>
             <div className="metric-value small-value">{formatDateTime(summary?.latestScan)}</div>
-            <div className="mini-info-text">Most recent Hikvision scan.</div>
           </div>
         </div>
 
