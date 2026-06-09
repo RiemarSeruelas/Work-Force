@@ -67,8 +67,26 @@ function getStackedBarHeightPercent(value, maxValue) {
   return Math.max((Math.min(safeValue, safeMax) / safeMax) * 100, 4);
 }
 
+function buildTopOfBarLinePoints(rows, segments, maxVisibleTotal) {
+  if (!rows.length) return "";
+
+  const count = Math.max(rows.length, 1);
+
+  return rows
+    .map((row, index) => {
+      const visibleTotal = getSegmentTotal(row, segments);
+      const barHeight = getStackedBarHeightPercent(visibleTotal, maxVisibleTotal);
+      const x = ((index + 0.5) / count) * 100;
+      const y = 100 - barHeight;
+
+      return `${Math.max(1.5, Math.min(98.5, x))},${Math.max(0, Math.min(98, y))}`;
+    })
+    .join(" ");
+}
+
 function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineLabel = "" }) {
   const maxVisibleTotal = Math.max(...rows.map((row) => getSegmentTotal(row, segments)), 1);
+  const points = buildTopOfBarLinePoints(rows, segments, maxVisibleTotal);
 
   return (
     <div className="chart-card powerbi-timeseries-card">
@@ -88,29 +106,13 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
         </div>
 
         <div className="powerbi-plot">
-          {rows.map((row, index) => {
+          {rows.map((row) => {
             const visibleTotal = getSegmentTotal(row, segments);
             const barHeight = getStackedBarHeightPercent(visibleTotal, maxVisibleTotal);
-            const nextRow = rows[index + 1];
-            const nextVisibleTotal = nextRow ? getSegmentTotal(nextRow, segments) : 0;
-            const nextBarHeight = nextRow
-              ? getStackedBarHeightPercent(nextVisibleTotal, maxVisibleTotal)
-              : 0;
-            const hasConnector = visibleTotal > 0 && nextVisibleTotal > 0;
 
             return (
               <div className="powerbi-column" key={row.period_start}>
                 <div className="powerbi-bar-slot">
-                  {hasConnector ? (
-                    <svg className="powerbi-local-connector" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true">
-                      <line
-                        x1="50"
-                        y1={100 - barHeight}
-                        x2="150"
-                        y2={100 - nextBarHeight}
-                      />
-                    </svg>
-                  ) : null}
                   <div className="powerbi-stacked-bar" style={{ height: `${barHeight}%` }}>
                     {segments.map((segment) => {
                       const value = Number(row[segment.key]) || 0;
@@ -132,6 +134,12 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
               </div>
             );
           })}
+
+          {points ? (
+            <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <polyline className="powerbi-connected-topline" points={points} />
+            </svg>
+          ) : null}
 
           {rows.length === 0 && <div className="empty-cell">No time series data found.</div>}
         </div>
@@ -168,6 +176,7 @@ export default function WorkforceDashboardPage() {
   const over10 = Number(summary?.greaterThan10Hours) || 0;
   const over12 = Number(summary?.greaterThan12Hours) || 0;
   const over8Pct = safePercent(over8, totalPeople);
+  const over10Pct = safePercent(over10, totalPeople);
   const over12Pct = safePercent(over12, totalPeople);
   const series = Array.isArray(summary?.timeSeries) ? summary.timeSeries : [];
 
@@ -220,7 +229,12 @@ export default function WorkforceDashboardPage() {
       title="Workforce Monitoring Overview"
       subtitle=""
       summaryControls={controls}
-      summaryStats={[]}
+      summaryStats={[
+        { value: totalPeople, label: "TOTAL WORKFORCE" },
+        { value: over8, label: "> 8 HOURS", variant: "amber" },
+        { value: over10, label: "> 10 HOURS", variant: "orange" },
+        { value: over12, label: "> 12 HOURS", variant: "red" },
+      ]}
     >
       <section className="center-panel workforce-full-span no-panel-bg overview-page-fit">
         {error && <div className="error-box page-error">{error}</div>}
@@ -241,11 +255,11 @@ export default function WorkforceDashboardPage() {
           <div className="metric-card kpi-card status-orange">
             <div className="metric-label">Greater Than 10 Hours</div>
             <div className="metric-value">{over10}</div>
-            <div className="mini-info-text">Watchlist before 12-hour exposure.</div>
+            <div className="mini-info-text">{over10Pct}% of total workforce.</div>
           </div>
 
           <div className="metric-card kpi-card status-red">
-            <div className="metric-label">12 Hours and Above</div>
+            <div className="metric-label">Greater Than 12 Hours</div>
             <div className="metric-value">{over12}</div>
             <div className="mini-info-text">{over12Pct}% high-hour exposure.</div>
           </div>
@@ -265,8 +279,8 @@ export default function WorkforceDashboardPage() {
             period={trendPeriod}
             segments={[
               { key: "hours_8_or_less", label: "< 8 hours", className: "stack-blue" },
-              { key: "hours_8_10", label: "8-10 hours", className: "stack-yellow" },
-              { key: "hours_10_12", label: "10-12 hours", className: "stack-orange" },
+              { key: "hours_8_10", label: "> 8 hours", className: "stack-yellow" },
+              { key: "hours_10_12", label: "> 10 hours", className: "stack-orange" },
               { key: "hours_12_plus", label: "> 12 hours", className: "stack-red" },
             ]}
           />

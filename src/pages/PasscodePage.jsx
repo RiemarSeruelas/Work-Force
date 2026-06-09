@@ -25,7 +25,15 @@ export default function PasscodePage() {
         body: JSON.stringify({ passcode: passcode.trim() }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data = null;
+
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch {
+        throw new Error(text || `Server returned HTTP ${res.status}`);
+      }
+
       if (!res.ok) throw new Error(data?.error || "Invalid passcode");
 
       sessionStorage.setItem("appAccess", data.token);
