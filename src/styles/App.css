@@ -2181,3 +2181,39 @@ button:hover { transform: translateY(-1px); }
   position: relative;
   overflow: hidden;
 }
+
+
+/* =========================================================
+   Fix: monthly labels, >10 KPI, and population blue color.
+========================================================= */
+.summary-stat.orange .summary-value,
+.status-orange .metric-value {
+  color: #f97316 !important;
+}
+
+.overview-kpi-grid-five {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+/* Population must use blue instead of green. This targets both the
+   population page bars and any older population markup that still uses
+   the generic green fill class. */
+.population-bars .bar-fill,
+.population-bars .fill-green,
+.population-bars .stack-green,
+.population-card .bar-fill,
+.population-card .fill-green {
+  background: linear-gradient(90deg, #38bdf8, #2563eb) !important;
+}
+
+@media (max-width: 1200px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: 1fr;
+  }
+}

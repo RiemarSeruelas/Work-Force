@@ -27,10 +27,11 @@ function formatSeriesDate(value, period) {
   if (Number.isNaN(date.getTime())) return String(value);
 
   if (period === "MONTHLY") {
+    // Monthly view should show only the month bucket, not the day number
+    // and not a confusing year suffix like Jan 26.
     return date.toLocaleDateString("en-PH", {
       timeZone: "Asia/Manila",
       month: "short",
-      year: "2-digit",
     });
   }
 
@@ -230,6 +231,7 @@ export default function WorkforceDashboardPage() {
       summaryStats={[
         { value: totalPeople, label: "TOTAL WORKFORCE" },
         { value: over8, label: "> 8 HOURS", variant: "amber" },
+        { value: over10, label: "> 10 HOURS", variant: "orange" },
         { value: over12, label: "12+ HOURS", variant: "red" },
       ]}
     >
@@ -247,6 +249,12 @@ export default function WorkforceDashboardPage() {
             <div className="metric-label">Greater Than 8 Hours</div>
             <div className="metric-value">{over8}</div>
             <div className="mini-info-text">{over8Pct}% of total workforce.</div>
+          </div>
+
+          <div className="metric-card kpi-card status-orange">
+            <div className="metric-label">Greater Than 10 Hours</div>
+            <div className="metric-value">{over10}</div>
+            <div className="mini-info-text">Watchlist before 12-hour exposure.</div>
           </div>
 
           <div className="metric-card kpi-card status-red">
@@ -270,8 +278,8 @@ export default function WorkforceDashboardPage() {
             period={trendPeriod}
             segments={[
               { key: "hours_8_or_less", label: "< 8 hours", className: "stack-blue" },
-              { key: "hours_8_10", label: "8-10 hours", className: "stack-yellow" },
-              { key: "hours_10_12", label: "10-12 hours", className: "stack-orange" },
+              { key: "hours_8_10", label: "> 8 hours", className: "stack-yellow" },
+              { key: "hours_10_12", label: "> 10 hours", className: "stack-orange" },
               { key: "hours_12_plus", label: "> 12 hours", className: "stack-red" },
             ]}
           />
