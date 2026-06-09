@@ -67,7 +67,7 @@ function getStackedBarHeightPercent(value, maxValue) {
   return Math.max((Math.min(safeValue, safeMax) / safeMax) * 100, 4);
 }
 
- function buildTopOfBarLineSegments(rows, segments, maxVisibleTotal) {
+function buildTopOfBarLineSegments(rows, segments, maxVisibleTotal) {
   if (!rows.length) return [];
 
   const count = Math.max(rows.length, 1);
@@ -89,7 +89,7 @@ function getStackedBarHeightPercent(value, maxValue) {
     const x = ((index + 0.5) / count) * 100;
     const y = 100 - barHeight;
 
-    current.push(`${Math.max(1.5, Math.min(98.5, x))},${Math.max(0, Math.min(98, y))}`);
+    current.push(`${Math.max(2, Math.min(98, x))},${Math.max(2, Math.min(96, y))}`);
   });
 
   if (current.length > 1) segmentsOut.push(current.join(" "));
