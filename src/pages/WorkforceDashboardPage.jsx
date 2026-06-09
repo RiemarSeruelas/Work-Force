@@ -27,8 +27,6 @@ function formatSeriesDate(value, period) {
   if (Number.isNaN(date.getTime())) return String(value);
 
   if (period === "MONTHLY") {
-    // Monthly view should show only the month bucket, not the day number
-    // and not a confusing year suffix like Jan 26.
     return date.toLocaleDateString("en-PH", {
       timeZone: "Asia/Manila",
       month: "short",
@@ -62,25 +60,21 @@ function getStackedBarHeightPercent(value, maxValue) {
   const safeMax = Math.max(Number(maxValue) || 0, 1);
 
   if (!safeValue) return 0;
-
-  // The connector now follows only the visible stacked bar, not the whole plot.
   return Math.max((Math.min(safeValue, safeMax) / safeMax) * 100, 4);
 }
 
-function buildTopOfBarLineSegments(rows, segments, maxVisibleTotal) {
+function buildLineSegments(rows, segments, maxVisibleTotal) {
   if (!rows.length) return [];
 
   const count = Math.max(rows.length, 1);
-  const segmentsOut = [];
+  const groups = [];
   let current = [];
 
   rows.forEach((row, index) => {
     const visibleTotal = getSegmentTotal(row, segments);
 
-    // Do not pull the connector down to zero for empty buckets.
-    // This was the reason the line looked wrecked when a period had no value.
     if (visibleTotal <= 0) {
-      if (current.length > 1) segmentsOut.push(current.join(" "));
+      if (current.length > 0) groups.push(current);
       current = [];
       return;
     }
@@ -89,17 +83,51 @@ function buildTopOfBarLineSegments(rows, segments, maxVisibleTotal) {
     const x = ((index + 0.5) / count) * 100;
     const y = 100 - barHeight;
 
-    current.push(`${Math.max(2, Math.min(98, x))},${Math.max(2, Math.min(96, y))}`);
+    current.push({
+      x: Number(Math.max(1.5, Math.min(98.5, x)).toFixed(3)),
+      y: Number(Math.max(1, Math.min(98, y)).toFixed(3)),
+    });
   });
 
-  if (current.length > 1) segmentsOut.push(current.join(" "));
+  if (current.length > 0) groups.push(current);
 
-  return segmentsOut;
+  return groups
+    .filter((group) => group.length > 1)
+    .map((points) => ({
+      points,
+      path: buildSmoothPath(points),
+    }));
+}
+
+function buildSmoothPath(points) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+  let path = `M ${points[0].x} ${points[0].y}`;
+
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const current = points[i];
+    const next = points[i + 1];
+    const midX = (current.x + next.x) / 2;
+    const midY = (current.y + next.y) / 2;
+
+    if (i === 0) {
+      path += ` Q ${current.x} ${current.y} ${midX} ${midY}`;
+    } else {
+      path += ` T ${midX} ${midY}`;
+    }
+
+    if (i === points.length - 2) {
+      path += ` T ${next.x} ${next.y}`;
+    }
+  }
+
+  return path;
 }
 
 function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineLabel = "" }) {
   const maxVisibleTotal = Math.max(...rows.map((row) => getSegmentTotal(row, segments)), 1);
-  const lineSegments = buildTopOfBarLineSegments(rows, segments, maxVisibleTotal);
+  const lineSegments = buildLineSegments(rows, segments, maxVisibleTotal);
 
   return (
     <div className="chart-card powerbi-timeseries-card">
@@ -150,8 +178,19 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
 
           {lineSegments.length > 0 ? (
             <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              {lineSegments.map((points, index) => (
-                <polyline key={index} className="powerbi-connected-topline" points={points} />
+              {lineSegments.map((segment, index) => (
+                <g key={`segment-${index}`}>
+                  <path className="powerbi-connected-topline" d={segment.path} />
+                  {segment.points.map((point, pointIndex) => (
+                    <circle
+                      key={`point-${index}-${pointIndex}`}
+                      className="powerbi-line-dot"
+                      cx={point.x}
+                      cy={point.y}
+                      r="1.2"
+                    />
+                  ))}
+                </g>
               ))}
             </svg>
           ) : null}
@@ -162,9 +201,15 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
 
       <div className="powerbi-legend">
         {segments.map((segment) => (
-          <span key={segment.key}><i className={`legend-box ${segment.className}`} /> {segment.label}</span>
+          <span key={segment.key}>
+            <i className={`legend-box ${segment.className}`} /> {segment.label}
+          </span>
         ))}
-        {lineLabel ? <span><i className="line-legend" /> {lineLabel}</span> : null}
+        {lineLabel ? (
+          <span>
+            <i className="line-legend" /> {lineLabel}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -240,12 +285,7 @@ export default function WorkforceDashboardPage() {
   );
 
   return (
-    <AppShell
-      title="Workforce Monitoring Overview"
-      subtitle=""
-      summaryControls={controls}
-      summaryStats={[]}
-    >
+    <AppShell title="Workforce Monitoring Overview" subtitle="" summaryControls={controls} summaryStats={[]}>
       <section className="center-panel workforce-full-span no-panel-bg overview-page-fit">
         {error && <div className="error-box page-error">{error}</div>}
 
