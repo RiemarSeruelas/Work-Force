@@ -67,26 +67,39 @@ function getStackedBarHeightPercent(value, maxValue) {
   return Math.max((Math.min(safeValue, safeMax) / safeMax) * 100, 4);
 }
 
-function buildTopOfBarLinePoints(rows, segments, maxVisibleTotal) {
-  if (!rows.length) return "";
+ function buildTopOfBarLineSegments(rows, segments, maxVisibleTotal) {
+  if (!rows.length) return [];
 
   const count = Math.max(rows.length, 1);
+  const segmentsOut = [];
+  let current = [];
 
-  return rows
-    .map((row, index) => {
-      const visibleTotal = getSegmentTotal(row, segments);
-      const barHeight = getStackedBarHeightPercent(visibleTotal, maxVisibleTotal);
-      const x = ((index + 0.5) / count) * 100;
-      const y = 100 - barHeight;
+  rows.forEach((row, index) => {
+    const visibleTotal = getSegmentTotal(row, segments);
 
-      return `${Math.max(1.5, Math.min(98.5, x))},${Math.max(0, Math.min(98, y))}`;
-    })
-    .join(" ");
+    // Do not pull the connector down to zero for empty buckets.
+    // This was the reason the line looked wrecked when a period had no value.
+    if (visibleTotal <= 0) {
+      if (current.length > 1) segmentsOut.push(current.join(" "));
+      current = [];
+      return;
+    }
+
+    const barHeight = getStackedBarHeightPercent(visibleTotal, maxVisibleTotal);
+    const x = ((index + 0.5) / count) * 100;
+    const y = 100 - barHeight;
+
+    current.push(`${Math.max(1.5, Math.min(98.5, x))},${Math.max(0, Math.min(98, y))}`);
+  });
+
+  if (current.length > 1) segmentsOut.push(current.join(" "));
+
+  return segmentsOut;
 }
 
 function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineLabel = "" }) {
   const maxVisibleTotal = Math.max(...rows.map((row) => getSegmentTotal(row, segments)), 1);
-  const points = buildTopOfBarLinePoints(rows, segments, maxVisibleTotal);
+  const lineSegments = buildTopOfBarLineSegments(rows, segments, maxVisibleTotal);
 
   return (
     <div className="chart-card powerbi-timeseries-card">
@@ -135,9 +148,11 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
             );
           })}
 
-          {points ? (
+          {lineSegments.length > 0 ? (
             <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              <polyline className="powerbi-connected-topline" points={points} />
+              {lineSegments.map((points, index) => (
+                <polyline key={index} className="powerbi-connected-topline" points={points} />
+              ))}
             </svg>
           ) : null}
 
@@ -229,12 +244,7 @@ export default function WorkforceDashboardPage() {
       title="Workforce Monitoring Overview"
       subtitle=""
       summaryControls={controls}
-      summaryStats={[
-        { value: totalPeople, label: "TOTAL WORKFORCE" },
-        { value: over8, label: "> 8 HOURS", variant: "amber" },
-        { value: over10, label: "> 10 HOURS", variant: "orange" },
-        { value: over12, label: "> 12 HOURS", variant: "red" },
-      ]}
+      summaryStats={[]}
     >
       <section className="center-panel workforce-full-span no-panel-bg overview-page-fit">
         {error && <div className="error-box page-error">{error}</div>}
@@ -279,8 +289,8 @@ export default function WorkforceDashboardPage() {
             period={trendPeriod}
             segments={[
               { key: "hours_8_or_less", label: "< 8 hours", className: "stack-blue" },
-              { key: "hours_8_10", label: "> 8 hours", className: "stack-yellow" },
-              { key: "hours_10_12", label: "> 10 hours", className: "stack-orange" },
+              { key: "hours_8_10", label: "8-10 hours", className: "stack-yellow" },
+              { key: "hours_10_12", label: "10-12 hours", className: "stack-orange" },
               { key: "hours_12_plus", label: "> 12 hours", className: "stack-red" },
             ]}
           />

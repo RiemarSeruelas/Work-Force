@@ -2340,3 +2340,124 @@ button:hover { transform: translateY(-1px); }
   color: #fecaca !important;
   border: 1px solid rgba(248, 113, 113, 0.28);
 }
+
+/* =========================================================
+   Final correction: summary strip cleanup, one-line KPI cards,
+   and stable connected top-of-stack line.
+========================================================= */
+.summary-strip {
+  grid-template-columns: minmax(0, 1fr) auto !important;
+  align-items: center !important;
+}
+
+.summary-stats:empty {
+  display: none !important;
+}
+
+.summary-controls {
+  justify-self: end !important;
+  margin-left: auto !important;
+}
+
+.overview-kpi-grid-five {
+  grid-template-columns: minmax(230px, 1.05fr) repeat(3, minmax(190px, 0.95fr)) minmax(230px, 1.05fr) !important;
+  gap: 8px !important;
+  align-items: stretch !important;
+}
+
+.overview-kpi-grid-five .kpi-card {
+  min-height: 72px !important;
+  padding: 9px 12px !important;
+}
+
+.overview-kpi-grid-five .metric-label {
+  font-size: 11px !important;
+  letter-spacing: 0.04em !important;
+  white-space: nowrap !important;
+}
+
+.overview-kpi-grid-five .metric-value {
+  font-size: 21px !important;
+  margin-top: 4px !important;
+}
+
+.overview-kpi-grid-five .mini-info-text {
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+}
+
+/* Keep the connector mapped only to the real bar slot, not the whole chart/card. */
+.powerbi-plot {
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.powerbi-line-overlay {
+  display: block !important;
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  bottom: 18px !important;
+  left: 4px !important;
+  width: auto !important;
+  height: auto !important;
+  pointer-events: none !important;
+  z-index: 90 !important;
+  overflow: visible !important;
+}
+
+.powerbi-connected-topline {
+  fill: none !important;
+  stroke: #0f172a !important;
+  stroke-width: 3px !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  vector-effect: non-scaling-stroke !important;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.92))
+    drop-shadow(0 1px 2px rgba(255, 255, 255, 0.7)) !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-connected-topline {
+  stroke: #ffffff !important;
+  filter:
+    drop-shadow(0 0 2px rgba(15, 23, 42, 0.95))
+    drop-shadow(0 1px 2px rgba(15, 23, 42, 0.85)) !important;
+}
+
+.powerbi-bar-topline {
+  height: 3px !important;
+  top: -3px !important;
+  left: -2px !important;
+  right: -2px !important;
+  z-index: 100 !important;
+  background: #0f172a !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.75) !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-bar-topline {
+  background: #ffffff !important;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.5) !important;
+}
+
+@media (max-width: 1500px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  .overview-kpi-grid-five .metric-label {
+    font-size: 10px !important;
+  }
+}
+
+@media (max-width: 1180px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: 1fr !important;
+  }
+}
