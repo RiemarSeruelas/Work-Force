@@ -1,0 +1,431 @@
+/* =========================================================
+   Workforce Dashboard Theme Override
+   Fixes the broken light/dark mixing across all pages.
+   Import this AFTER App.css.
+========================================================= */
+
+:root {
+  --wf-bg: #eef3fb;
+  --wf-page-bg: #eef3fb;
+  --wf-surface: #ffffff;
+  --wf-surface-2: #f7faff;
+  --wf-surface-3: #edf3fb;
+  --wf-border: rgba(38, 63, 103, 0.16);
+  --wf-text: #071833;
+  --wf-muted: #536783;
+  --wf-strong: #071833;
+
+  --wf-topbar: linear-gradient(90deg, #06265f 0%, #1557b4 58%, #7a1fc2 100%);
+  --wf-summary: linear-gradient(90deg, #4b0575 0%, #4338ca 48%, #1e9bf0 100%);
+
+  --wf-blue: #2563eb;
+  --wf-blue-2: #38bdf8;
+  --wf-yellow: #facc15;
+  --wf-orange: #f97316;
+  --wf-red: #ef4444;
+  --wf-purple: #9333ea;
+  --wf-track: #d9e2ef;
+  --wf-scrollbar: #7c3aed;
+  --wf-shadow: 0 18px 45px rgba(21, 42, 84, 0.13);
+}
+
+.app-shell[data-theme="dark"] {
+  --wf-bg: #07101f;
+  --wf-page-bg: #07101f;
+  --wf-surface: #101b2f;
+  --wf-surface-2: #152238;
+  --wf-surface-3: #1b2a42;
+  --wf-border: rgba(148, 163, 184, 0.22);
+  --wf-text: #f8fbff;
+  --wf-muted: #a8bdd7;
+  --wf-strong: #ffffff;
+
+  --wf-topbar: linear-gradient(90deg, #071b44 0%, #164f9f 58%, #681ba4 100%);
+  --wf-summary: linear-gradient(90deg, #3b0764 0%, #3730a3 48%, #1677d2 100%);
+
+  --wf-track: #324158;
+  --wf-scrollbar: #8b5cf6;
+  --wf-shadow: 0 18px 45px rgba(0, 0, 0, 0.34);
+}
+
+/* Base */
+body {
+  background: var(--wf-page-bg) !important;
+  color: var(--wf-text) !important;
+}
+
+.app-shell {
+  background: var(--wf-bg) !important;
+  color: var(--wf-text) !important;
+}
+
+/* Top bars */
+.topbar,
+.mobile-topbar,
+.mobile-drawer {
+  background: var(--wf-topbar) !important;
+  color: #ffffff !important;
+}
+
+.summary-strip,
+.workforce-summary,
+.page-summary,
+.dashboard-summary {
+  background: var(--wf-summary) !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Remove accidental light blocks inside dark mode */
+.app-shell[data-theme="dark"] .workspace,
+.app-shell[data-theme="dark"] main,
+.app-shell[data-theme="dark"] .page,
+.app-shell[data-theme="dark"] .content,
+.app-shell[data-theme="dark"] .dashboard-content {
+  background: var(--wf-bg) !important;
+  color: var(--wf-text) !important;
+}
+
+/* Panels / cards */
+.panel,
+.metric-card,
+.kpi-card,
+.chart-card,
+.table-card,
+.population-card,
+.compliance-card,
+.compliance-panel,
+.compliance-category-card,
+.names-panel,
+.workforce-chart-card,
+.record-card,
+.page-card,
+.detail-modal,
+.passcode-card {
+  background: var(--wf-surface) !important;
+  color: var(--wf-text) !important;
+  border: 1px solid var(--wf-border) !important;
+  box-shadow: var(--wf-shadow) !important;
+}
+
+.app-shell[data-theme="dark"] .panel,
+.app-shell[data-theme="dark"] .metric-card,
+.app-shell[data-theme="dark"] .kpi-card,
+.app-shell[data-theme="dark"] .chart-card,
+.app-shell[data-theme="dark"] .table-card,
+.app-shell[data-theme="dark"] .population-card,
+.app-shell[data-theme="dark"] .compliance-card,
+.app-shell[data-theme="dark"] .compliance-panel,
+.app-shell[data-theme="dark"] .compliance-category-card,
+.app-shell[data-theme="dark"] .names-panel,
+.app-shell[data-theme="dark"] .workforce-chart-card,
+.app-shell[data-theme="dark"] .record-card,
+.app-shell[data-theme="dark"] .page-card,
+.app-shell[data-theme="dark"] .detail-modal {
+  background: linear-gradient(180deg, #122038 0%, #0d1729 100%) !important;
+}
+
+/* Text */
+.panel-title,
+.table-title,
+.card-title,
+.chart-title,
+.metric-label,
+.metric-value,
+.kpi-label,
+.kpi-value,
+.compliance-title,
+.compliance-label,
+.population-title,
+.population-label,
+.record-title,
+.record-value,
+.detail-title,
+.summary-title {
+  color: var(--wf-text) !important;
+}
+
+.app-shell[data-theme="dark"] .panel-title,
+.app-shell[data-theme="dark"] .table-title,
+.app-shell[data-theme="dark"] .card-title,
+.app-shell[data-theme="dark"] .chart-title,
+.app-shell[data-theme="dark"] .metric-label,
+.app-shell[data-theme="dark"] .metric-value,
+.app-shell[data-theme="dark"] .kpi-label,
+.app-shell[data-theme="dark"] .kpi-value,
+.app-shell[data-theme="dark"] .compliance-title,
+.app-shell[data-theme="dark"] .compliance-label,
+.app-shell[data-theme="dark"] .population-title,
+.app-shell[data-theme="dark"] .population-label,
+.app-shell[data-theme="dark"] .record-title,
+.app-shell[data-theme="dark"] .record-value,
+.app-shell[data-theme="dark"] .detail-title {
+  color: #ffffff !important;
+}
+
+.mini-info-text,
+.muted,
+.card-subtitle,
+.chart-subtitle,
+.summary-subtitle,
+.kpi-subtitle,
+.metric-subtitle,
+.detail-subtitle {
+  color: var(--wf-muted) !important;
+}
+
+/* Forms */
+input,
+select,
+textarea,
+.styled-input,
+.filter-input,
+.filter-select,
+.summary-filter input,
+.summary-filter select,
+.summary-controls input,
+.summary-controls select {
+  background: var(--wf-surface-2) !important;
+  color: var(--wf-text) !important;
+  border: 1px solid var(--wf-border) !important;
+}
+
+.app-shell[data-theme="dark"] input,
+.app-shell[data-theme="dark"] select,
+.app-shell[data-theme="dark"] textarea,
+.app-shell[data-theme="dark"] .styled-input,
+.app-shell[data-theme="dark"] .filter-input,
+.app-shell[data-theme="dark"] .filter-select,
+.app-shell[data-theme="dark"] .summary-filter input,
+.app-shell[data-theme="dark"] .summary-filter select,
+.app-shell[data-theme="dark"] .summary-controls input,
+.app-shell[data-theme="dark"] .summary-controls select {
+  background: #eaf1fb !important;
+  color: #071833 !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Buttons */
+.top-nav-btn,
+.primary-action-btn,
+.passcode-btn,
+button.refresh-btn,
+.refresh-btn {
+  color: #ffffff !important;
+}
+
+.top-nav-btn {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+}
+
+.top-nav-btn.active {
+  color: #fde68a !important;
+  background: rgba(250, 204, 21, 0.14) !important;
+  border-color: rgba(250, 204, 21, 0.55) !important;
+}
+
+.primary-action-btn,
+.passcode-btn,
+button.refresh-btn,
+.refresh-btn {
+  background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+}
+
+/* Tables / rows */
+table,
+tbody,
+tr,
+td,
+th,
+.record-row,
+.daily-record-row,
+.history-row,
+.name-row,
+.category-name-row,
+.rescue-card,
+.personnel-card-simple {
+  background-color: transparent !important;
+  color: var(--wf-text) !important;
+  border-color: var(--wf-border) !important;
+}
+
+.app-shell[data-theme="dark"] th,
+.app-shell[data-theme="dark"] td,
+.app-shell[data-theme="dark"] .record-row,
+.app-shell[data-theme="dark"] .daily-record-row,
+.app-shell[data-theme="dark"] .name-row,
+.app-shell[data-theme="dark"] .category-name-row {
+  color: #ffffff !important;
+}
+
+/* Charts */
+.chart-plot,
+.chart-body,
+.timeseries-plot,
+.timeseries-card,
+.workforce-series-chart {
+  background: var(--wf-surface) !important;
+  color: var(--wf-text) !important;
+  border-color: var(--wf-border) !important;
+}
+
+.app-shell[data-theme="dark"] .chart-plot,
+.app-shell[data-theme="dark"] .chart-body,
+.app-shell[data-theme="dark"] .timeseries-plot,
+.app-shell[data-theme="dark"] .timeseries-card,
+.app-shell[data-theme="dark"] .workforce-series-chart {
+  background: #101b2f !important;
+}
+
+.chart-grid-line,
+.grid-line,
+.y-grid-line {
+  background: rgba(148, 163, 184, 0.18) !important;
+  border-color: rgba(148, 163, 184, 0.18) !important;
+}
+
+.axis-label,
+.x-label,
+.y-label,
+.chart-axis-label {
+  color: var(--wf-muted) !important;
+}
+
+/* Bar colors */
+.bar-blue,
+.population-fill,
+.population-bar-fill {
+  background: linear-gradient(90deg, #38bdf8 0%, #2563eb 100%) !important;
+}
+
+.bar-yellow,
+.less-than-40-fill,
+.less-than-5-fill,
+.days-low-fill {
+  background: linear-gradient(90deg, #fde047 0%, #facc15 100%) !important;
+}
+
+.bar-orange,
+.mid-fill,
+.hours-40-60-fill,
+.days-5-6-fill {
+  background: linear-gradient(90deg, #fb923c 0%, #f97316 100%) !important;
+}
+
+.bar-red,
+.high-fill,
+.hours-60-fill,
+.days-6-fill {
+  background: linear-gradient(90deg, #f87171 0%, #ef4444 100%) !important;
+}
+
+.bar-track,
+.compliance-track,
+.population-track,
+.category-bar-track {
+  background: var(--wf-track) !important;
+}
+
+/* Status chips */
+.status-chip,
+.badge,
+.kpi-chip {
+  border: 1px solid var(--wf-border) !important;
+}
+
+.status-good,
+.status-chip.good {
+  background: rgba(37, 99, 235, 0.12) !important;
+  color: #60a5fa !important;
+}
+
+.status-warn,
+.status-chip.warn {
+  background: rgba(250, 204, 21, 0.14) !important;
+  color: #facc15 !important;
+}
+
+.status-orange,
+.status-chip.orange {
+  background: rgba(249, 115, 22, 0.14) !important;
+  color: #fb923c !important;
+}
+
+.status-danger,
+.status-chip.danger {
+  background: rgba(239, 68, 68, 0.16) !important;
+  color: #f87171 !important;
+}
+
+/* Passcode page */
+.passcode-page {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(37, 99, 235, 0.38), transparent 32%),
+    radial-gradient(circle at 82% 12%, rgba(147, 51, 234, 0.38), transparent 30%),
+    linear-gradient(135deg, #071b44 0%, #164f9f 52%, #681ba4 100%) !important;
+}
+
+.passcode-card {
+  background: rgba(255, 255, 255, 0.94) !important;
+  color: #071833 !important;
+  border: 1px solid rgba(255, 255, 255, 0.36) !important;
+}
+
+.passcode-card h1 {
+  color: #071833 !important;
+}
+
+.passcode-card p {
+  color: #536783 !important;
+}
+
+.passcode-icon {
+  background: linear-gradient(135deg, #38bdf8 0%, #2563eb 50%, #7c3aed 100%) !important;
+  color: #ffffff !important;
+}
+
+/* Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--wf-scrollbar) rgba(148, 163, 184, 0.18);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-track {
+  background: rgba(148, 163, 184, 0.16);
+  border-radius: 999px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #38bdf8 0%, #7c3aed 100%);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #60a5fa 0%, #a855f7 100%);
+  background-clip: padding-box;
+}
+
+/* Prevent accidental dark text on dark cards */
+.app-shell[data-theme="dark"] .latest-scan-card,
+.app-shell[data-theme="dark"] .latest-scan-card *,
+.app-shell[data-theme="dark"] .kpi-card,
+.app-shell[data-theme="dark"] .kpi-card *,
+.app-shell[data-theme="dark"] .metric-card,
+.app-shell[data-theme="dark"] .metric-card * {
+  color: #ffffff;
+}
+
+.app-shell[data-theme="dark"] .kpi-card .kpi-subtitle,
+.app-shell[data-theme="dark"] .latest-scan-card .kpi-subtitle,
+.app-shell[data-theme="dark"] .metric-card .metric-subtitle {
+  color: #a8bdd7 !important;
+}
