@@ -4,11 +4,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0",
-    "build": "vite build",
-    "preview": "vite preview --host 0.0.0.0",
-    "start": "node server.js"
-  },
+  "dev": "concurrently -n BACKEND,FRONTEND -c blue,magenta \"npm run backend\" \"npm run frontend\"",
+  "backend": "node server.js",
+  "frontend": "vite --host 0.0.0.0",
+  "build": "vite build",
+  "preview": "vite preview"
+},
   "dependencies": {
     "@vitejs/plugin-react": "latest",
     "vite": "latest",
