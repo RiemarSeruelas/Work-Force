@@ -2119,3 +2119,65 @@ button:hover { transform: translateY(-1px); }
 .bar-row .bar-fill.fill-red {
   background: linear-gradient(90deg, #ef4444, #dc2626) !important;
 }
+
+
+/* =========================================================
+   Fix: line follows only the visible bar stack, not the full plot.
+   Also updates workforce colors for days/population buckets.
+========================================================= */
+.powerbi-line-overlay {
+  /* Match the true bar plotting area only: top grid to x-label row. */
+  inset: 4px 5px 18px 5px !important;
+  z-index: 8 !important;
+}
+
+.powerbi-connected-topline {
+  fill: none !important;
+  stroke: #f8fafc !important;
+  stroke-width: 2.2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.35));
+}
+
+.powerbi-bar-topline {
+  height: 3px !important;
+  min-height: 3px !important;
+  background: #f8fafc !important;
+  border-radius: 999px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+/* Keep population/day buckets away from blue/green as requested. */
+.stack-yellow,
+.fill-amber {
+  background: #facc15 !important;
+}
+
+.stack-orange,
+.fill-orange {
+  background: #ea580c !important;
+}
+
+.stack-red,
+.fill-red {
+  background: #ef4444 !important;
+}
+
+/* Old classes may still exist in older markup; neutralize them for compliance/day use. */
+.compliance-right-grid .fill-blue,
+.compliance-right-grid .fill-green {
+  background: #ea580c !important;
+}
+
+/* Make colored fills render even when nested inside buttons/tracks. */
+.bar-fill {
+  display: block !important;
+  height: 100% !important;
+  min-width: 0;
+}
+
+.bar-track {
+  position: relative;
+  overflow: hidden;
+}

@@ -197,8 +197,8 @@ export default function WorkforceCompliancePage() {
 
           <div className="compliance-right-grid">
             <BarList title="Greater than 6 Days" rows={rows} field="greater_than_6_days" colorClass="fill-red" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="5-6 Days" rows={rows} field="days_5_6" colorClass="fill-blue" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="Less than 5 Days" rows={rows} field="days_less_than_5" colorClass="fill-green" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="5-6 Days" rows={rows} field="days_5_6" colorClass="fill-orange" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="Less than 5 Days" rows={rows} field="days_less_than_5" colorClass="fill-amber" selected={selectedBucket} onSelect={setSelectedBucket} />
           </div>
 
           <PersonDrilldown selected={selectedBucket} people={people} />

@@ -52,36 +52,40 @@ function safePercent(part, total) {
   return Math.round((p / t) * 100);
 }
 
-function getStackedBarHeightPercent(row, maxPopulation) {
-  const population = Math.max(Number(row?.population) || 0, 0);
-  const safeMax = Math.max(Number(maxPopulation) || 0, 1);
-
-  if (!population) return 0;
-
-  // Must match the actual CSS bar height exactly. This keeps the connector
-  // glued to the top of the visible stacked column instead of floating away.
-  return Math.max((Math.min(population, safeMax) / safeMax) * 100, 4);
+function getSegmentTotal(row, segments) {
+  return segments.reduce((sum, segment) => sum + (Number(row?.[segment.key]) || 0), 0);
 }
 
-function buildTopOfBarLinePoints(rows, maxPopulation) {
+function getStackedBarHeightPercent(value, maxValue) {
+  const safeValue = Math.max(Number(value) || 0, 0);
+  const safeMax = Math.max(Number(maxValue) || 0, 1);
+
+  if (!safeValue) return 0;
+
+  // The connector now follows only the visible stacked bar, not the whole plot.
+  return Math.max((Math.min(safeValue, safeMax) / safeMax) * 100, 4);
+}
+
+function buildTopOfBarLinePoints(rows, segments, maxVisibleTotal) {
   if (!rows.length) return "";
 
   const count = Math.max(rows.length, 1);
 
   return rows
     .map((row, index) => {
-      const barHeight = getStackedBarHeightPercent(row, maxPopulation);
+      const visibleTotal = getSegmentTotal(row, segments);
+      const barHeight = getStackedBarHeightPercent(visibleTotal, maxVisibleTotal);
       const x = ((index + 0.5) / count) * 100;
       const y = 100 - barHeight;
 
-      return `${Math.max(1.5, Math.min(98.5, x))},${Math.max(0, Math.min(99, y))}`;
+      return `${Math.max(1.5, Math.min(98.5, x))},${Math.max(0, Math.min(98, y))}`;
     })
     .join(" ");
 }
 
 function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineLabel = "" }) {
-  const maxPopulation = Math.max(...rows.map((row) => Number(row.population) || 0), 1);
-  const points = buildTopOfBarLinePoints(rows, maxPopulation);
+  const maxVisibleTotal = Math.max(...rows.map((row) => getSegmentTotal(row, segments)), 1);
+  const points = buildTopOfBarLinePoints(rows, segments, maxVisibleTotal);
 
   return (
     <div className="chart-card powerbi-timeseries-card">
@@ -95,15 +99,15 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
 
       <div className="powerbi-chart-area">
         <div className="powerbi-y-axis">
-          <span>{maxPopulation}</span>
-          <span>{Math.round(maxPopulation / 2)}</span>
+          <span>{maxVisibleTotal}</span>
+          <span>{Math.round(maxVisibleTotal / 2)}</span>
           <span>0</span>
         </div>
 
         <div className="powerbi-plot">
           {rows.map((row) => {
-            const population = Number(row.population) || 0;
-            const barHeight = getStackedBarHeightPercent(row, maxPopulation);
+            const visibleTotal = getSegmentTotal(row, segments);
+            const barHeight = getStackedBarHeightPercent(visibleTotal, maxVisibleTotal);
 
             return (
               <div className="powerbi-column" key={row.period_start}>
@@ -111,7 +115,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
                   <div className="powerbi-stacked-bar" style={{ height: `${barHeight}%` }}>
                     {segments.map((segment) => {
                       const value = Number(row[segment.key]) || 0;
-                      const height = population ? (value / population) * 100 : 0;
+                      const height = visibleTotal ? (value / visibleTotal) * 100 : 0;
 
                       return (
                         <div
@@ -122,7 +126,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
                         />
                       );
                     })}
-                    {population > 0 ? <div className="powerbi-bar-topline" /> : null}
+                    {visibleTotal > 0 ? <div className="powerbi-bar-topline" /> : null}
                   </div>
                 </div>
                 <div className="powerbi-x-label">{formatSeriesDate(row.period_start, period)}</div>
@@ -266,8 +270,8 @@ export default function WorkforceDashboardPage() {
             period={trendPeriod}
             segments={[
               { key: "hours_8_or_less", label: "< 8 hours", className: "stack-blue" },
-              { key: "hours_8_10", label: "> 8 hours", className: "stack-yellow" },
-              { key: "hours_10_12", label: "8-12 hours", className: "stack-orange" },
+              { key: "hours_8_10", label: "8-10 hours", className: "stack-yellow" },
+              { key: "hours_10_12", label: "10-12 hours", className: "stack-orange" },
               { key: "hours_12_plus", label: "> 12 hours", className: "stack-red" },
             ]}
           />
@@ -278,9 +282,9 @@ export default function WorkforceDashboardPage() {
             rows={series}
             period={trendPeriod}
             segments={[
-              { key: "days_5_or_less", label: "5 days and below", className: "stack-green" },
-              { key: "days_6", label: "6 days", className: "stack-blue" },
-              { key: "days_over_6", label: "Greater than 6 days", className: "stack-navy" },
+              { key: "days_5_or_less", label: "Less than 5 days", className: "stack-yellow" },
+              { key: "days_6", label: "5-6 days", className: "stack-orange" },
+              { key: "days_over_6", label: "Greater than 6 days", className: "stack-red" },
             ]}
           />
         </div>
