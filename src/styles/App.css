@@ -1953,3 +1953,79 @@ button:hover { transform: translateY(-1px); }
 .fill-amber {
   background: linear-gradient(90deg, #fde047, #f59e0b) !important;
 }
+
+/* =========================================================
+   Fix: line placement and summary alignment
+   The old SVG trend line can drift because it scales across the full plot.
+   The visible line is now a small cap attached directly to the top of each
+   stacked bar, so it always sits on the top of the red/top segment.
+========================================================= */
+.summary-strip {
+  grid-template-columns: minmax(0, 1fr) max-content max-content !important;
+  column-gap: 10px !important;
+}
+
+.summary-copy {
+  min-width: 0 !important;
+}
+
+.summary-stats {
+  justify-self: end !important;
+  margin-left: auto !important;
+  justify-content: flex-end !important;
+  flex-wrap: nowrap !important;
+}
+
+.summary-controls {
+  justify-self: end !important;
+  margin-left: 0 !important;
+}
+
+.powerbi-line-overlay {
+  display: none !important;
+}
+
+.powerbi-stacked-bar {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.powerbi-segment {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+.powerbi-bar-topline {
+  position: absolute !important;
+  left: -4px !important;
+  right: -4px !important;
+  top: -3px !important;
+  height: 4px !important;
+  border-radius: 999px !important;
+  background: #ffffff !important;
+  z-index: 9 !important;
+  box-shadow:
+    0 0 0 1px rgba(15, 23, 42, 0.34),
+    0 2px 5px rgba(15, 23, 42, 0.55) !important;
+}
+
+.app-shell:not([data-theme="dark"]) .powerbi-bar-topline {
+  background: #0f172a !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.85),
+    0 1px 4px rgba(15, 23, 42, 0.32) !important;
+}
+
+@media (max-width: 1180px) {
+  .summary-strip {
+    grid-template-columns: 1fr !important;
+  }
+
+  .summary-stats,
+  .summary-controls {
+    justify-self: stretch !important;
+    margin-left: 0 !important;
+    justify-content: flex-start !important;
+    flex-wrap: wrap !important;
+  }
+}

@@ -122,6 +122,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
                         />
                       );
                     })}
+                    {population > 0 ? <div className="powerbi-bar-topline" /> : null}
                   </div>
                 </div>
                 <div className="powerbi-x-label">{formatSeriesDate(row.period_start, period)}</div>
