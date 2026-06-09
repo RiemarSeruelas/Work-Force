@@ -1575,3 +1575,209 @@ button:hover { transform: translateY(-1px); }
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   Topbar/summary cleanup and chart/compliance polish
+========================================================= */
+.topbar {
+  grid-template-columns: auto minmax(0, 1fr) auto !important;
+  min-height: 58px !important;
+  padding: 9px 16px !important;
+}
+
+.brand-card {
+  min-width: 0 !important;
+}
+
+.brand-subtitle,
+.summary-eyebrow {
+  display: none !important;
+}
+
+.topbar-spacer {
+  min-width: 0;
+}
+
+.topbar-actions {
+  justify-content: flex-end !important;
+  gap: 7px !important;
+}
+
+.topbar-actions .topbar-nav {
+  justify-content: flex-end !important;
+  margin-right: 4px;
+}
+
+.summary-strip {
+  min-height: 66px !important;
+  padding: 10px 16px !important;
+  grid-template-columns: minmax(210px, 0.8fr) auto auto !important;
+}
+
+.summary-title {
+  font-size: 20px !important;
+}
+
+.summary-subtitle:empty {
+  display: none !important;
+}
+
+.overview-kpi-grid-five {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+}
+
+.overview-page-fit {
+  gap: 10px !important;
+}
+
+.overview-timeseries-stack {
+  gap: 9px !important;
+}
+
+.powerbi-timeseries-card {
+  min-height: 230px !important;
+  padding: 9px 12px 8px !important;
+}
+
+.powerbi-chart-area {
+  grid-template-columns: 34px minmax(0, 1fr) !important;
+  min-height: 155px !important;
+}
+
+.powerbi-plot {
+  overflow: hidden !important;
+  gap: 6px !important;
+  padding: 7px 8px 21px !important;
+  border-radius: 8px;
+}
+
+.powerbi-stacked-bar {
+  width: min(100%, 30px) !important;
+  border-radius: 3px 3px 0 0 !important;
+}
+
+.powerbi-line-overlay {
+  inset: 7px 8px 21px 8px !important;
+  overflow: hidden !important;
+  z-index: 6 !important;
+}
+
+.powerbi-line-overlay polyline {
+  stroke: #f8fafc !important;
+  stroke-width: 2.8 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  filter: drop-shadow(0 1px 2px rgba(15, 23, 42, 0.75));
+}
+
+.app-shell[data-theme="light"] .powerbi-line-overlay polyline,
+.app-shell:not([data-theme="dark"]) .powerbi-line-overlay polyline {
+  stroke: #111827 !important;
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.8));
+}
+
+.powerbi-legend .line-legend,
+.line-legend {
+  display: inline-block !important;
+  background: #111827 !important;
+}
+
+.stack-green { background: #2563eb !important; }
+.stack-yellow { background: #facc15 !important; }
+.stack-orange { background: #f97316 !important; }
+.stack-red { background: #ef4444 !important; }
+.stack-blue { background: #0ea5e9 !important; }
+.stack-navy { background: #7c3aed !important; }
+
+/* Strong compliance colors: force bars to stay colored in both themes. */
+.bar-row .bar-fill.fill-red,
+.compliance-bar-list .bar-fill.fill-red {
+  background: linear-gradient(90deg, #ef4444, #dc2626) !important;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.22);
+}
+
+.bar-row .bar-fill.fill-blue,
+.compliance-bar-list .bar-fill.fill-blue {
+  background: linear-gradient(90deg, #38bdf8, #2563eb) !important;
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.22);
+}
+
+.bar-row .bar-fill.fill-green,
+.compliance-bar-list .bar-fill.fill-green {
+  background: linear-gradient(90deg, #22c55e, #16a34a) !important;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.2);
+}
+
+.bar-track {
+  background: rgba(148, 163, 184, 0.28) !important;
+  overflow: hidden !important;
+}
+
+.bar-num {
+  color: var(--text) !important;
+  font-weight: 950 !important;
+}
+
+.compliance-page-panel {
+  padding: 12px !important;
+}
+
+.compliance-shell-grid {
+  grid-template-columns: minmax(360px, 0.95fr) 28px minmax(360px, 0.95fr) minmax(300px, 0.72fr) !important;
+  gap: 10px !important;
+}
+
+.compact-chart-card {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+}
+
+.compliance-bar-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(96, 165, 250, 0.85) rgba(15, 23, 42, 0.18);
+}
+
+.compliance-bar-list::-webkit-scrollbar,
+.drilldown-list::-webkit-scrollbar,
+.population-bars::-webkit-scrollbar {
+  width: 8px;
+}
+
+.compliance-bar-list::-webkit-scrollbar-track,
+.drilldown-list::-webkit-scrollbar-track,
+.population-bars::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+}
+
+.compliance-bar-list::-webkit-scrollbar-thumb,
+.drilldown-list::-webkit-scrollbar-thumb,
+.population-bars::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #38bdf8, #7c3aed);
+  border-radius: 999px;
+  border: 2px solid rgba(15, 23, 42, 0.16);
+}
+
+.drilldown-list {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(124, 58, 237, 0.9) rgba(15, 23, 42, 0.18);
+}
+
+@media (max-width: 1180px) {
+  .topbar {
+    grid-template-columns: 1fr !important;
+  }
+
+  .topbar-actions,
+  .topbar-actions .topbar-nav {
+    justify-content: flex-start !important;
+  }
+
+  .summary-strip {
+    grid-template-columns: 1fr !important;
+  }
+
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}

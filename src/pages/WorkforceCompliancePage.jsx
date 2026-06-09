@@ -174,11 +174,7 @@ export default function WorkforceCompliancePage() {
   return (
     <AppShell
       title={getTitle(group)}
-      subtitle={
-        compliance
-          ? `Week ${compliance.week}: ${compliance.startDate} to ${compliance.endDate}. More than 4 hours counts as 1 day.`
-          : "Weekly workforce compliance. Hours reset every Monday."
-      }
+      subtitle=""
       summaryControls={controls}
       summaryStats={[
         { value: totals.population ?? 0, label: "POPULATION" },

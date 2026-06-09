@@ -42,7 +42,7 @@ export default function WorkforceDailyRecordPage() {
   return (
     <AppShell
       title="Details of Daily Working Hours"
-      subtitle="Daily Hikvision scan summary. More than 4 hours counts as 1 working day"
+      subtitle=""
       summaryStats={[
         { value: total, label: "TOTAL WORKFORCE" },
         { value: rows.filter((r) => r.counted_day).length, label: "COUNTED DAYS", variant: "green" },

@@ -235,11 +235,11 @@ app.get("/api/workforce/summary", async (req, res) => {
         COUNT(*) FILTER (WHERE total_hours > 8 AND total_hours <= 10)::int AS hours_8_10,
         COUNT(*) FILTER (WHERE total_hours > 10 AND total_hours < 12)::int AS hours_10_12,
         COUNT(*) FILTER (WHERE total_hours >= 12)::int AS hours_12_plus,
-        COUNT(*) FILTER (WHERE working_days <= 5)::int AS days_5_or_less,
+        COUNT(*) FILTER (WHERE working_days > 0 AND working_days <= 5)::int AS days_5_or_less,
         COUNT(*) FILTER (WHERE working_days = 6)::int AS days_6,
         COUNT(*) FILTER (WHERE working_days > 6)::int AS days_over_6,
         ROUND(AVG(total_hours)::numeric, 2) AS average_hours,
-        ROUND(AVG(working_days)::numeric, 2) AS average_days
+        ROUND(AVG(NULLIF(working_days, 0))::numeric, 2) AS average_days
       FROM period_person
       GROUP BY period_start
       ORDER BY period_start ASC

@@ -13,6 +13,14 @@ function formatDateTime(value) {
   });
 }
 
+function getIsoWeekNumber(date) {
+  const temp = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = temp.getUTCDay() || 7;
+  temp.setUTCDate(temp.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(temp.getUTCFullYear(), 0, 1));
+  return Math.ceil((((temp - yearStart) / 86400000) + 1) / 7);
+}
+
 function formatSeriesDate(value, period) {
   if (!value) return "-";
   const date = new Date(`${value}T12:00:00+08:00`);
@@ -27,11 +35,7 @@ function formatSeriesDate(value, period) {
   }
 
   if (period === "WEEKLY") {
-    return `Wk ${date.toLocaleDateString("en-PH", {
-      timeZone: "Asia/Manila",
-      month: "short",
-      day: "numeric",
-    })}`;
+    return `Week ${getIsoWeekNumber(date)}`;
   }
 
   return date.toLocaleDateString("en-PH", {
@@ -48,25 +52,25 @@ function safePercent(part, total) {
   return Math.round((p / t) * 100);
 }
 
-function buildLinePoints(rows, lineKey) {
-  if (!rows.length) return "";
+function buildLinePoints(rows, lineKey, lineMax = null) {
+  if (!rows.length || !lineKey) return "";
 
-  const maxLine = Math.max(...rows.map((row) => Number(row[lineKey]) || 0), 1);
+  const maxLine = Number(lineMax) || Math.max(...rows.map((row) => Number(row[lineKey]) || 0), 1);
   const count = Math.max(rows.length, 1);
 
   return rows
     .map((row, index) => {
-      const value = Number(row[lineKey]) || 0;
+      const value = Math.max(Number(row[lineKey]) || 0, 0);
       const x = ((index + 0.5) / count) * 100;
-      const y = 98 - (value / maxLine) * 92;
-      return `${Math.max(2, Math.min(98, x))},${Math.max(4, Math.min(96, y))}`;
+      const y = 96 - (Math.min(value, maxLine) / maxLine) * 88;
+      return `${Math.max(2, Math.min(98, x))},${Math.max(8, Math.min(96, y))}`;
     })
     .join(" ");
 }
 
-function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineKey, lineLabel }) {
+function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineKey = null, lineLabel = "", lineMax = null }) {
   const maxPopulation = Math.max(...rows.map((row) => Number(row.population) || 0), 1);
-  const points = buildLinePoints(rows, lineKey);
+  const points = buildLinePoints(rows, lineKey, lineMax);
 
   return (
     <div className="chart-card powerbi-timeseries-card">
@@ -75,7 +79,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
           <h3>{title}</h3>
           <p>{description}</p>
         </div>
-        <span className="soft-pill">{lineLabel}</span>
+        {lineLabel && <span className="soft-pill">{lineLabel}</span>}
       </div>
 
       <div className="powerbi-chart-area">
@@ -88,7 +92,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
         <div className="powerbi-plot">
           {points && (
             <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <polyline points={points} fill="none" vectorEffect="non-scaling-stroke" />
+              <polyline points={points} fill="none" />
             </svg>
           )}
 
@@ -151,7 +155,6 @@ export default function WorkforceDashboardPage() {
   }, [fetchSummary, workforceDate, group, trendPeriod]);
 
   const totalPeople = Number(summary?.totalPeople) || 0;
-  const countedDays = Number(summary?.countedDays) || 0;
   const over8 = Number(summary?.greaterThan8Hours) || 0;
   const over10 = Number(summary?.greaterThan10Hours) || 0;
   const over12 = Number(summary?.greaterThan12Hours) || 0;
@@ -206,11 +209,10 @@ export default function WorkforceDashboardPage() {
   return (
     <AppShell
       title="Workforce Monitoring Overview"
-      subtitle="Population counts anyone who entered. Day count only applies when total time is more than 4 hours."
+      subtitle=""
       summaryControls={controls}
       summaryStats={[
         { value: totalPeople, label: "TOTAL WORKFORCE" },
-        { value: countedDays, label: "COUNTED DAYS", variant: "green" },
         { value: over8, label: "> 8 HOURS", variant: "amber" },
         { value: over12, label: "12+ HOURS", variant: "red" },
       ]}
@@ -223,12 +225,6 @@ export default function WorkforceDashboardPage() {
             <div className="metric-label">Total Workforce</div>
             <div className="metric-value">{totalPeople}</div>
             <div className="mini-info-text">Anyone with an entry scan in the workforce window.</div>
-          </div>
-
-          <div className="metric-card kpi-card status-green">
-            <div className="metric-label">Counted Working Days</div>
-            <div className="metric-value">{countedDays}</div>
-            <div className="mini-info-text">Only more than 4 hours counts as one day.</div>
           </div>
 
           <div className="metric-card kpi-card status-amber">
@@ -246,18 +242,16 @@ export default function WorkforceDashboardPage() {
           <div className="metric-card kpi-card latest-scan-kpi">
             <div className="metric-label">Latest Scan</div>
             <div className="metric-value small-value">{formatDateTime(summary?.latestScan)}</div>
-            <div className="mini-info-text">Window: 06:00 to 05:59</div>
+            <div className="mini-info-text">Most recent Hikvision scan.</div>
           </div>
         </div>
 
         <div className="overview-timeseries-stack">
           <VerticalTimeSeriesChart
             title="Working Hours Compliance"
-            description="Stacked population by work-hour bucket with an average-hours line."
+            description="Stacked population by work-hour bucket."
             rows={series}
             period={trendPeriod}
-            lineKey="average_hours"
-            lineLabel="Average Working Hours"
             segments={[
               { key: "hours_8_or_less", label: "< 8 hours", className: "stack-green" },
               { key: "hours_8_10", label: "> 8 hours", className: "stack-yellow" },
@@ -273,6 +267,7 @@ export default function WorkforceDashboardPage() {
             period={trendPeriod}
             lineKey="average_days"
             lineLabel="Average Working Days"
+            lineMax={7}
             segments={[
               { key: "days_5_or_less", label: "5 days and below", className: "stack-green" },
               { key: "days_6", label: "6 days", className: "stack-blue" },

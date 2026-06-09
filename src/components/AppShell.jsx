@@ -31,25 +31,25 @@ export default function AppShell({
           <div className="brand-icon">CF</div>
           <div className="brand-copy">
             <div className="brand-title">Cavite Foods Workforce</div>
-            <div className="brand-subtitle">6:00 AM to 5:59 AM workforce window</div>
           </div>
         </div>
 
-        <nav className="topbar-nav" aria-label="Workforce dashboard navigation">
-          {navItems.map((item) => (
-            <Link key={item.path} to={item.path} className="top-nav-link">
-              <button
-                className={`top-nav-btn ${
-                  location.pathname === item.path ? "active" : ""
-                }`}
-              >
-                {item.label}
-              </button>
-            </Link>
-          ))}
-        </nav>
+        <div className="topbar-spacer" />
 
         <div className="topbar-actions">
+          <nav className="topbar-nav" aria-label="Workforce dashboard navigation">
+            {navItems.map((item) => (
+              <Link key={item.path} to={item.path} className="top-nav-link">
+                <button
+                  className={`top-nav-btn ${
+                    location.pathname === item.path ? "active" : ""
+                  }`}
+                >
+                  {item.label}
+                </button>
+              </Link>
+            ))}
+          </nav>
           <button className="top-nav-btn utility-btn" onClick={toggleTheme}>
             {theme === "dark" ? "☀ Light" : "🌙 Dark"}
           </button>
@@ -61,9 +61,8 @@ export default function AppShell({
 
       <section className="summary-strip">
         <div className="summary-copy">
-          <div className="summary-eyebrow">Workforce Monitoring</div>
           <div className="summary-title">{title}</div>
-          <div className="summary-subtitle">{subtitle}</div>
+          {subtitle && <div className="summary-subtitle">{subtitle}</div>}
         </div>
 
         <div className="summary-stats">
