@@ -176,8 +176,8 @@ button:disabled {
 }
 
 .summary-strip {
-  min-height: 102px;
-  padding: 14px 20px;
+  min-height: 82px;
+  padding: 10px 20px;
   background: linear-gradient(90deg, #46106a 0%, #5e1e91 34%, #1d4ed8 74%, #1e88e5 100%);
   color: #fff;
   display: grid;
@@ -194,7 +194,7 @@ button:disabled {
 }
 
 .summary-title {
-  font-size: 22px;
+  font-size: 18px;
   line-height: 1.08;
   font-weight: 900;
 }
@@ -227,8 +227,8 @@ button:disabled {
 }
 
 .summary-stat {
-  min-width: 84px;
-  min-height: 60px;
+  min-width: 82px;
+  min-height: 52px;
   text-align: center;
   background: rgba(255, 255, 255, 0.11);
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -240,7 +240,7 @@ button:disabled {
 }
 
 .summary-value {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 900;
   line-height: 1;
 }
@@ -272,8 +272,8 @@ button:disabled {
   justify-content: flex-end;
   gap: 8px;
   flex-wrap: nowrap;
-  padding: 8px;
-  border-radius: 18px;
+  padding: 6px;
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -282,20 +282,20 @@ button:disabled {
 .summary-filter-field {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 152px;
+  gap: 3px;
+  min-width: 142px;
 }
 
 .summary-filter-small {
-  min-width: 84px;
+  min-width: 78px;
 }
 
 .summary-filter-small-wide {
-  min-width: 132px;
+  min-width: 122px;
 }
 
 .summary-filter-medium {
-  min-width: 150px;
+  min-width: 138px;
 }
 
 .summary-filter-field span {
@@ -308,7 +308,7 @@ button:disabled {
 
 .summary-input {
   width: 100%;
-  height: 42px;
+  height: 38px;
   border-radius: 13px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.94);
@@ -320,7 +320,7 @@ button:disabled {
 }
 
 .summary-refresh-btn {
-  height: 42px;
+  height: 38px;
   padding: 0 18px;
   border-radius: 13px;
   border: 1px solid rgba(96, 165, 250, 0.4);
@@ -336,8 +336,8 @@ button:disabled {
   flex: 1;
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
-  gap: 16px;
-  padding: 14px 20px 20px;
+  gap: 12px;
+  padding: 10px 16px 14px;
   align-items: start;
 }
 
@@ -631,24 +631,24 @@ button:disabled {
 .overview-page-fit {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .overview-timeseries-stack {
   display: grid;
-  grid-template-rows: 1fr 1fr;
-  gap: 12px;
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .powerbi-timeseries-card {
-  padding: 14px 14px 12px;
+  padding: 12px 12px 10px;
 }
 
 .powerbi-chart-area {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr);
-  gap: 10px;
-  min-height: 220px;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 190px;
 }
 
 .powerbi-y-axis {
@@ -656,7 +656,7 @@ button:disabled {
   flex-direction: column;
   justify-content: space-between;
   align-items: flex-end;
-  padding: 12px 0 30px;
+  padding: 10px 0 24px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 800;
@@ -667,10 +667,10 @@ button:disabled {
   min-width: 0;
   display: grid;
   grid-auto-flow: column;
-  grid-auto-columns: minmax(26px, 1fr);
-  gap: 6px;
+  grid-auto-columns: minmax(24px, 1fr);
+  gap: 5px;
   align-items: stretch;
-  padding: 12px 10px 28px;
+  padding: 10px 10px 24px;
   border-left: 1px solid rgba(15, 23, 42, 0.12);
   border-bottom: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 10px;
@@ -691,7 +691,7 @@ button:disabled {
 .powerbi-column {
   min-width: 0;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 18px;
+  grid-template-rows: minmax(0, 1fr) 16px;
   gap: 4px;
   justify-items: center;
 }
@@ -705,7 +705,7 @@ button:disabled {
 
 .powerbi-stacked-bar {
   position: relative;
-  width: min(100%, 34px);
+  width: min(100%, 32px);
   min-height: 1px;
   display: flex;
   flex-direction: column-reverse;
@@ -742,7 +742,7 @@ button:disabled {
 .powerbi-x-label {
   width: 100%;
   color: var(--muted);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 900;
   text-align: center;
   line-height: 1.1;
@@ -753,7 +753,7 @@ button:disabled {
 
 .powerbi-line-overlay {
   position: absolute;
-  inset: 12px 10px 28px 10px;
+  inset: 10px 10px 38px 10px;
   width: auto;
   height: auto;
   pointer-events: none;
@@ -780,8 +780,8 @@ button:disabled {
 .powerbi-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 12px;
-  margin-top: 8px;
+  gap: 5px 10px;
+  margin-top: 6px;
   color: var(--muted);
   font-size: 10px;
   font-weight: 800;
@@ -955,6 +955,8 @@ button:disabled {
 .compact-chart-card,
 .compliance-drilldown-card {
   padding: 14px;
+  display: flex;
+  flex-direction: column;
 }
 
 .compact-card-title {
@@ -975,6 +977,7 @@ button:disabled {
 
 .compliance-bar-list {
   max-height: 190px;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 6px;
 }
@@ -1042,10 +1045,12 @@ button:disabled {
 
 .compliance-drilldown-card {
   height: fit-content;
+  min-height: 0;
 }
 
 .drilldown-list {
   max-height: 618px;
+  min-height: 0;
   overflow-y: auto;
   padding-right: 6px;
 }
@@ -1248,23 +1253,23 @@ button:disabled {
   }
 
   .overview-page-fit {
-    gap: 10px;
+    gap: 8px;
   }
 
   .overview-timeseries-stack {
-    gap: 10px;
+    gap: 8px;
   }
 
   .overview-kpi-grid-five .kpi-card {
-    min-height: 96px;
+    min-height: 88px;
   }
 
   .powerbi-timeseries-card {
-    padding: 12px 12px 10px;
+    padding: 10px 10px 8px;
   }
 
   .powerbi-chart-area {
-    min-height: 178px;
+    min-height: 148px;
   }
 
   .compliance-shell-grid {
@@ -1282,16 +1287,19 @@ button:disabled {
   .compact-chart-card,
   .compliance-drilldown-card {
     min-height: 0;
+    height: 100%;
     overflow: hidden;
   }
 
   .compliance-bar-list {
     max-height: none;
+    min-height: 0;
     flex: 1;
   }
 
   .drilldown-list {
     max-height: none;
+    min-height: 0;
     flex: 1;
   }
 }
