@@ -1781,3 +1781,83 @@ button:hover { transform: translateY(-1px); }
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+
+/* =========================================================
+   Fix: keep PowerBI overlay line visible and force compliance bar fills.
+========================================================= */
+.powerbi-plot {
+  isolation: isolate !important;
+}
+
+.powerbi-line-overlay {
+  display: block !important;
+  position: absolute !important;
+  inset: 6px 8px 21px 8px !important;
+  width: auto !important;
+  height: auto !important;
+  pointer-events: none !important;
+  z-index: 50 !important;
+  overflow: visible !important;
+}
+
+.powerbi-line-overlay polyline {
+  display: block !important;
+  stroke: #ffffff !important;
+  stroke-width: 3 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.9));
+}
+
+.app-shell:not([data-theme="dark"]) .powerbi-line-overlay polyline {
+  stroke: #0f172a !important;
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.95));
+}
+
+.powerbi-column,
+.powerbi-bar-slot,
+.powerbi-stacked-bar {
+  position: relative;
+  z-index: 2;
+}
+
+.compliance-bar-list .bar-fill,
+.bar-row .bar-fill,
+.bar-fill {
+  display: block !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  border-radius: 999px !important;
+}
+
+.compliance-bar-list .bar-fill.fill-red,
+.bar-row .bar-fill.fill-red,
+.fill-red {
+  background: linear-gradient(90deg, #ef4444, #dc2626) !important;
+}
+
+.compliance-bar-list .bar-fill.fill-blue,
+.bar-row .bar-fill.fill-blue,
+.fill-blue {
+  background: linear-gradient(90deg, #38bdf8, #2563eb) !important;
+}
+
+.compliance-bar-list .bar-fill.fill-green,
+.bar-row .bar-fill.fill-green,
+.fill-green {
+  background: linear-gradient(90deg, #22c55e, #16a34a) !important;
+}
+
+.compliance-bar-list .bar-fill.fill-amber,
+.bar-row .bar-fill.fill-amber,
+.fill-amber {
+  background: linear-gradient(90deg, #fde047, #f59e0b) !important;
+}
+
+.compliance-bar-list .bar-track,
+.bar-row .bar-track {
+  background: rgba(148, 163, 184, 0.24) !important;
+  overflow: hidden !important;
+}

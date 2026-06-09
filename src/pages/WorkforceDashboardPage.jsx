@@ -79,7 +79,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
           <h3>{title}</h3>
           <p>{description}</p>
         </div>
-        {lineLabel && <span className="soft-pill">{lineLabel}</span>}
+        {lineLabel ? <span className="soft-pill">{lineLabel}</span> : null}
       </div>
 
       <div className="powerbi-chart-area">
@@ -90,11 +90,11 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
         </div>
 
         <div className="powerbi-plot">
-          {points && (
+          {points ? (
             <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <polyline points={points} fill="none" />
+              <polyline points={points} fill="none" vectorEffect="non-scaling-stroke" />
             </svg>
-          )}
+          ) : null}
 
           {rows.map((row) => {
             const population = Number(row.population) || 0;
@@ -132,7 +132,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
         {segments.map((segment) => (
           <span key={segment.key}><i className={`legend-box ${segment.className}`} /> {segment.label}</span>
         ))}
-        <span><i className="line-legend" /> {lineLabel}</span>
+        {lineLabel ? <span><i className="line-legend" /> {lineLabel}</span> : null}
       </div>
     </div>
   );
@@ -252,6 +252,8 @@ export default function WorkforceDashboardPage() {
             description="Stacked population by work-hour bucket."
             rows={series}
             period={trendPeriod}
+            lineKey="average_hours"
+            lineMax={16}
             segments={[
               { key: "hours_8_or_less", label: "< 8 hours", className: "stack-green" },
               { key: "hours_8_10", label: "> 8 hours", className: "stack-yellow" },
@@ -266,7 +268,7 @@ export default function WorkforceDashboardPage() {
             rows={series}
             period={trendPeriod}
             lineKey="average_days"
-            lineLabel="Average Working Days"
+            lineLabel=""
             lineMax={7}
             segments={[
               { key: "days_5_or_less", label: "5 days and below", className: "stack-green" },
