@@ -1861,3 +1861,95 @@ button:hover { transform: translateY(-1px); }
   background: rgba(148, 163, 184, 0.24) !important;
   overflow: hidden !important;
 }
+
+
+/* =========================================================
+   Fix: keep the time-series line glued to the top of each stacked bar
+   and make compliance fills render even inside span/grid/button rows.
+========================================================= */
+.powerbi-plot {
+  position: relative !important;
+  isolation: isolate !important;
+}
+
+.powerbi-column,
+.powerbi-bar-slot,
+.powerbi-stacked-bar {
+  position: relative !important;
+}
+
+.powerbi-line-overlay {
+  display: block !important;
+  position: absolute !important;
+  inset: 7px 8px 21px 8px !important;
+  width: auto !important;
+  height: auto !important;
+  pointer-events: none !important;
+  z-index: 80 !important;
+  overflow: visible !important;
+}
+
+.powerbi-line-overlay polyline {
+  display: block !important;
+  fill: none !important;
+  stroke: #ffffff !important;
+  stroke-width: 3.2 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  vector-effect: non-scaling-stroke !important;
+  filter:
+    drop-shadow(0 0 2px rgba(15, 23, 42, 0.95))
+    drop-shadow(0 1px 2px rgba(15, 23, 42, 0.85)) !important;
+}
+
+.app-shell:not([data-theme="dark"]) .powerbi-line-overlay polyline {
+  stroke: #111827 !important;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 1px 2px rgba(255, 255, 255, 0.9)) !important;
+}
+
+.compliance-bar-list .bar-track,
+.bar-row .bar-track,
+.bar-track {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: 12px !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
+  background: rgba(148, 163, 184, 0.24) !important;
+}
+
+.compliance-bar-list .bar-fill,
+.bar-row .bar-fill,
+.bar-fill {
+  display: block !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  border-radius: 999px !important;
+}
+
+.compliance-bar-list .bar-fill.fill-red,
+.bar-row .bar-fill.fill-red,
+.fill-red {
+  background: linear-gradient(90deg, #ef4444, #dc2626) !important;
+}
+
+.compliance-bar-list .bar-fill.fill-blue,
+.bar-row .bar-fill.fill-blue,
+.fill-blue {
+  background: linear-gradient(90deg, #38bdf8, #2563eb) !important;
+}
+
+.compliance-bar-list .bar-fill.fill-green,
+.bar-row .bar-fill.fill-green,
+.fill-green {
+  background: linear-gradient(90deg, #22c55e, #16a34a) !important;
+}
+
+.compliance-bar-list .bar-fill.fill-amber,
+.bar-row .bar-fill.fill-amber,
+.fill-amber {
+  background: linear-gradient(90deg, #fde047, #f59e0b) !important;
+}

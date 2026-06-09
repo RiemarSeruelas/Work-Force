@@ -52,25 +52,30 @@ function safePercent(part, total) {
   return Math.round((p / t) * 100);
 }
 
-function buildLinePoints(rows, lineKey, lineMax = null) {
-  if (!rows.length || !lineKey) return "";
+function buildTopOfBarLinePoints(rows, maxPopulation) {
+  if (!rows.length) return "";
 
-  const maxLine = Number(lineMax) || Math.max(...rows.map((row) => Number(row[lineKey]) || 0), 1);
+  const safeMax = Math.max(Number(maxPopulation) || 0, 1);
   const count = Math.max(rows.length, 1);
 
   return rows
     .map((row, index) => {
-      const value = Math.max(Number(row[lineKey]) || 0, 0);
+      const population = Math.max(Number(row.population) || 0, 0);
       const x = ((index + 0.5) / count) * 100;
-      const y = 96 - (Math.min(value, maxLine) / maxLine) * 88;
-      return `${Math.max(2, Math.min(98, x))},${Math.max(8, Math.min(96, y))}`;
+
+      // The line is intentionally tied to the top of the full stacked column,
+      // not average hours/days. This keeps the line sitting on top of the red
+      // segment/top of the population bar like the Power BI reference.
+      const y = 100 - (Math.min(population, safeMax) / safeMax) * 100;
+
+      return `${Math.max(2, Math.min(98, x))},${Math.max(0, Math.min(100, y))}`;
     })
     .join(" ");
 }
 
-function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineKey = null, lineLabel = "", lineMax = null }) {
+function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineLabel = "" }) {
   const maxPopulation = Math.max(...rows.map((row) => Number(row.population) || 0), 1);
-  const points = buildLinePoints(rows, lineKey, lineMax);
+  const points = buildTopOfBarLinePoints(rows, maxPopulation);
 
   return (
     <div className="chart-card powerbi-timeseries-card">
@@ -252,8 +257,6 @@ export default function WorkforceDashboardPage() {
             description="Stacked population by work-hour bucket."
             rows={series}
             period={trendPeriod}
-            lineKey="average_hours"
-            lineMax={16}
             segments={[
               { key: "hours_8_or_less", label: "< 8 hours", className: "stack-green" },
               { key: "hours_8_10", label: "> 8 hours", className: "stack-yellow" },
@@ -267,9 +270,6 @@ export default function WorkforceDashboardPage() {
             description="More than 4 hours counts as one day. Stacked by number of counted days."
             rows={series}
             period={trendPeriod}
-            lineKey="average_days"
-            lineLabel=""
-            lineMax={7}
             segments={[
               { key: "days_5_or_less", label: "5 days and below", className: "stack-green" },
               { key: "days_6", label: "6 days", className: "stack-blue" },
