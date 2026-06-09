@@ -67,14 +67,16 @@ function buildLineSegments(rows, segments, maxVisibleTotal) {
   if (!rows.length) return [];
 
   const count = Math.max(rows.length, 1);
-  const groups = [];
+  const segmentsOut = [];
   let current = [];
 
   rows.forEach((row, index) => {
     const visibleTotal = getSegmentTotal(row, segments);
 
     if (visibleTotal <= 0) {
-      if (current.length > 0) groups.push(current);
+      if (current.length > 1) {
+        segmentsOut.push(current.map((point) => `${point.x},${point.y}`).join(" "));
+      }
       current = [];
       return;
     }
@@ -84,45 +86,16 @@ function buildLineSegments(rows, segments, maxVisibleTotal) {
     const y = 100 - barHeight;
 
     current.push({
-      x: Number(Math.max(1.5, Math.min(98.5, x)).toFixed(3)),
-      y: Number(Math.max(1, Math.min(98, y)).toFixed(3)),
+      x: Math.max(1.5, Math.min(98.5, Number(x.toFixed(3)))),
+      y: Math.max(1, Math.min(98, Number(y.toFixed(3)))),
     });
   });
 
-  if (current.length > 0) groups.push(current);
-
-  return groups
-    .filter((group) => group.length > 1)
-    .map((points) => ({
-      points,
-      path: buildSmoothPath(points),
-    }));
-}
-
-function buildSmoothPath(points) {
-  if (!points.length) return "";
-  if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
-
-  let path = `M ${points[0].x} ${points[0].y}`;
-
-  for (let i = 0; i < points.length - 1; i += 1) {
-    const current = points[i];
-    const next = points[i + 1];
-    const midX = (current.x + next.x) / 2;
-    const midY = (current.y + next.y) / 2;
-
-    if (i === 0) {
-      path += ` Q ${current.x} ${current.y} ${midX} ${midY}`;
-    } else {
-      path += ` T ${midX} ${midY}`;
-    }
-
-    if (i === points.length - 2) {
-      path += ` T ${next.x} ${next.y}`;
-    }
+  if (current.length > 1) {
+    segmentsOut.push(current.map((point) => `${point.x},${point.y}`).join(" "));
   }
 
-  return path;
+  return segmentsOut;
 }
 
 function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineLabel = "" }) {
@@ -178,19 +151,8 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
 
           {lineSegments.length > 0 ? (
             <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              {lineSegments.map((segment, index) => (
-                <g key={`segment-${index}`}>
-                  <path className="powerbi-connected-topline" d={segment.path} />
-                  {segment.points.map((point, pointIndex) => (
-                    <circle
-                      key={`point-${index}-${pointIndex}`}
-                      className="powerbi-line-dot"
-                      cx={point.x}
-                      cy={point.y}
-                      r="1.2"
-                    />
-                  ))}
-                </g>
+              {lineSegments.map((points, index) => (
+                <polyline key={`segment-${index}`} className="powerbi-connected-topline" points={points} />
               ))}
             </svg>
           ) : null}
