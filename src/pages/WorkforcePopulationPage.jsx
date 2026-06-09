@@ -20,7 +20,7 @@ export default function WorkforcePopulationPage() {
   return (
     <AppShell
       title="Workforce Population"
-      subtitle=""
+      subtitle="Population breakdown by subgroup for selected workforce day"
       summaryStats={[
         { value: total, label: "TOTAL" },
         { value: rows.length, label: "SUBGROUPS" },
@@ -44,7 +44,7 @@ export default function WorkforcePopulationPage() {
               return (
                 <div className="bar-row" key={row.persongroup}>
                   <div className="bar-name">{row.persongroup || "Unknown"}</div>
-                  <div className="bar-track"><div className="bar-fill fill-green" style={{ width: `${(value / max) * 100}%` }} /></div>
+                  <div className="bar-track"><div className="bar-fill fill-blue population-fill-blue" style={{ width: `${(value / max) * 100}%` }} /></div>
                   <div className="bar-num">{value}</div>
                 </div>
               );

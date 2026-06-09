@@ -2217,3 +2217,132 @@ button:hover { transform: translateY(-1px); }
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================
+   Final polish: compact overview KPI row, remove summary numbers,
+   local bar-top connectors, and force population blue.
+========================================================= */
+.summary-strip:has(.summary-stats:empty) {
+  grid-template-columns: minmax(260px, 1fr) auto !important;
+}
+
+.summary-stats:empty {
+  display: none !important;
+}
+
+.summary-strip:has(.summary-stats:empty) .summary-controls {
+  grid-column: 2 !important;
+  justify-self: end !important;
+  margin-left: auto !important;
+}
+
+.overview-kpi-grid-five {
+  grid-template-columns: minmax(220px, 1.05fr) repeat(3, minmax(170px, 0.82fr)) minmax(230px, 1fr) !important;
+  gap: 9px !important;
+}
+
+.overview-kpi-grid-five .kpi-card {
+  min-height: 74px !important;
+  padding: 10px 12px !important;
+}
+
+.overview-kpi-grid-five .metric-label {
+  font-size: 11px !important;
+  line-height: 1.1 !important;
+}
+
+.overview-kpi-grid-five .metric-value {
+  font-size: 24px !important;
+  line-height: 1 !important;
+}
+
+.overview-kpi-grid-five .mini-info-text {
+  font-size: 10px !important;
+  line-height: 1.25 !important;
+}
+
+.latest-scan-kpi .small-value {
+  font-size: 15px !important;
+  line-height: 1.15 !important;
+  white-space: normal !important;
+}
+
+/* Disable the old whole-plot SVG line. It was using a plot container that
+   did not perfectly match the real bar-slot height. */
+.powerbi-line-overlay,
+.powerbi-connected-topline {
+  display: none !important;
+}
+
+.powerbi-bar-slot {
+  position: relative !important;
+  overflow: visible !important;
+}
+
+.powerbi-local-connector {
+  position: absolute !important;
+  left: 50% !important;
+  bottom: 0 !important;
+  width: calc(100% + 7px) !important;
+  height: 100% !important;
+  overflow: visible !important;
+  pointer-events: none !important;
+  z-index: 80 !important;
+  transform: translateX(0);
+}
+
+.powerbi-local-connector line {
+  stroke: #f8fafc !important;
+  stroke-width: 3.2 !important;
+  stroke-linecap: round !important;
+  vector-effect: non-scaling-stroke !important;
+  filter:
+    drop-shadow(0 0 2px rgba(15, 23, 42, 0.95))
+    drop-shadow(0 1px 2px rgba(15, 23, 42, 0.85)) !important;
+}
+
+.app-shell:not([data-theme="dark"]) .powerbi-local-connector line {
+  stroke: #111827 !important;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 1px 2px rgba(255, 255, 255, 0.65)) !important;
+}
+
+.powerbi-stacked-bar,
+.powerbi-bar-topline {
+  z-index: 90 !important;
+}
+
+/* Force all population bars blue, including older generic fill classes and
+   the new explicit population-fill-blue class. */
+.population-bars .bar-fill,
+.population-bars .fill-green,
+.population-bars .fill-blue,
+.population-bars .population-fill-blue,
+.population-card .bar-fill,
+.population-card .fill-green,
+.population-card .fill-blue,
+.population-card .population-fill-blue {
+  background: linear-gradient(90deg, #38bdf8 0%, #2563eb 100%) !important;
+  background-color: #2563eb !important;
+}
+
+@media (max-width: 1380px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+  }
+
+  .overview-kpi-grid-five .metric-value {
+    font-size: 21px !important;
+  }
+
+  .latest-scan-kpi .small-value {
+    font-size: 13px !important;
+  }
+}
+
+@media (max-width: 1050px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
