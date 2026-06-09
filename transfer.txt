@@ -1,8 +1,0 @@
-
-  "scripts": {
-  "dev": "concurrently -n BACKEND,FRONTEND -c blue,magenta \"npm run backend\" \"npm run frontend\"",
-  "backend": "node server.js",
-  "frontend": "vite --host 0.0.0.0",
-  "build": "vite build",
-  "preview": "vite preview"
-},
