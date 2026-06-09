@@ -100,8 +100,6 @@ function buildLineSegments(rows, segments, maxVisibleTotal) {
 
 function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineLabel = "" }) {
   const maxVisibleTotal = Math.max(...rows.map((row) => getSegmentTotal(row, segments)), 1);
-  const lineSegments = buildLineSegments(rows, segments, maxVisibleTotal);
-
   return (
     <div className="chart-card powerbi-timeseries-card">
       <div className="chart-header-row compact-chart-header">
@@ -120,13 +118,25 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
         </div>
 
         <div className="powerbi-plot">
-          {rows.map((row) => {
+          {rows.map((row, index) => {
             const visibleTotal = getSegmentTotal(row, segments);
             const barHeight = getStackedBarHeightPercent(visibleTotal, maxVisibleTotal);
+            const nextRow = rows[index + 1];
+            const nextVisibleTotal = nextRow ? getSegmentTotal(nextRow, segments) : 0;
+            const nextBarHeight = getStackedBarHeightPercent(nextVisibleTotal, maxVisibleTotal);
+            const currentTop = 100 - barHeight;
+            const nextTop = 100 - nextBarHeight;
+            const canConnectToNext = visibleTotal > 0 && nextVisibleTotal > 0;
 
             return (
               <div className="powerbi-column" key={row.period_start}>
                 <div className="powerbi-bar-slot">
+                  {canConnectToNext ? (
+                    <svg className="powerbi-local-connector" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true">
+                      <line x1="50" y1={currentTop} x2="150" y2={nextTop} />
+                    </svg>
+                  ) : null}
+
                   <div className="powerbi-stacked-bar" style={{ height: `${barHeight}%` }}>
                     {segments.map((segment) => {
                       const value = Number(row[segment.key]) || 0;
@@ -148,14 +158,6 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
               </div>
             );
           })}
-
-          {lineSegments.length > 0 ? (
-            <svg className="powerbi-line-overlay" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-              {lineSegments.map((points, index) => (
-                <polyline key={`segment-${index}`} className="powerbi-connected-topline" points={points} />
-              ))}
-            </svg>
-          ) : null}
 
           {rows.length === 0 && <div className="empty-cell">No time series data found.</div>}
         </div>
