@@ -83,7 +83,8 @@ function buildLineSegments(rows, segments, maxVisibleTotal) {
 
     const barHeight = getStackedBarHeightPercent(visibleTotal, maxVisibleTotal);
     const x = ((index + 0.5) / count) * 100;
-    const y = 100 - barHeight;
+    const connectorLift = 1.8;
+    const y = 100 - barHeight - connectorLift;
 
     current.push({
       x: Math.max(1.5, Math.min(98.5, Number(x.toFixed(3)))),
