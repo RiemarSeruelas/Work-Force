@@ -147,14 +147,7 @@ app.get("/api/workforce/summary", async (req, res) => {
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
           MIN(scan_ts) AS first_scan,
-          CASE
-            WHEN COUNT(*) = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE MAX(scan_ts)
-          END AS last_scan,
+          MAX(scan_ts) AS last_scan,
           COUNT(*) AS scan_count
         FROM day_scans
         GROUP BY COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
@@ -178,7 +171,7 @@ app.get("/api/workforce/summary", async (req, res) => {
         COUNT(*) FILTER (WHERE work_hours > 8 AND work_hours <= 10)::int AS greater_than_8_hours,
         COUNT(*) FILTER (WHERE work_hours > 10 AND work_hours < 12)::int AS greater_than_10_hours,
         COUNT(*) FILTER (WHERE work_hours >= 12)::int AS greater_than_12_hours,
-        COALESCE(MAX(last_scan), NOW() AT TIME ZONE 'Asia/Manila') AS latest_scan
+        MAX(last_scan) AS latest_scan
       FROM computed
       `,
       [workforceDate]
@@ -440,14 +433,7 @@ app.get("/api/workforce/daily-record", async (req, res) => {
             ELSE 'FTE'
           END AS workforce_group,
           MIN(scan_ts) AS entry_time,
-          CASE
-            WHEN COUNT(*) = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE MAX(scan_ts)
-          END AS last_scan,
+          MAX(scan_ts) AS last_scan,
           GREATEST(EXTRACT(EPOCH FROM ((CASE
               WHEN COUNT(*) = 1
                 AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
@@ -648,14 +634,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
           MIN(scan_ts) AS first_scan,
-          CASE
-            WHEN COUNT(*) = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE MAX(scan_ts)
-          END AS last_scan,
+          MAX(scan_ts) AS last_scan,
           ROUND(GREATEST(EXTRACT(EPOCH FROM ((CASE
             WHEN COUNT(*) = 1
               AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
