@@ -63,6 +63,62 @@ function getStackedBarHeightPercent(value, maxValue) {
   return Math.max((Math.min(safeValue, safeMax) / safeMax) * 100, 4);
 }
 
+function formatCount(value) {
+  return (Number(value) || 0).toLocaleString("en-US");
+}
+
+function formatPercent(value, total) {
+  const safeValue = Number(value) || 0;
+  const safeTotal = Number(total) || 0;
+  if (!safeTotal) return "0%";
+  return `${Math.round((safeValue / safeTotal) * 100)}%`;
+}
+
+function getTooltipSide(index, total) {
+  if (index <= 1) return "tooltip-left";
+  if (index >= total - 2) return "tooltip-right";
+  return "";
+}
+
+function BarTooltip({ row, period, segments, total }) {
+  const averageHours = row?.average_hours ?? row?.averageHours;
+  const averageDays = row?.average_days ?? row?.averageDays;
+
+  return (
+    <div className="powerbi-tooltip" role="tooltip">
+      <div className="tooltip-title">{formatSeriesDate(row.period_start, period)}</div>
+      <div className="tooltip-total">
+        <span>Total</span>
+        <b>{formatCount(total)}</b>
+      </div>
+
+      <div className="tooltip-breakdown">
+        {segments.map((segment) => {
+          const value = Number(row?.[segment.key]) || 0;
+          return (
+            <div className="tooltip-row" key={`${row.period_start}-${segment.key}`}>
+              <span><i className={`tooltip-dot ${segment.className}`} /> {segment.label}</span>
+              <b>{formatCount(value)} <small>{formatPercent(value, total)}</small></b>
+            </div>
+          );
+        })}
+      </div>
+
+      {(averageHours !== undefined && averageHours !== null) ||
+      (averageDays !== undefined && averageDays !== null) ? (
+        <div className="tooltip-extra">
+          {averageHours !== undefined && averageHours !== null ? (
+            <span>Avg hours: <b>{Number(averageHours || 0).toFixed(2)}</b></span>
+          ) : null}
+          {averageDays !== undefined && averageDays !== null ? (
+            <span>Avg days: <b>{Number(averageDays || 0).toFixed(2)}</b></span>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function buildLineSegments(rows, segments, maxVisibleTotal) {
   if (!rows.length) return [];
 
@@ -121,6 +177,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
           {rows.map((row, index) => {
             const visibleTotal = getSegmentTotal(row, segments);
             const barHeight = getStackedBarHeightPercent(visibleTotal, maxVisibleTotal);
+            const tooltipSide = getTooltipSide(index, rows.length);
             const nextRow = rows[index + 1];
             const nextVisibleTotal = nextRow ? getSegmentTotal(nextRow, segments) : 0;
             const nextBarHeight = getStackedBarHeightPercent(nextVisibleTotal, maxVisibleTotal);
@@ -129,7 +186,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
             const canConnectToNext = visibleTotal > 0 && nextVisibleTotal > 0;
 
             return (
-              <div className="powerbi-column" key={row.period_start}>
+              <div className="powerbi-column" key={row.period_start} tabIndex={visibleTotal > 0 ? 0 : -1}>
                 <div className="powerbi-bar-slot">
                   {canConnectToNext ? (
                     <svg className="powerbi-local-connector" viewBox="0 0 200 100" preserveAspectRatio="none" aria-hidden="true">
@@ -154,6 +211,11 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
                     {visibleTotal > 0 ? <div className="powerbi-bar-topline" /> : null}
                   </div>
                 </div>
+                {visibleTotal > 0 ? (
+                  <div className={`powerbi-tooltip-wrap ${tooltipSide}`}>
+                    <BarTooltip row={row} period={period} segments={segments} total={visibleTotal} />
+                  </div>
+                ) : null}
                 <div className="powerbi-x-label">{formatSeriesDate(row.period_start, period)}</div>
               </div>
             );
