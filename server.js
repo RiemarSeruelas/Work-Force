@@ -10,6 +10,9 @@ dotenv.config();
 
 const { Pool } = pg;
 const app = express();
+
+// Open-shift rule: if a person has only one scan inside the active Manila 06:00-06:00 workforce window,
+// hours are calculated up to the request time. Refreshing the dashboard updates that in-progress duration.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -144,7 +147,14 @@ app.get("/api/workforce/summary", async (req, res) => {
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
           MIN(scan_ts) AS first_scan,
-          MAX(scan_ts) AS last_scan,
+          CASE
+            WHEN COUNT(*) = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE MAX(scan_ts)
+          END AS last_scan,
           COUNT(*) AS scan_count
         FROM day_scans
         GROUP BY COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
@@ -152,7 +162,14 @@ app.get("/api/workforce/summary", async (req, res) => {
       computed AS (
         SELECT
           *,
-          GREATEST(EXTRACT(EPOCH FROM (last_scan - first_scan)) / 3600.0, 0) AS work_hours
+          GREATEST(EXTRACT(EPOCH FROM ((CASE
+            WHEN scan_count = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > first_scan
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE last_scan
+          END) - first_scan)) / 3600.0, 0) AS work_hours
         FROM first_last
       )
       SELECT
@@ -200,9 +217,23 @@ app.get("/api/workforce/summary", async (req, res) => {
         SELECT
           workforce_date,
           COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
-          GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) AS work_hours,
+          GREATEST(EXTRACT(EPOCH FROM ((CASE
+            WHEN COUNT(*) = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE MAX(scan_ts)
+          END) - MIN(scan_ts))) / 3600.0, 0) AS work_hours,
           CASE
-            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 4
+            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
+            WHEN COUNT(*) = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE MAX(scan_ts)
+          END) - MIN(scan_ts))) / 3600.0, 0) > 4
               THEN 1
             ELSE 0
           END AS counted_day
@@ -285,9 +316,23 @@ app.get("/api/workforce/summary", async (req, res) => {
         SELECT
           workforce_date,
           COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
-          GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) AS work_hours,
+          GREATEST(EXTRACT(EPOCH FROM ((CASE
+            WHEN COUNT(*) = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE MAX(scan_ts)
+          END) - MIN(scan_ts))) / 3600.0, 0) AS work_hours,
           CASE
-            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 4
+            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
+            WHEN COUNT(*) = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE MAX(scan_ts)
+          END) - MIN(scan_ts))) / 3600.0, 0) > 4
               THEN 1
             ELSE 0
           END AS counted_day
@@ -395,18 +440,67 @@ app.get("/api/workforce/daily-record", async (req, res) => {
             ELSE 'FTE'
           END AS workforce_group,
           MIN(scan_ts) AS entry_time,
-          MAX(scan_ts) AS last_scan,
-          GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) AS work_hours_raw,
-          ROUND(GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours,
+          CASE
+            WHEN COUNT(*) = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE MAX(scan_ts)
+          END AS last_scan,
+          GREATEST(EXTRACT(EPOCH FROM ((CASE
+              WHEN COUNT(*) = 1
+                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+                THEN (NOW() AT TIME ZONE 'Asia/Manila')
+              ELSE MAX(scan_ts)
+            END) - MIN(scan_ts))) / 3600.0, 0) AS work_hours_raw,
+          ROUND(GREATEST(EXTRACT(EPOCH FROM ((CASE
+              WHEN COUNT(*) = 1
+                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+                THEN (NOW() AT TIME ZONE 'Asia/Manila')
+              ELSE MAX(scan_ts)
+            END) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours,
           COUNT(*) AS scan_count,
           CASE
-            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) >= 12 THEN 'hours_12_plus'
-            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 10 THEN 'hours_10_12'
-            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 8 THEN 'hours_8_10'
+            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
+              WHEN COUNT(*) = 1
+                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+                THEN (NOW() AT TIME ZONE 'Asia/Manila')
+              ELSE MAX(scan_ts)
+            END) - MIN(scan_ts))) / 3600.0, 0) >= 12 THEN 'hours_12_plus'
+            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
+              WHEN COUNT(*) = 1
+                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+                THEN (NOW() AT TIME ZONE 'Asia/Manila')
+              ELSE MAX(scan_ts)
+            END) - MIN(scan_ts))) / 3600.0, 0) > 10 THEN 'hours_10_12'
+            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
+              WHEN COUNT(*) = 1
+                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+                THEN (NOW() AT TIME ZONE 'Asia/Manila')
+              ELSE MAX(scan_ts)
+            END) - MIN(scan_ts))) / 3600.0, 0) > 8 THEN 'hours_8_10'
             ELSE 'hours_8_or_less'
           END AS hours_bucket,
           CASE
-            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 4
+            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
+              WHEN COUNT(*) = 1
+                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
+                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+                THEN (NOW() AT TIME ZONE 'Asia/Manila')
+              ELSE MAX(scan_ts)
+            END) - MIN(scan_ts))) / 3600.0, 0) > 4
               THEN TRUE
             ELSE FALSE
           END AS counted_day
@@ -479,7 +573,14 @@ app.get("/api/workforce/compliance", async (req, res) => {
           COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
-          ROUND(GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours
+          ROUND(GREATEST(EXTRACT(EPOCH FROM ((CASE
+            WHEN COUNT(*) = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE MAX(scan_ts)
+          END) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours
         FROM scans
         WHERE workforce_date >= $1::date AND workforce_date <= $2::date
         GROUP BY workforce_date, COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
@@ -547,8 +648,22 @@ app.get("/api/workforce/compliance", async (req, res) => {
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
           MIN(scan_ts) AS first_scan,
-          MAX(scan_ts) AS last_scan,
-          ROUND(GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours
+          CASE
+            WHEN COUNT(*) = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE MAX(scan_ts)
+          END AS last_scan,
+          ROUND(GREATEST(EXTRACT(EPOCH FROM ((CASE
+            WHEN COUNT(*) = 1
+              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
+              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
+              THEN (NOW() AT TIME ZONE 'Asia/Manila')
+            ELSE MAX(scan_ts)
+          END) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours
         FROM scans
         WHERE workforce_date >= $1::date AND workforce_date <= $2::date
         GROUP BY workforce_date, COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
