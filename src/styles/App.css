@@ -811,13 +811,29 @@ button:disabled {
   background: #e2e8f0;
 }
 
+.stack-violet,
+.fill-violet {
+  background: linear-gradient(180deg, #c084fc, #7c3aed);
+}
+
+.stack-indigo,
+.fill-indigo {
+  background: linear-gradient(180deg, #818cf8, #4f46e5);
+}
+
 .stack-blue,
 .fill-blue,
 .population-fill-blue {
   background: linear-gradient(180deg, #4f8cff, #2563eb);
 }
 
+.stack-green,
+.fill-green {
+  background: linear-gradient(180deg, #4ade80, #22c55e);
+}
+
 .stack-yellow,
+.fill-yellow,
 .fill-amber {
   background: linear-gradient(180deg, #fde047, #facc15);
 }
@@ -830,10 +846,6 @@ button:disabled {
 .stack-red,
 .fill-red {
   background: linear-gradient(180deg, #fb7185, #ef4444);
-}
-
-.fill-green {
-  background: linear-gradient(180deg, #4ade80, #22c55e);
 }
 
 .table-card {
@@ -2074,4 +2086,21 @@ button:disabled {
 /* Old nested tooltip rules stay harmless, but do not let them expand a row. */
 .person-hover-row > .person-week-tooltip:not(.fixed-person-week-tooltip) {
   display: none !important;
+}
+
+
+/* Final: compliance names keep the clean row design; weekly details appear only as fixed hover popup. */
+.person-hover-row > .person-week-tooltip:not(.fixed-person-week-tooltip) {
+  display: none !important;
+}
+
+.fixed-person-week-tooltip {
+  position: fixed !important;
+  display: block !important;
+  width: 360px !important;
+  max-width: calc(100vw - 28px) !important;
+  max-height: calc(100vh - 28px) !important;
+  overflow: auto !important;
+  z-index: 99999 !important;
+  pointer-events: none !important;
 }

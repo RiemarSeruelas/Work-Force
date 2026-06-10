@@ -366,9 +366,13 @@ export default function WorkforceDashboardPage() {
             rows={series}
             period={trendPeriod}
             segments={[
-              { key: "days_5_or_less", label: "Less than 5 days", className: "stack-yellow" },
-              { key: "days_6", label: "5-6 days", className: "stack-orange" },
-              { key: "days_over_6", label: "Greater than 6 days", className: "stack-red" },
+              { key: "days_1", label: "1 Day", className: "stack-violet" },
+              { key: "days_2", label: "2 Days", className: "stack-indigo" },
+              { key: "days_3", label: "3 Days", className: "stack-blue" },
+              { key: "days_4", label: "4 Days", className: "stack-green" },
+              { key: "days_5", label: "5 Days", className: "stack-yellow" },
+              { key: "days_6", label: "6 Days", className: "stack-orange" },
+              { key: "days_7", label: "7 Days", className: "stack-red" },
             ]}
           />
         </div>

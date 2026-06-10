@@ -12,13 +12,9 @@ const CATEGORY_LABELS = {
   greater_than_60_hours: "60+ Hours",
   hours_40_60: "40-60 Hours",
   less_than_40_hours: "< 40 Hours",
-  day_1: "1 Day",
-  day_2: "2 Days",
-  day_3: "3 Days",
-  day_4: "4 Days",
-  day_5: "5 Days",
-  day_6: "6 Days",
-  day_7: "7 Days",
+  greater_than_6_days: "6+ Days",
+  days_5_6: "5-6 Days",
+  days_less_than_5: "< 5 Days",
 };
 
 function addDays(dateString, offset) {
@@ -300,14 +296,10 @@ export default function WorkforceCompliancePage() {
 
           <div className="compliance-middle-gap" aria-hidden="true" />
 
-          <div className="compliance-right-grid compliance-days-grid">
-            <BarList title="1 Day" rows={rows} field="day_1" colorClass="fill-red" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="2 Days" rows={rows} field="day_2" colorClass="fill-orange" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="3 Days" rows={rows} field="day_3" colorClass="fill-yellow" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="4 Days" rows={rows} field="day_4" colorClass="fill-green" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="5 Days" rows={rows} field="day_5" colorClass="fill-blue" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="6 Days" rows={rows} field="day_6" colorClass="fill-indigo" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="7 Days" rows={rows} field="day_7" colorClass="fill-violet" selected={selectedBucket} onSelect={setSelectedBucket} />
+          <div className="compliance-right-grid">
+            <BarList title="6+ Days" rows={rows} field="greater_than_6_days" colorClass="fill-red" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="5-6 Days" rows={rows} field="days_5_6" colorClass="fill-orange" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="< 5 Days" rows={rows} field="days_less_than_5" colorClass="fill-amber" selected={selectedBucket} onSelect={setSelectedBucket} />
           </div>
 
           <PersonDrilldown selected={selectedBucket} people={people} startDate={compliance?.startDate} />
