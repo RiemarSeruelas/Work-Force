@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
-import LoadingCursor from "../components/LoadingCursor.jsx";
 
 function formatDateTime(value) {
   if (!value) return "No scan yet";
