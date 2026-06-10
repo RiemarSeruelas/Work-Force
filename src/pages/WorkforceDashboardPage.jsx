@@ -82,7 +82,8 @@ function getTooltipSide(index, total) {
 
 function BarTooltip({ row, period, segments, total }) {
   const averageHours = row?.average_hours ?? row?.averageHours;
-  const averageDays = row?.average_days ?? row?.averageDays;
+  const rawAverageDays = row?.average_days ?? row?.averageDays;
+  const averageDays = period === "DAILY" ? null : rawAverageDays;
 
   return (
     <div className="powerbi-tooltip" role="tooltip">

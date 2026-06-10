@@ -12,9 +12,13 @@ const CATEGORY_LABELS = {
   greater_than_60_hours: "60+ Hours",
   hours_40_60: "40-60 Hours",
   less_than_40_hours: "< 40 Hours",
-  greater_than_6_days: "6+ Days",
-  days_5_6: "5-6 Days",
-  days_less_than_5: "< 5 Days",
+  day_1: "1 Day",
+  day_2: "2 Days",
+  day_3: "3 Days",
+  day_4: "4 Days",
+  day_5: "5 Days",
+  day_6: "6 Days",
+  day_7: "7 Days",
 };
 
 function addDays(dateString, offset) {
@@ -97,9 +101,61 @@ function BarList({ title, rows, field, colorClass, onSelect, selected }) {
   );
 }
 
+function PersonWeekTooltip({ hover }) {
+  if (!hover?.person) return null;
+
+  const person = hover.person;
+  const weekDays = hover.weekDays || [];
+
+  return (
+    <div
+      className="person-week-tooltip fixed-person-week-tooltip"
+      role="tooltip"
+      style={{ top: `${hover.top}px`, left: `${hover.left}px` }}
+    >
+      <div className="person-week-tooltip-title">{person.person || "Unknown"}</div>
+      <div className="person-week-tooltip-subtitle">
+        Weekly view · {Number(person.total_hours || 0).toFixed(2)} total hrs · {person.working_days} counted days
+      </div>
+
+      <div className="person-week-days">
+        {weekDays.map((day) => {
+          const hours = Number(day.hours) || 0;
+          const hasScan = hours > 0;
+          const timeRange = day.firstScan && day.lastScan ? `${day.firstScan} - ${day.lastScan}` : "No scan";
+
+          return (
+            <div className={`person-week-day ${hasScan ? "has-scan" : "no-scan"}`} key={day.date}>
+              <span>{formatDayLabel(day.date)}</span>
+              <b>{formatHours(hours)}</b>
+              <small>{timeRange}</small>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function PersonDrilldown({ selected, people, startDate }) {
   const category = selected?.field || "greater_than_60_hours";
   const persongroup = selected?.persongroup || "";
+  const [hover, setHover] = useState(null);
+
+  function showWeeklyHover(event, person) {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const popupWidth = 360;
+    const popupHeight = 330;
+    const left = Math.max(14, Math.min(window.innerWidth - popupWidth - 14, rect.left - popupWidth - 12));
+    const top = Math.max(14, Math.min(window.innerHeight - popupHeight - 14, rect.top - 8));
+
+    setHover({
+      person,
+      weekDays: buildWeekDays(startDate, person.week_days),
+      left,
+      top,
+    });
+  }
 
   const filteredPeople = useMemo(() => {
     return people
@@ -128,45 +184,28 @@ function PersonDrilldown({ selected, people, startDate }) {
       </div>
 
       <div className="drilldown-list">
-        {filteredPeople.map((person, index) => {
-          const weekDays = buildWeekDays(startDate, person.week_days);
-
-          return (
-            <div className="drilldown-row person-hover-row" key={`${person.person}-${index}`} tabIndex={0}>
-              <div className="drilldown-name">{person.person || "Unknown"}</div>
-              <div className="drilldown-meta">{Number(person.total_hours || 0).toFixed(2)} hrs</div>
-              <div className="drilldown-meta">{person.working_days} days</div>
-
-              <div className="person-week-tooltip" role="tooltip">
-                <div className="person-week-tooltip-title">{person.person || "Unknown"}</div>
-                <div className="person-week-tooltip-subtitle">
-                  Week view · {Number(person.total_hours || 0).toFixed(2)} total hrs · {person.working_days} counted days
-                </div>
-
-                <div className="person-week-days">
-                  {weekDays.map((day) => {
-                    const hours = Number(day.hours) || 0;
-                    const hasScan = hours > 0;
-                    const timeRange = day.firstScan && day.lastScan ? `${day.firstScan} - ${day.lastScan}` : "No scan";
-
-                    return (
-                      <div className={`person-week-day ${hasScan ? "has-scan" : "no-scan"}`} key={day.date}>
-                        <span>{formatDayLabel(day.date)}</span>
-                        <b>{formatHours(hours)}</b>
-                        <small>{timeRange}</small>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {filteredPeople.map((person, index) => (
+          <div
+            className="drilldown-row person-hover-row"
+            key={`${person.person}-${index}`}
+            tabIndex={0}
+            onMouseEnter={(event) => showWeeklyHover(event, person)}
+            onMouseLeave={() => setHover(null)}
+            onFocus={(event) => showWeeklyHover(event, person)}
+            onBlur={() => setHover(null)}
+          >
+            <div className="drilldown-name">{person.person || "Unknown"}</div>
+            <div className="drilldown-meta">{Number(person.total_hours || 0).toFixed(2)} hrs</div>
+            <div className="drilldown-meta">{person.working_days} days</div>
+          </div>
+        ))}
 
         {filteredPeople.length === 0 && (
           <div className="empty-cell">No names for this category yet.</div>
         )}
       </div>
+
+      <PersonWeekTooltip hover={hover} />
     </div>
   );
 }
@@ -261,10 +300,14 @@ export default function WorkforceCompliancePage() {
 
           <div className="compliance-middle-gap" aria-hidden="true" />
 
-          <div className="compliance-right-grid">
-            <BarList title="6+ Days" rows={rows} field="greater_than_6_days" colorClass="fill-red" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="5-6 Days" rows={rows} field="days_5_6" colorClass="fill-orange" selected={selectedBucket} onSelect={setSelectedBucket} />
-            <BarList title="< 5 Days" rows={rows} field="days_less_than_5" colorClass="fill-amber" selected={selectedBucket} onSelect={setSelectedBucket} />
+          <div className="compliance-right-grid compliance-days-grid">
+            <BarList title="1 Day" rows={rows} field="day_1" colorClass="fill-red" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="2 Days" rows={rows} field="day_2" colorClass="fill-orange" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="3 Days" rows={rows} field="day_3" colorClass="fill-yellow" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="4 Days" rows={rows} field="day_4" colorClass="fill-green" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="5 Days" rows={rows} field="day_5" colorClass="fill-blue" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="6 Days" rows={rows} field="day_6" colorClass="fill-indigo" selected={selectedBucket} onSelect={setSelectedBucket} />
+            <BarList title="7 Days" rows={rows} field="day_7" colorClass="fill-violet" selected={selectedBucket} onSelect={setSelectedBucket} />
           </div>
 
           <PersonDrilldown selected={selectedBucket} people={people} startDate={compliance?.startDate} />

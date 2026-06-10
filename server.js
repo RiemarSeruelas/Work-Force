@@ -415,9 +415,13 @@ app.get("/api/workforce/compliance", async (req, res) => {
           COUNT(*) FILTER (WHERE total_hours > 60)::int AS greater_than_60_hours,
           COUNT(*) FILTER (WHERE total_hours >= 40 AND total_hours <= 60)::int AS hours_40_60,
           COUNT(*) FILTER (WHERE total_hours < 40)::int AS less_than_40_hours,
-          COUNT(*) FILTER (WHERE working_days > 6)::int AS greater_than_6_days,
-          COUNT(*) FILTER (WHERE working_days >= 5 AND working_days <= 6)::int AS days_5_6,
-          COUNT(*) FILTER (WHERE working_days < 5)::int AS days_less_than_5,
+          COUNT(*) FILTER (WHERE working_days = 1)::int AS day_1,
+          COUNT(*) FILTER (WHERE working_days = 2)::int AS day_2,
+          COUNT(*) FILTER (WHERE working_days = 3)::int AS day_3,
+          COUNT(*) FILTER (WHERE working_days = 4)::int AS day_4,
+          COUNT(*) FILTER (WHERE working_days = 5)::int AS day_5,
+          COUNT(*) FILTER (WHERE working_days = 6)::int AS day_6,
+          COUNT(*) FILTER (WHERE working_days >= 7)::int AS day_7,
           ROUND(AVG(total_hours)::numeric, 2) AS avg_hours,
           ROUND(AVG(working_days)::numeric, 2) AS avg_days
         FROM person_week
@@ -506,9 +510,13 @@ app.get("/api/workforce/compliance", async (req, res) => {
           ELSE 'less_than_40_hours'
         END AS hours_category,
         CASE
-          WHEN person_week.working_days > 6 THEN 'greater_than_6_days'
-          WHEN person_week.working_days >= 5 AND person_week.working_days <= 6 THEN 'days_5_6'
-          ELSE 'days_less_than_5'
+          WHEN person_week.working_days <= 1 THEN 'day_1'
+          WHEN person_week.working_days = 2 THEN 'day_2'
+          WHEN person_week.working_days = 3 THEN 'day_3'
+          WHEN person_week.working_days = 4 THEN 'day_4'
+          WHEN person_week.working_days = 5 THEN 'day_5'
+          WHEN person_week.working_days = 6 THEN 'day_6'
+          ELSE 'day_7'
         END AS days_category
       FROM person_week
       LEFT JOIN person_days ON person_days.person_key = person_week.person_key
@@ -523,9 +531,14 @@ app.get("/api/workforce/compliance", async (req, res) => {
         acc.greaterThan60Hours += Number(row.greater_than_60_hours) || 0;
         acc.hours40To60 += Number(row.hours_40_60) || 0;
         acc.lessThan40Hours += Number(row.less_than_40_hours) || 0;
-        acc.nonCompliantWorkingDays += Number(row.greater_than_6_days) || 0;
-        acc.days5To6 += Number(row.days_5_6) || 0;
-        acc.daysLessThan5 += Number(row.days_less_than_5) || 0;
+        acc.day1 += Number(row.day_1) || 0;
+        acc.day2 += Number(row.day_2) || 0;
+        acc.day3 += Number(row.day_3) || 0;
+        acc.day4 += Number(row.day_4) || 0;
+        acc.day5 += Number(row.day_5) || 0;
+        acc.day6 += Number(row.day_6) || 0;
+        acc.day7 += Number(row.day_7) || 0;
+        acc.nonCompliantWorkingDays = acc.day6 + acc.day7;
         return acc;
       },
       {
@@ -534,8 +547,13 @@ app.get("/api/workforce/compliance", async (req, res) => {
         hours40To60: 0,
         lessThan40Hours: 0,
         nonCompliantWorkingDays: 0,
-        days5To6: 0,
-        daysLessThan5: 0,
+        day1: 0,
+        day2: 0,
+        day3: 0,
+        day4: 0,
+        day5: 0,
+        day6: 0,
+        day7: 0,
       }
     );
 
