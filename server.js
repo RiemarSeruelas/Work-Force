@@ -455,6 +455,8 @@ app.get("/api/workforce/compliance", async (req, res) => {
           COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
+          MIN(scan_ts) AS first_scan,
+          MAX(scan_ts) AS last_scan,
           ROUND(GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours
         FROM scans
         WHERE workforce_date >= $1::date AND workforce_date <= $2::date
@@ -474,24 +476,43 @@ app.get("/api/workforce/compliance", async (req, res) => {
           ROUND(SUM(work_hours)::numeric, 2) AS total_hours
         FROM daily
         GROUP BY person_key
+      ),
+      person_days AS (
+        SELECT
+          person_key,
+          json_agg(
+            json_build_object(
+              'date', workforce_date::text,
+              'hours', work_hours,
+              'firstScan', TO_CHAR(first_scan, 'HH24:MI'),
+              'lastScan', TO_CHAR(last_scan, 'HH24:MI'),
+              'countedDay', work_hours > 4
+            )
+            ORDER BY workforce_date
+          ) AS week_days
+        FROM daily_raw
+        GROUP BY person_key
       )
       SELECT
-        person,
-        persongroup,
-        working_days,
-        total_hours,
+        person_week.person_key,
+        person_week.person,
+        person_week.persongroup,
+        person_week.working_days,
+        person_week.total_hours,
+        COALESCE(person_days.week_days, '[]'::json) AS week_days,
         CASE
-          WHEN total_hours > 60 THEN 'greater_than_60_hours'
-          WHEN total_hours >= 40 AND total_hours <= 60 THEN 'hours_40_60'
+          WHEN person_week.total_hours > 60 THEN 'greater_than_60_hours'
+          WHEN person_week.total_hours >= 40 AND person_week.total_hours <= 60 THEN 'hours_40_60'
           ELSE 'less_than_40_hours'
         END AS hours_category,
         CASE
-          WHEN working_days > 6 THEN 'greater_than_6_days'
-          WHEN working_days >= 5 AND working_days <= 6 THEN 'days_5_6'
+          WHEN person_week.working_days > 6 THEN 'greater_than_6_days'
+          WHEN person_week.working_days >= 5 AND person_week.working_days <= 6 THEN 'days_5_6'
           ELSE 'days_less_than_5'
         END AS days_category
       FROM person_week
-      ORDER BY total_hours DESC, working_days DESC, person ASC
+      LEFT JOIN person_days ON person_days.person_key = person_week.person_key
+      ORDER BY person_week.total_hours DESC, person_week.working_days DESC, person_week.person ASC
       `,
       [startDate, endDate]
     );

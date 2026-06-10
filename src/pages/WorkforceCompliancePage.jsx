@@ -17,6 +17,46 @@ const CATEGORY_LABELS = {
   days_less_than_5: "< 5 Days",
 };
 
+function addDays(dateString, offset) {
+  const date = new Date(`${dateString}T12:00:00+08:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setDate(date.getDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDayLabel(dateString) {
+  if (!dateString) return "-";
+  const date = new Date(`${dateString}T12:00:00+08:00`);
+  if (Number.isNaN(date.getTime())) return dateString;
+  return date.toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function buildWeekDays(startDate, personDays = []) {
+  const lookup = new Map(
+    (Array.isArray(personDays) ? personDays : []).map((day) => [String(day.date), day])
+  );
+
+  if (startDate) {
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = addDays(startDate, index);
+      return lookup.get(date) || { date, hours: 0, firstScan: null, lastScan: null, countedDay: false };
+    });
+  }
+
+  return [...lookup.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+function formatHours(value) {
+  const hours = Number(value) || 0;
+  if (!hours) return "No scan";
+  return `${hours.toFixed(2)} hrs`;
+}
+
 function BarList({ title, rows, field, colorClass, onSelect, selected }) {
   const sortedRows = [...rows].sort(
     (a, b) => (Number(b[field]) || 0) - (Number(a[field]) || 0)
@@ -57,7 +97,7 @@ function BarList({ title, rows, field, colorClass, onSelect, selected }) {
   );
 }
 
-function PersonDrilldown({ selected, people }) {
+function PersonDrilldown({ selected, people, startDate }) {
   const category = selected?.field || "greater_than_60_hours";
   const persongroup = selected?.persongroup || "";
 
@@ -88,13 +128,40 @@ function PersonDrilldown({ selected, people }) {
       </div>
 
       <div className="drilldown-list">
-        {filteredPeople.map((person, index) => (
-          <div className="drilldown-row" key={`${person.person}-${index}`}>
-            <div className="drilldown-name">{person.person || "Unknown"}</div>
-            <div className="drilldown-meta">{Number(person.total_hours || 0).toFixed(2)} hrs</div>
-            <div className="drilldown-meta">{person.working_days} days</div>
-          </div>
-        ))}
+        {filteredPeople.map((person, index) => {
+          const weekDays = buildWeekDays(startDate, person.week_days);
+
+          return (
+            <div className="drilldown-row person-hover-row" key={`${person.person}-${index}`} tabIndex={0}>
+              <div className="drilldown-name">{person.person || "Unknown"}</div>
+              <div className="drilldown-meta">{Number(person.total_hours || 0).toFixed(2)} hrs</div>
+              <div className="drilldown-meta">{person.working_days} days</div>
+
+              <div className="person-week-tooltip" role="tooltip">
+                <div className="person-week-tooltip-title">{person.person || "Unknown"}</div>
+                <div className="person-week-tooltip-subtitle">
+                  Week view · {Number(person.total_hours || 0).toFixed(2)} total hrs · {person.working_days} counted days
+                </div>
+
+                <div className="person-week-days">
+                  {weekDays.map((day) => {
+                    const hours = Number(day.hours) || 0;
+                    const hasScan = hours > 0;
+                    const timeRange = day.firstScan && day.lastScan ? `${day.firstScan} - ${day.lastScan}` : "No scan";
+
+                    return (
+                      <div className={`person-week-day ${hasScan ? "has-scan" : "no-scan"}`} key={day.date}>
+                        <span>{formatDayLabel(day.date)}</span>
+                        <b>{formatHours(hours)}</b>
+                        <small>{timeRange}</small>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })}
 
         {filteredPeople.length === 0 && (
           <div className="empty-cell">No names for this category yet.</div>
@@ -200,7 +267,7 @@ export default function WorkforceCompliancePage() {
             <BarList title="< 5 Days" rows={rows} field="days_less_than_5" colorClass="fill-amber" selected={selectedBucket} onSelect={setSelectedBucket} />
           </div>
 
-          <PersonDrilldown selected={selectedBucket} people={people} />
+          <PersonDrilldown selected={selectedBucket} people={people} startDate={compliance?.startDate} />
         </div>
       </section>
     </AppShell>
