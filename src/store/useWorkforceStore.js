@@ -163,11 +163,3 @@ export const useWorkforceStore = create((set, get) => ({
     }
   },
 }));
-
-useEffect(() => {
-  document.body.classList.toggle("app-loading", Boolean(loading));
-
-  return () => {
-    document.body.classList.remove("app-loading");
-  };
-}, [loading]);
