@@ -209,10 +209,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
                         />
                       );
                     })}
-                    {visibleTotal > 0 ? <>
-                      <div className="powerbi-bar-topline" />
-                      <div className="powerbi-bar-dot" />
-                    </> : null}
+                    {visibleTotal > 0 ? <div className="powerbi-bar-dot" /> : null}
                   </div>
                 </div>
                 {visibleTotal > 0 ? (
