@@ -9,6 +9,7 @@ import WorkforcePopulationPage from "./pages/WorkforcePopulationPage.jsx";
 export default function App() {
   return (
     <BrowserRouter>
+     <LoadingCursor />
       <Routes>
         <Route path="/passcode" element={<PasscodePage />} />
 

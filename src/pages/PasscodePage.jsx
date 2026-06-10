@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import LoadingCursor from "./components/LoadingCursor.jsx";
 
 export default function PasscodePage() {
   const navigate = useNavigate();

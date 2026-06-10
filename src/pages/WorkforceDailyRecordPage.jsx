@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
+import LoadingCursor from "./components/LoadingCursor.jsx";
 
 function getHourBucket(row) {
   if (row?.hours_bucket) return row.hours_bucket;
