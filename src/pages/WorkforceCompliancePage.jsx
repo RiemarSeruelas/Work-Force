@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
-import LoadingCursor from "./components/LoadingCursor.jsx";
+import LoadingCursor from "../components/LoadingCursor.jsx";
 
 function getTitle(group) {
   if (group === "FTE") return "Workforce Compliance · FTE";
