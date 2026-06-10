@@ -251,6 +251,91 @@ app.get("/api/workforce/summary", async (req, res) => {
       [workforceDate, period]
     );
 
+    const daysPeriod = period === "DAILY" ? "WEEKLY" : period;
+    const daysTrendResult = await pool.query(
+      `
+      WITH bounds AS (
+        SELECT
+          CASE
+            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', $1::date)::date - INTERVAL '5 months'
+            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', $1::date)::date - INTERVAL '7 weeks'
+            ELSE $1::date - INTERVAL '13 days'
+          END AS start_date,
+          $1::date AS end_date
+      ),
+      scans AS (
+        SELECT
+          CASE
+            WHEN EXTRACT(HOUR FROM h."C_Time"::time) < 6
+              THEN (h."C_Date"::date - INTERVAL '1 day')::date
+            ELSE h."C_Date"::date
+          END AS workforce_date,
+          h."L_UID",
+          h."Person",
+          h."PersonGroup",
+          (h."C_Date"::date + h."C_Time"::time) AS scan_ts
+        FROM "hkvision"."tbhikvision" h
+        CROSS JOIN bounds b
+        WHERE (h."C_Date"::date + h."C_Time"::time) >= (b.start_date::date + TIME '06:00:00')
+          AND (h."C_Date"::date + h."C_Time"::time) < ((b.end_date::date + INTERVAL '1 day') + TIME '06:00:00')
+          AND COALESCE(TRIM(h."Person"), '') <> ''
+          ${groupSql.replaceAll('"PersonGroup"', 'h."PersonGroup"')}
+      ),
+      daily AS (
+        SELECT
+          workforce_date,
+          COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
+          GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) AS work_hours,
+          CASE
+            WHEN GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) > 4
+              THEN 1
+            ELSE 0
+          END AS counted_day
+        FROM scans
+        GROUP BY workforce_date, COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
+      ),
+      period_person AS (
+        SELECT
+          CASE
+            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', workforce_date)::date
+            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', workforce_date)::date
+            ELSE workforce_date
+          END AS period_start,
+          person_key,
+          SUM(work_hours) AS total_hours,
+          SUM(counted_day)::int AS working_days
+        FROM daily
+        GROUP BY
+          CASE
+            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', workforce_date)::date
+            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', workforce_date)::date
+            ELSE workforce_date
+          END,
+          person_key
+      )
+      SELECT
+        period_start::text AS period_start,
+        COUNT(*)::int AS population,
+        COUNT(*) FILTER (WHERE total_hours <= 8)::int AS hours_8_or_less,
+        COUNT(*) FILTER (WHERE total_hours > 8 AND total_hours <= 10)::int AS hours_8_10,
+        COUNT(*) FILTER (WHERE total_hours > 10 AND total_hours < 12)::int AS hours_10_12,
+        COUNT(*) FILTER (WHERE total_hours >= 12)::int AS hours_12_plus,
+        COUNT(*) FILTER (WHERE working_days = 1)::int AS days_1,
+        COUNT(*) FILTER (WHERE working_days = 2)::int AS days_2,
+        COUNT(*) FILTER (WHERE working_days = 3)::int AS days_3,
+        COUNT(*) FILTER (WHERE working_days = 4)::int AS days_4,
+        COUNT(*) FILTER (WHERE working_days = 5)::int AS days_5,
+        COUNT(*) FILTER (WHERE working_days = 6)::int AS days_6,
+        COUNT(*) FILTER (WHERE working_days >= 7)::int AS days_7,
+        ROUND(AVG(total_hours)::numeric, 2) AS average_hours,
+        ROUND(AVG(NULLIF(working_days, 0))::numeric, 2) AS average_days
+      FROM period_person
+      GROUP BY period_start
+      ORDER BY period_start ASC
+      `,
+      [workforceDate, daysPeriod]
+    );
+
     const row = result.rows[0] || {};
     res.json({
       workforceDate,
@@ -263,6 +348,8 @@ app.get("/api/workforce/summary", async (req, res) => {
       greaterThan12Hours: Number(row.greater_than_12_hours) || 0,
       latestScan: row.latest_scan,
       timeSeries: trendResult.rows || [],
+      daysPeriod,
+      daysTimeSeries: daysTrendResult.rows || [],
       dayRule: "Entering counts toward workforce population. More than 4 hours counts as 1 working day.",
     });
   } catch (err) {

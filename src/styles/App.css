@@ -709,7 +709,7 @@ button:disabled {
   min-height: 1px;
   display: flex;
   flex-direction: column-reverse;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 4px 4px 0 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
   z-index: 2;
@@ -1487,16 +1487,16 @@ button:disabled {
 }
 
 .powerbi-local-connector line {
-  stroke: #cfd9e8 !important;
-  stroke-width: 1.9 !important;
+  stroke: #94a3b8 !important;
+  stroke-width: 2.8 !important;
   stroke-linecap: round !important;
   vector-effect: non-scaling-stroke !important;
-  opacity: 0.92 !important;
+  opacity: 1 !important;
 }
 
 .app-shell[data-theme="dark"] .powerbi-local-connector line {
-  stroke: #e5edf9 !important;
-  opacity: 0.92 !important;
+  stroke: #ffffff !important;
+  opacity: 0.98 !important;
 }
 
 .powerbi-stacked-bar {
@@ -1627,6 +1627,35 @@ button:disabled {
 .latest-scan-kpi.no-mini .metric-value {
   font-size: 18px !important;
   line-height: 1.15 !important;
+}
+
+
+.powerbi-bar-dot {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 9px;
+  height: 9px;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: #ffffff;
+  border: 2px solid #64748b;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.28);
+  z-index: 10 !important;
+  pointer-events: none;
+}
+
+.app-shell[data-theme="dark"] .powerbi-bar-dot {
+  background: #f8fafc;
+  border-color: #ffffff;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.42);
+}
+
+.powerbi-column:hover .powerbi-bar-dot,
+.powerbi-column:focus-visible .powerbi-bar-dot {
+  width: 11px;
+  height: 11px;
+  border-color: #2563eb;
 }
 
 /* =========================================================

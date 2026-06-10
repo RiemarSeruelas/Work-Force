@@ -209,7 +209,10 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
                         />
                       );
                     })}
-                    {visibleTotal > 0 ? <div className="powerbi-bar-topline" /> : null}
+                    {visibleTotal > 0 ? <>
+                      <div className="powerbi-bar-topline" />
+                      <div className="powerbi-bar-dot" />
+                    </> : null}
                   </div>
                 </div>
                 {visibleTotal > 0 ? (
@@ -266,6 +269,8 @@ export default function WorkforceDashboardPage() {
   const over10Pct = safePercent(over10, totalPeople);
   const over12Pct = safePercent(over12, totalPeople);
   const series = Array.isArray(summary?.timeSeries) ? summary.timeSeries : [];
+  const workingDaysSeries = Array.isArray(summary?.daysTimeSeries) ? summary.daysTimeSeries : series;
+  const workingDaysPeriod = summary?.daysPeriod || (trendPeriod === "DAILY" ? "WEEKLY" : trendPeriod);
 
   const controls = (
     <>
@@ -362,9 +367,10 @@ export default function WorkforceDashboardPage() {
 
           <VerticalTimeSeriesChart
             title="Working Days Compliance"
-            description="More than 4 hours counts as one day. Stacked by number of counted days."
-            rows={series}
-            period={trendPeriod}
+            description="Weekly or monthly only. More than 4 hours counts as one day."
+            rows={workingDaysSeries}
+            period={workingDaysPeriod}
+            lineLabel={workingDaysPeriod === "WEEKLY" ? "Weekly only" : "Monthly only"}
             segments={[
               { key: "days_1", label: "1 Day", className: "stack-violet" },
               { key: "days_2", label: "2 Days", className: "stack-indigo" },
