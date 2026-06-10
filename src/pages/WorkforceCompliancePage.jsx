@@ -118,7 +118,9 @@ function PersonWeekTooltip({ hover }) {
         {weekDays.map((day) => {
           const hours = Number(day.hours) || 0;
           const hasScan = hours > 0;
-          const timeRange = day.firstScan && day.lastScan ? `${day.firstScan} - ${day.lastScan}` : "No scan";
+          const timeRange = day.firstScan
+            ? `${day.firstScan} - ${day.hasOutScan && day.lastScan ? day.lastScan : "No Scan"}`
+            : "No scan";
 
           return (
             <div className={`person-week-day ${hasScan ? "has-scan" : "no-scan"}`} key={day.date}>

@@ -635,6 +635,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
           MAX("PersonGroup") AS persongroup,
           MIN(scan_ts) AS first_scan,
           MAX(scan_ts) AS last_scan,
+          COUNT(*)::int AS scan_count,
           ROUND(GREATEST(EXTRACT(EPOCH FROM ((CASE
             WHEN COUNT(*) = 1
               AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
@@ -670,7 +671,8 @@ app.get("/api/workforce/compliance", async (req, res) => {
               'date', workforce_date::text,
               'hours', work_hours,
               'firstScan', TO_CHAR(first_scan, 'HH24:MI'),
-              'lastScan', TO_CHAR(last_scan, 'HH24:MI'),
+              'lastScan', CASE WHEN scan_count > 1 THEN TO_CHAR(last_scan, 'HH24:MI') ELSE NULL END,
+              'hasOutScan', scan_count > 1,
               'countedDay', work_hours > 4
             )
             ORDER BY workforce_date
