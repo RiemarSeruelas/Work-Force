@@ -1962,3 +1962,8 @@ button:disabled {
     text-align: left;
   }
 }
+
+body.app-loading,
+body.app-loading * {
+  cursor: wait !important;
+}
