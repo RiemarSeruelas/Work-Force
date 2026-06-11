@@ -1,0 +1,18 @@
+PS C:\Users\ASUS\Downloads\4th Project> docker build -t workforce-dashboard .
+[+] Building 0.4s (2/2) FINISHED                                                                         docker:desktop-linux
+ => [internal] load build definition from Dockerfile                                                                     0.0s
+ => => transferring dockerfile: 234B                                                                                     0.0s
+ => ERROR [internal] load metadata for docker.io/library/node:20-alpine                                                  0.2s
+------
+ > [internal] load metadata for docker.io/library/node:20-alpine:
+------
+Dockerfile:1
+--------------------
+   1 | >>> FROM node:20-alpine
+   2 |     
+   3 |     WORKDIR /app
+--------------------
+ERROR: failed to build: failed to solve: failed to fetch anonymous token: Get "https://auth.docker.io/token?scope=repository%3Alibrary%2Fnode%3Apull&service=registry.docker.io": dial tcp: lookup auth.docker.io: no such host
+
+What's next:
+    Debug this build failure with Gordon → docker ai "help me fix this build failure"
