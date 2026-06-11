@@ -13,6 +13,8 @@ const app = express();
 
 // Open-shift rule: if a person has only one scan inside the active Manila 06:00-06:00 workforce window,
 // hours are calculated up to the request time. Refreshing the dashboard updates that in-progress duration.
+// Dedupe rule: same normalized Person name is treated as one person even if L_UID or PersonGroup differs.
+// This keeps the latest real scan across duplicate subgroup rows.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -143,14 +145,14 @@ app.get("/api/workforce/summary", async (req, res) => {
       ),
       first_last AS (
         SELECT
-          COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
+          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
           MIN(scan_ts) AS first_scan,
           MAX(scan_ts) AS last_scan,
           COUNT(*) AS scan_count
         FROM day_scans
-        GROUP BY COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
+        GROUP BY LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
       ),
       computed AS (
         SELECT
@@ -209,7 +211,7 @@ app.get("/api/workforce/summary", async (req, res) => {
       daily AS (
         SELECT
           workforce_date,
-          COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
+          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
           GREATEST(EXTRACT(EPOCH FROM ((CASE
             WHEN COUNT(*) = 1
               AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
@@ -231,7 +233,7 @@ app.get("/api/workforce/summary", async (req, res) => {
             ELSE 0
           END AS counted_day
         FROM scans
-        GROUP BY workforce_date, COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
+        GROUP BY workforce_date, LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
       ),
       period_person AS (
         SELECT
@@ -308,7 +310,7 @@ app.get("/api/workforce/summary", async (req, res) => {
       daily AS (
         SELECT
           workforce_date,
-          COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
+          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
           GREATEST(EXTRACT(EPOCH FROM ((CASE
             WHEN COUNT(*) = 1
               AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
@@ -330,7 +332,7 @@ app.get("/api/workforce/summary", async (req, res) => {
             ELSE 0
           END AS counted_day
         FROM scans
-        GROUP BY workforce_date, COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
+        GROUP BY workforce_date, LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
       ),
       period_person AS (
         SELECT
@@ -424,7 +426,7 @@ app.get("/api/workforce/daily-record", async (req, res) => {
       ),
       grouped AS (
         SELECT
-          COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
+          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
           MAX("L_UID") AS l_uid,
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
@@ -491,7 +493,7 @@ app.get("/api/workforce/daily-record", async (req, res) => {
             ELSE FALSE
           END AS counted_day
         FROM day_scans
-        GROUP BY COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
+        GROUP BY LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
       ),
       filtered AS (
         SELECT *, COUNT(*) OVER() AS total_count
@@ -556,7 +558,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
       daily_raw AS (
         SELECT
           workforce_date,
-          COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
+          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
           ROUND(GREATEST(EXTRACT(EPOCH FROM ((CASE
@@ -569,7 +571,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
           END) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours
         FROM scans
         WHERE workforce_date >= $1::date AND workforce_date <= $2::date
-        GROUP BY workforce_date, COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
+        GROUP BY workforce_date, LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
       ),
       daily AS (
         SELECT *
@@ -630,7 +632,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
       daily_raw AS (
         SELECT
           workforce_date,
-          COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
+          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
           MAX("Person") AS person,
           MAX("PersonGroup") AS persongroup,
           MIN(scan_ts) AS first_scan,
@@ -646,7 +648,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
           END) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours
         FROM scans
         WHERE workforce_date >= $1::date AND workforce_date <= $2::date
-        GROUP BY workforce_date, COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person")))
+        GROUP BY workforce_date, LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
       ),
       daily AS (
         SELECT *
@@ -750,7 +752,7 @@ app.get("/api/workforce/population", async (req, res) => {
       `
       WITH day_scans AS (
         SELECT
-          COALESCE(NULLIF(TRIM("L_UID"), ''), LOWER(TRIM("Person"))) AS person_key,
+          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
           "PersonGroup",
           ("C_Date"::date + "C_Time"::time) AS scan_ts
         FROM "hkvision"."tbhikvision"
