@@ -2,16 +2,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-ENV NODE_ENV=production
-ENV PORT=5056
-
 COPY package*.json ./
 
-RUN npm ci
+RUN npm install
 
 COPY . .
 
 RUN npm run build
+
+ENV NODE_ENV=production
+ENV PORT=5056
 
 EXPOSE 5056
 
