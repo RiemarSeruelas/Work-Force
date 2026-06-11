@@ -1,23 +1,26 @@
-# Workforce Dashboard Docker
+# Docker usage
 
-## Build image
+Build the image:
+
 ```bash
 docker build -t workforce-dashboard .
 ```
 
-## Run container
+Run the container:
+
 ```bash
-docker run --env-file .env -p 5053:5053 --name workforce-dashboard workforce-dashboard
+docker run --env-file .env -p 5056:5056 --name workforce-dashboard workforce-dashboard
 ```
 
-## Or use Docker Compose
+Open in browser:
+
+```text
+http://SERVER_IP:5056
+```
+
+To replace an existing container:
+
 ```bash
-docker compose up -d --build
+docker rm -f workforce-dashboard
+docker run --env-file .env -p 5056:5056 --name workforce-dashboard workforce-dashboard
 ```
-
-App will be available at:
-```txt
-http://localhost:5053
-```
-
-Make sure `server.js` uses `process.env.PORT || 5053`.
