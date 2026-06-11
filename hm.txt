@@ -1,36 +1,41 @@
 PS C:\Users\ASUS\Downloads\4th Project> docker build --no-cache -t workforce-dashboard .
-[+] Building 73.2s (10/10) FINISHED                                                                      docker:desktop-linux
+[+] Building 214.0s (9/11)                                                                               docker:desktop-linux
  => [internal] load build definition from Dockerfile                                                                     0.0s
- => => transferring dockerfile: 237B                                                                                     0.0s
+ => => transferring dockerfile: 325B                                                                                     0.0s
  => [internal] load metadata for docker.io/library/node:20-alpine                                                        0.1s
  => [internal] load .dockerignore                                                                                        0.0s
  => => transferring context: 180B                                                                                        0.0s
- => [1/6] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293  0.0s
+ => [1/7] FROM docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293  0.0s
  => => resolve docker.io/library/node:20-alpine@sha256:fb4cd12c85ee03686f6af5362a0b0d56d50c58a04632e6c0fb8363f609372293  0.0s
  => [internal] load build context                                                                                        0.0s
- => => transferring context: 152.44kB                                                                                    0.0s
- => CACHED [2/6] WORKDIR /app                                                                                            0.0s
- => [3/6] COPY package*.json ./                                                                                          0.0s
- => [4/6] RUN npm install                                                                                               72.2s
- => [5/6] COPY . .                                                                                                       0.1s
- => ERROR [6/6] RUN npm run build                                                                                        0.5s
+ => => transferring context: 3.63kB                                                                                      0.0s
+ => CACHED [2/7] WORKDIR /app                                                                                            0.0s
+ => [3/7] COPY package*.json ./                                                                                          0.0s
+ => [4/7] RUN npm install                                                                                               72.2s
+ => ERROR [5/7] RUN npm install -D vite@5.4.11 @vitejs/plugin-react@4.3.4                                              141.6s
 ------                                                                                                                        
- > [6/6] RUN npm run build:
-0.494 
-0.494 > workforce-dashboard@1.0.0 build
-0.494 > vite build
-0.494 
-0.500 sh: vite: not found
+ > [5/7] RUN npm install -D vite@5.4.11 @vitejs/plugin-react@4.3.4:
+141.5 npm error code ENOTFOUND
+141.5 npm error syscall getaddrinfo
+141.5 npm error errno ENOTFOUND
+141.5 npm error network request to https://registry.npmjs.org/@vitejs%2fplugin-react failed, reason: getaddrinfo ENOTFOUND registry.npmjs.org
+141.5 npm error network This is a problem related to network connectivity.
+141.5 npm error network In most cases you are behind a proxy or have bad network settings.
+141.5 npm error network
+141.5 npm error network If you are behind a proxy, please make sure that the
+141.5 npm error network 'proxy' config is set properly.  See: 'npm help config'
+141.5 npm error A complete log of this run can be found in: /root/.npm/_logs/2026-06-11T05_38_42_056Z-debug-0.log
 ------
-Dockerfile:11
+Dockerfile:8
 --------------------
-   9 |     COPY . .
-  10 |     
-  11 | >>> RUN npm run build
-  12 |     
-  13 |     ENV NODE_ENV=production
+   6 |     
+   7 |     RUN npm install
+   8 | >>> RUN npm install -D vite@5.4.11 @vitejs/plugin-react@4.3.4
+   9 |     
+  10 |     COPY . .
 --------------------
-ERROR: failed to build: failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 127
+ERROR: failed to build: failed to solve: process "/bin/sh -c npm install -D vite@5.4.11 @vitejs/plugin-react@4.3.4" did not complete successfully: exit code: 1
 
 What's next:
     Debug this build failure with Gordon → docker ai "help me fix this build failure"
+PS C:\Users\ASUS\Downloads\4th Project> 
