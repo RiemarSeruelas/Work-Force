@@ -25,7 +25,7 @@ const pool = new Pool({
 });
 
 const MANILA_TZ = "Asia/Manila";
-const APP_PASSWORD = "Workforce2026";
+const APP_PASSWORD = process.env.APP_PASSWORD || "Workforce2026";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function getManilaDateParts(date = new Date()) {
