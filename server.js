@@ -25,7 +25,7 @@ const pool = new Pool({
 });
 
 const MANILA_TZ = "Asia/Manila";
-const APP_PASSWORD = process.env.APP_PASSWORD || "Workforce2026";
+const APP_PASSWORD = String(process.env.APP_PASSWORD || "Workforce2026").trim();
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function getManilaDateParts(date = new Date()) {
@@ -396,10 +396,12 @@ app.get("/api/health", async (_req, res) => {
 });
 
 app.post("/api/auth/passcode", (req, res) => {
-  const { passcode } = req.body || {};
-  if (passcode !== APP_PASSWORD) {
+  const enteredPasscode = String(req.body?.passcode || "").trim();
+
+  if (enteredPasscode !== APP_PASSWORD) {
     return res.status(401).json({ error: "Invalid passcode" });
   }
+
   res.json({ success: true, token: "passcode-ok" });
 });
 
