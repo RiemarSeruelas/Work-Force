@@ -1,0 +1,16 @@
+[FRONTEND] 2:10:00 PM [vite] http proxy error: /api/auth/passcode
+[FRONTEND] AggregateError [ECONNREFUSED]: 
+[FRONTEND]     at internalConnectMultiple (node:net:1142:49)
+[FRONTEND]     at afterConnectMultiple (node:net:1723:7)
+[FRONTEND] 2:10:02 PM [vite] http proxy error: /api/auth/passcode
+[FRONTEND] AggregateError [ECONNREFUSED]: 
+[FRONTEND]     at internalConnectMultiple (node:net:1142:49)
+[FRONTEND]     at afterConnectMultiple (node:net:1723:7)
+[FRONTEND] 2:10:10 PM [vite] http proxy error: /api/auth/passcode
+[FRONTEND] AggregateError [ECONNREFUSED]: 
+[FRONTEND]     at internalConnectMultiple (node:net:1142:49)
+[FRONTEND]     at afterConnectMultiple (node:net:1723:7)
+[FRONTEND] 2:10:10 PM [vite] http proxy error: /api/auth/passcode
+[FRONTEND] AggregateError [ECONNREFUSED]: 
+[FRONTEND]     at internalConnectMultiple (node:net:1142:49)
+[FRONTEND]     at afterConnectMultiple (node:net:1723:7)
