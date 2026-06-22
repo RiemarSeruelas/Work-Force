@@ -307,7 +307,7 @@ export default function WorkforceDashboardPage() {
         </select>
       </label>
 
-      <button className="summary-refresh-btn" onClick={fetchSummary} disabled={loading}>
+      <button className="summary-refresh-btn loading-aware-btn" onClick={fetchSummary} disabled={loading}>
         {loading ? "Refreshing..." : "Refresh"}
       </button>
     </>
@@ -315,7 +315,7 @@ export default function WorkforceDashboardPage() {
 
   return (
     <AppShell title="Workforce Monitoring Overview" subtitle="" summaryControls={controls} summaryStats={[]}>
-      <section className="center-panel workforce-full-span no-panel-bg overview-page-fit">
+      <section className="center-panel workforce-full-span no-panel-bg overview-page-fit responsive-overview-fit">
         {error && <div className="error-box page-error">{error}</div>}
 
         <div className="kpi-grid compact-kpi-grid overview-kpi-grid overview-kpi-grid-five">

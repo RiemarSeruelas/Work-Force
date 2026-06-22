@@ -20,7 +20,7 @@ export default function WorkforcePopulationPage() {
   return (
     <AppShell
       title="Workforce Population"
-      subtitle="Population breakdown by subgroup for selected workforce day"
+      subtitle=""
       summaryStats={[
         { value: total, label: "TOTAL" },
         { value: rows.length, label: "SUBGROUPS" },
@@ -31,14 +31,14 @@ export default function WorkforcePopulationPage() {
         <div className="panel-title">Filters</div>
         <label className="field-label">Workforce Date</label>
         <input className="styled-input" type="date" value={workforceDate} onChange={(e) => setWorkforceDate(e.target.value)} />
-        <button className="primary-action-btn" onClick={fetchPopulation} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
+        <button className="primary-action-btn loading-aware-btn" onClick={fetchPopulation} disabled={loading}>{loading ? "Loading..." : "Refresh"}</button>
         {error && <div className="error-box">{error}</div>}
       </aside>
 
-      <section className="panel center-panel workforce-center-span">
-        <div className="chart-card population-card">
+      <section className="panel center-panel workforce-center-span population-page-panel">
+        <div className="chart-card population-card airy-card">
           <h3>Population by Subgroup</h3>
-          <div className="bar-list population-bars">
+          <div className="bar-list population-bars relaxed-bar-list">
             {rows.map((row) => {
               const value = Number(row.population) || 0;
               return (

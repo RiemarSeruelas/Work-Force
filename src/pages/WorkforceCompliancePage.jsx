@@ -58,13 +58,15 @@ function formatHours(value) {
 }
 
 function BarList({ title, rows, field, colorClass, onSelect, selected }) {
-  const sortedRows = [...rows].sort(
-    (a, b) => (Number(b[field]) || 0) - (Number(a[field]) || 0)
-  );
+  const sortedRows = [...rows]
+    .filter((row) => (Number(row[field]) || 0) > 0)
+    .sort(
+      (a, b) => (Number(b[field]) || 0) - (Number(a[field]) || 0)
+    );
   const max = Math.max(...sortedRows.map((r) => Number(r[field]) || 0), 1);
 
   return (
-    <div className="chart-card compact-chart-card">
+    <div className="chart-card compact-chart-card airy-card">
       <div className="compact-card-title">{title}</div>
       <div className="bar-list compliance-bar-list">
         {sortedRows.map((row) => {
@@ -118,6 +120,7 @@ function PersonWeekTooltip({ hover }) {
         {weekDays.map((day) => {
           const hours = Number(day.hours) || 0;
           const hasScan = hours > 0;
+          const segments = Array.isArray(day.segments) ? day.segments : [];
           const timeRange = day.firstScan
             ? `${day.firstScan} - ${day.hasOutScan && day.lastScan ? day.lastScan : "No Scan"}`
             : "No scan";
@@ -127,6 +130,13 @@ function PersonWeekTooltip({ hover }) {
               <span>{formatDayLabel(day.date)}</span>
               <b>{formatHours(hours)}</b>
               <small>{timeRange}</small>
+              {segments.length > 1 ? (
+                <em className="split-segment-list">
+                  {segments.map((segment, index) => (
+                    <span key={`${day.date}-${index}`}>{segment.calendarDate}: {segment.firstScan}-{segment.lastScan}</span>
+                  ))}
+                </em>
+              ) : null}
             </div>
           );
         })}
@@ -139,6 +149,11 @@ function PersonDrilldown({ selected, people, startDate }) {
   const category = selected?.field || "greater_than_60_hours";
   const persongroup = selected?.persongroup || "";
   const [hover, setHover] = useState(null);
+  const [visibleCount, setVisibleCount] = useState(20);
+
+  useEffect(() => {
+    setVisibleCount(20);
+  }, [category, persongroup, people]);
 
   function showWeeklyHover(event, person) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -170,8 +185,19 @@ function PersonDrilldown({ selected, people, startDate }) {
       });
   }, [people, persongroup, category]);
 
+  const visiblePeople = filteredPeople.slice(0, visibleCount);
+  const hasMorePeople = visibleCount < filteredPeople.length;
+
+  function handleListScroll(event) {
+    const el = event.currentTarget;
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 80;
+    if (nearBottom && hasMorePeople) {
+      setVisibleCount((count) => Math.min(count + 20, filteredPeople.length));
+    }
+  }
+
   return (
-    <div className="chart-card compliance-drilldown-card">
+    <div className="chart-card compliance-drilldown-card airy-card">
       <div className="chart-header-row compact-chart-header">
         <div>
           <h3>Names in Category</h3>
@@ -181,8 +207,8 @@ function PersonDrilldown({ selected, people, startDate }) {
         </div>
       </div>
 
-      <div className="drilldown-list">
-        {filteredPeople.map((person, index) => (
+      <div className="drilldown-list lazy-drilldown-list" onScroll={handleListScroll}>
+        {visiblePeople.map((person, index) => (
           <div
             className="drilldown-row person-hover-row"
             key={`${person.person}-${index}`}
@@ -200,6 +226,12 @@ function PersonDrilldown({ selected, people, startDate }) {
 
         {filteredPeople.length === 0 && (
           <div className="empty-cell">No names for this category yet.</div>
+        )}
+
+        {hasMorePeople && (
+          <button type="button" className="load-more-row" onClick={() => setVisibleCount((count) => Math.min(count + 20, filteredPeople.length))}>
+            Load 20 more
+          </button>
         )}
       </div>
 
@@ -267,7 +299,7 @@ export default function WorkforceCompliancePage() {
         </select>
       </label>
 
-      <button className="summary-refresh-btn" onClick={() => fetchCompliance(group)} disabled={loading}>
+      <button className="summary-refresh-btn loading-aware-btn" onClick={() => fetchCompliance(group)} disabled={loading}>
         {loading ? "Loading..." : "Refresh"}
       </button>
     </>
@@ -286,7 +318,7 @@ export default function WorkforceCompliancePage() {
         { value: totals.nonCompliantWorkingDays ?? 0, label: "6+ DAYS", variant: "red" },
       ]}
     >
-      <section className="panel center-panel workforce-full-span compliance-page-panel">
+      <section className="panel center-panel workforce-full-span compliance-page-panel airy-page-panel">
         {error && <div className="error-box page-error">{error}</div>}
 
         <div className="compliance-shell-grid">

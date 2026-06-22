@@ -10,11 +10,6 @@ dotenv.config();
 
 const { Pool } = pg;
 const app = express();
-
-// Open-shift rule: if a person has only one scan inside the active Manila 06:00-06:00 workforce window,
-// hours are calculated up to the request time. Refreshing the dashboard updates that in-progress duration.
-// Dedupe rule: same normalized Person name is treated as one person even if L_UID or PersonGroup differs.
-// This keeps the latest real scan across duplicate subgroup rows.
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -29,8 +24,12 @@ const pool = new Pool({
   port: Number(process.env.DB_PORT || 5432),
 });
 
+const MANILA_TZ = "Asia/Manila";
+const APP_PASSWORD = "Workforce2026";
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 function getManilaDateParts(date = new Date()) {
-  return new Date(date.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
+  return new Date(date.toLocaleString("en-US", { timeZone: MANILA_TZ }));
 }
 
 function formatDateOnly(date) {
@@ -40,8 +39,14 @@ function formatDateOnly(date) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function getWorkforceDateManila() {
-  const manila = getManilaDateParts();
+function addDays(dateString, days) {
+  const date = new Date(`${dateString}T12:00:00+08:00`);
+  date.setDate(date.getDate() + days);
+  return formatDateOnly(date);
+}
+
+function getWorkforceDateManila(date = new Date()) {
+  const manila = getManilaDateParts(date);
   if (manila.getHours() < 6) manila.setDate(manila.getDate() - 1);
   return formatDateOnly(manila);
 }
@@ -75,24 +80,310 @@ function getWeekDateRangeManila(year, weekNo) {
 }
 
 function parsePaging(req) {
-  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 500, 1), 10000);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 10000);
   const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
   return { limit, offset };
 }
 
-function groupFilterSql(groupValue) {
+function normalizeName(value) {
+  return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function isContractor(group) {
+  return String(group || "").toLowerCase().includes("contract");
+}
+
+function groupAllowed(personGroup, groupValue) {
   const group = String(groupValue || "ALL").toUpperCase();
-  if (group === "FTE") {
-    return `AND LOWER(COALESCE("PersonGroup", '')) NOT LIKE '%contract%'`;
+  if (group === "FTE") return !isContractor(personGroup);
+  if (group === "CONTRACTOR") return isContractor(personGroup);
+  return true;
+}
+
+function parseScanTs(value) {
+  if (!value) return null;
+  const text = String(value).replace(" ", "T");
+  const date = new Date(`${text}+08:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatHHMM(ms) {
+  if (!ms) return null;
+  const date = new Date(ms);
+  return date.toLocaleTimeString("en-PH", {
+    timeZone: MANILA_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
+function startOfManilaDayMs(dateString) {
+  return new Date(`${dateString}T00:00:00+08:00`).getTime();
+}
+
+function windowStartMs(workforceDate) {
+  return new Date(`${workforceDate}T06:00:00+08:00`).getTime();
+}
+
+function windowEndMs(workforceDate) {
+  return windowStartMs(workforceDate) + DAY_MS;
+}
+
+function periodStartForDate(dateString, period) {
+  const date = new Date(`${dateString}T12:00:00+08:00`);
+  if (period === "MONTHLY") {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-01`;
   }
-  if (group === "CONTRACTOR") {
-    return `AND LOWER(COALESCE("PersonGroup", '')) LIKE '%contract%'`;
+  if (period === "WEEKLY") {
+    const day = date.getDay() || 7;
+    date.setDate(date.getDate() - day + 1);
+    return formatDateOnly(date);
   }
-  return "";
+  return dateString;
+}
+
+function isEntrance(row) {
+  const tid = String(row.l_tid ?? "").trim();
+  const mode = String(row.l_mode ?? "").toLowerCase();
+  if (mode.includes("entrance")) return true;
+  if (mode.includes("exit")) return false;
+  return tid === "1";
+}
+
+function isExit(row) {
+  const tid = String(row.l_tid ?? "").trim();
+  const mode = String(row.l_mode ?? "").toLowerCase();
+  if (mode.includes("exit")) return true;
+  if (mode.includes("entrance")) return false;
+  return tid === "0";
+}
+
+function splitIntervalSegments(startMs, endMs, hasOutScan) {
+  const segments = [];
+  let cursor = startMs;
+
+  while (cursor < endMs) {
+    const currentDate = getWorkforceDateManila(new Date(cursor));
+    const calendarDate = formatDateOnly(getManilaDateParts(new Date(cursor)));
+    const nextMidnight = startOfManilaDayMs(addDays(calendarDate, 1));
+    const segmentEnd = Math.min(endMs, nextMidnight);
+    const endsAtMidnight = segmentEnd === nextMidnight;
+
+    segments.push({
+      workforceDate: currentDate,
+      calendarDate,
+      firstScan: formatHHMM(cursor),
+      lastScan: endsAtMidnight ? "24:00" : formatHHMM(segmentEnd),
+      hasOutScan: hasOutScan || !endsAtMidnight,
+      hours: Number(((segmentEnd - cursor) / 3600000).toFixed(2)),
+    });
+
+    cursor = segmentEnd;
+  }
+
+  return segments;
 }
 
 async function testDb() {
   await pool.query("SELECT 1");
+}
+
+async function queryScans(fromDate, toDate, group = "ALL") {
+  const fromMs = windowStartMs(fromDate);
+  const toMs = windowEndMs(toDate);
+  const fromText = new Date(fromMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
+  const toText = new Date(toMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
+
+  const result = await pool.query(
+    `
+    SELECT
+      "L_UID" AS l_uid,
+      "Person" AS person,
+      "PersonGroup" AS persongroup,
+      "L_Mode" AS l_mode,
+      "L_TID" AS l_tid,
+      TO_CHAR(("C_Date"::date + "C_Time"::time), 'YYYY-MM-DD HH24:MI:SS') AS scan_ts_text
+    FROM "hkvision"."tbhikvision"
+    WHERE ("C_Date"::date + "C_Time"::time) >= $1::timestamp
+      AND ("C_Date"::date + "C_Time"::time) < $2::timestamp
+      AND COALESCE(TRIM("Person"), '') <> ''
+    ORDER BY "Person" ASC, ("C_Date"::date + "C_Time"::time) ASC
+    `,
+    [fromText, toText]
+  );
+
+  return result.rows
+    .map((row) => {
+      const parsed = parseScanTs(row.scan_ts_text);
+      return parsed
+        ? {
+            ...row,
+            person_key: normalizeName(row.person),
+            scan_ms: parsed.getTime(),
+            scan_iso: parsed.toISOString(),
+          }
+        : null;
+    })
+    .filter(Boolean)
+    .filter((row) => groupAllowed(row.persongroup, group));
+}
+
+function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
+  const nowMs = now.getTime();
+  const byDatePerson = new Map();
+
+  for (let date = fromDate; date <= toDate; date = addDays(date, 1)) {
+    const start = windowStartMs(date);
+    const end = windowEndMs(date);
+    const dayScans = scans.filter((scan) => scan.scan_ms >= start && scan.scan_ms < end);
+    const people = new Map();
+
+    for (const scan of dayScans) {
+      if (!scan.person_key) continue;
+      if (!people.has(scan.person_key)) {
+        people.set(scan.person_key, {
+          workforce_date: date,
+          person_key: scan.person_key,
+          l_uid: scan.l_uid,
+          person: scan.person,
+          persongroup: scan.persongroup,
+          scans: [],
+        });
+      }
+      const person = people.get(scan.person_key);
+      person.scans.push(scan);
+      if (scan.scan_ms >= (person.latest_actual_scan_ms || 0)) {
+        person.l_uid = scan.l_uid;
+        person.person = scan.person || person.person;
+        person.persongroup = scan.persongroup || person.persongroup;
+        person.latest_actual_scan_ms = scan.scan_ms;
+      }
+    }
+
+    for (const person of people.values()) {
+      person.scans.sort((a, b) => a.scan_ms - b.scan_ms);
+      const intervals = [];
+      let currentIn = null;
+
+      for (const scan of person.scans) {
+        if (isEntrance(scan)) {
+          if (!currentIn) currentIn = scan;
+          continue;
+        }
+
+        if (isExit(scan) && currentIn && scan.scan_ms > currentIn.scan_ms) {
+          intervals.push({
+            startMs: currentIn.scan_ms,
+            endMs: scan.scan_ms,
+            hasOutScan: true,
+          });
+          currentIn = null;
+        }
+      }
+
+      if (currentIn) {
+        const activeWindow = nowMs >= start && nowMs < end;
+        const endMs = activeWindow && nowMs > currentIn.scan_ms ? nowMs : end;
+        intervals.push({
+          startMs: currentIn.scan_ms,
+          endMs,
+          hasOutScan: false,
+        });
+      }
+
+      if (!intervals.length) continue;
+
+      const workHoursRaw = intervals.reduce((sum, item) => sum + Math.max(item.endMs - item.startMs, 0) / 3600000, 0);
+      const firstInterval = intervals[0];
+      const lastInterval = intervals[intervals.length - 1];
+      const segmentList = intervals.flatMap((item) => splitIntervalSegments(item.startMs, item.endMs, item.hasOutScan));
+
+      byDatePerson.set(`${date}|${person.person_key}`, {
+        workforce_date: date,
+        person_key: person.person_key,
+        l_uid: person.l_uid,
+        person: person.person,
+        persongroup: person.persongroup || "Unknown",
+        workforce_group: isContractor(person.persongroup) ? "CONTRACTOR" : "FTE",
+        entry_time: new Date(firstInterval.startMs).toISOString(),
+        last_scan: new Date(person.latest_actual_scan_ms || lastInterval.endMs).toISOString(),
+        exit_time: lastInterval.hasOutScan ? new Date(lastInterval.endMs).toISOString() : null,
+        scan_count: person.scans.length,
+        has_out_scan: intervals.some((item) => item.hasOutScan),
+        work_hours_raw: workHoursRaw,
+        work_hours: Number(workHoursRaw.toFixed(2)),
+        hours_bucket: workHoursRaw >= 12 ? "hours_12_plus" : workHoursRaw > 10 ? "hours_10_12" : workHoursRaw > 8 ? "hours_8_10" : "hours_8_or_less",
+        counted_day: workHoursRaw > 4,
+        segments: segmentList,
+      });
+    }
+  }
+
+  return [...byDatePerson.values()];
+}
+
+function summarizeDailyForTrend(daily, period) {
+  const periodPeople = new Map();
+
+  for (const row of daily) {
+    const periodStart = periodStartForDate(row.workforce_date, period);
+    const key = `${periodStart}|${row.person_key}`;
+    if (!periodPeople.has(key)) {
+      periodPeople.set(key, {
+        period_start: periodStart,
+        person_key: row.person_key,
+        total_hours: 0,
+        working_days: 0,
+      });
+    }
+    const item = periodPeople.get(key);
+    item.total_hours += Number(row.work_hours_raw) || 0;
+    if (row.counted_day) item.working_days += 1;
+  }
+
+  const periods = new Map();
+  for (const person of periodPeople.values()) {
+    if (!periods.has(person.period_start)) {
+      periods.set(person.period_start, {
+        period_start: person.period_start,
+        population: 0,
+        hours_8_or_less: 0,
+        hours_8_10: 0,
+        hours_10_12: 0,
+        hours_12_plus: 0,
+        days_1: 0,
+        days_2: 0,
+        days_3: 0,
+        days_4: 0,
+        days_5: 0,
+        days_6: 0,
+        days_7: 0,
+        total_hours_sum: 0,
+        total_days_sum: 0,
+      });
+    }
+    const periodRow = periods.get(person.period_start);
+    periodRow.population += 1;
+    periodRow.total_hours_sum += person.total_hours;
+    periodRow.total_days_sum += person.working_days;
+
+    if (person.total_hours >= 12) periodRow.hours_12_plus += 1;
+    else if (person.total_hours > 10) periodRow.hours_10_12 += 1;
+    else if (person.total_hours > 8) periodRow.hours_8_10 += 1;
+    else periodRow.hours_8_or_less += 1;
+
+    const dayBucket = Math.min(Math.max(person.working_days, 1), 7);
+    periodRow[`days_${dayBucket}`] += 1;
+  }
+
+  return [...periods.values()]
+    .sort((a, b) => a.period_start.localeCompare(b.period_start))
+    .map((row) => ({
+      ...row,
+      average_hours: row.population ? Number((row.total_hours_sum / row.population).toFixed(2)) : 0,
+      average_days: row.population ? Number((row.total_days_sum / row.population).toFixed(2)) : 0,
+    }));
 }
 
 app.get("/api/health", async (_req, res) => {
@@ -106,10 +397,7 @@ app.get("/api/health", async (_req, res) => {
 
 app.post("/api/auth/passcode", (req, res) => {
   const { passcode } = req.body || {};
-  if (!process.env.APP_PASSWORD) {
-    return res.status(500).json({ error: "APP_PASSWORD is not configured" });
-  }
-  if (passcode !== process.env.APP_PASSWORD) {
+  if (passcode !== APP_PASSWORD) {
     return res.status(401).json({ error: "Invalid passcode" });
   }
   res.json({ success: true, token: "passcode-ok" });
@@ -120,277 +408,30 @@ app.get("/api/workforce/summary", async (req, res) => {
     const workforceDate = String(req.query.date || getWorkforceDateManila());
     const group = String(req.query.group || "ALL");
     const periodRaw = String(req.query.period || "DAILY").toUpperCase();
-    const period = ["DAILY", "WEEKLY", "MONTHLY"].includes(periodRaw)
-      ? periodRaw
-      : "DAILY";
-    const groupSql = groupFilterSql(group);
+    const period = ["DAILY", "WEEKLY", "MONTHLY"].includes(periodRaw) ? periodRaw : "DAILY";
+    const startDate = period === "MONTHLY" ? addDays(workforceDate, -185) : period === "WEEKLY" ? addDays(workforceDate, -56) : addDays(workforceDate, -13);
 
-    const result = await pool.query(
-      `
-      WITH day_scans AS (
-        SELECT
-          "L_UID",
-          "Person",
-          "PersonGroup",
-          "L_Mode",
-          "L_TID",
-          "C_Date",
-          "C_Time",
-          ("C_Date"::date + "C_Time"::time) AS scan_ts
-        FROM "hkvision"."tbhikvision"
-        WHERE ("C_Date"::date + "C_Time"::time) >= ($1::date + TIME '06:00:00')
-          AND ("C_Date"::date + "C_Time"::time) < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-          AND COALESCE(TRIM("Person"), '') <> ''
-          ${groupSql}
-      ),
-      first_last AS (
-        SELECT
-          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
-          MAX("Person") AS person,
-          MAX("PersonGroup") AS persongroup,
-          MIN(scan_ts) AS first_scan,
-          MAX(scan_ts) AS last_scan,
-          COUNT(*) AS scan_count
-        FROM day_scans
-        GROUP BY LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
-      ),
-      computed AS (
-        SELECT
-          *,
-          GREATEST(EXTRACT(EPOCH FROM ((CASE
-            WHEN scan_count = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > first_scan
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE last_scan
-          END) - first_scan)) / 3600.0, 0) AS work_hours
-        FROM first_last
-      )
-      SELECT
-        COUNT(*)::int AS total_people,
-        COUNT(*) FILTER (WHERE work_hours > 4)::int AS counted_days,
-        COUNT(*) FILTER (WHERE work_hours > 8 AND work_hours <= 10)::int AS greater_than_8_hours,
-        COUNT(*) FILTER (WHERE work_hours > 10 AND work_hours < 12)::int AS greater_than_10_hours,
-        COUNT(*) FILTER (WHERE work_hours >= 12)::int AS greater_than_12_hours,
-        MAX(last_scan) AS latest_scan
-      FROM computed
-      `,
-      [workforceDate]
-    );
-
-    const trendResult = await pool.query(
-      `
-      WITH bounds AS (
-        SELECT
-          CASE
-            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', $1::date)::date - INTERVAL '5 months'
-            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', $1::date)::date - INTERVAL '7 weeks'
-            ELSE $1::date - INTERVAL '13 days'
-          END AS start_date,
-          $1::date AS end_date
-      ),
-      scans AS (
-        SELECT
-          CASE
-            WHEN EXTRACT(HOUR FROM h."C_Time"::time) < 6
-              THEN (h."C_Date"::date - INTERVAL '1 day')::date
-            ELSE h."C_Date"::date
-          END AS workforce_date,
-          h."L_UID",
-          h."Person",
-          h."PersonGroup",
-          (h."C_Date"::date + h."C_Time"::time) AS scan_ts
-        FROM "hkvision"."tbhikvision" h
-        CROSS JOIN bounds b
-        WHERE (h."C_Date"::date + h."C_Time"::time) >= (b.start_date::date + TIME '06:00:00')
-          AND (h."C_Date"::date + h."C_Time"::time) < ((b.end_date::date + INTERVAL '1 day') + TIME '06:00:00')
-          AND COALESCE(TRIM(h."Person"), '') <> ''
-          ${groupSql.replaceAll('"PersonGroup"', 'h."PersonGroup"')}
-      ),
-      daily AS (
-        SELECT
-          workforce_date,
-          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
-          GREATEST(EXTRACT(EPOCH FROM ((CASE
-            WHEN COUNT(*) = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE MAX(scan_ts)
-          END) - MIN(scan_ts))) / 3600.0, 0) AS work_hours,
-          CASE
-            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
-            WHEN COUNT(*) = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE MAX(scan_ts)
-          END) - MIN(scan_ts))) / 3600.0, 0) > 4
-              THEN 1
-            ELSE 0
-          END AS counted_day
-        FROM scans
-        GROUP BY workforce_date, LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
-      ),
-      period_person AS (
-        SELECT
-          CASE
-            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', workforce_date)::date
-            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', workforce_date)::date
-            ELSE workforce_date
-          END AS period_start,
-          person_key,
-          SUM(work_hours) AS total_hours,
-          SUM(counted_day)::int AS working_days
-        FROM daily
-        GROUP BY
-          CASE
-            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', workforce_date)::date
-            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', workforce_date)::date
-            ELSE workforce_date
-          END,
-          person_key
-      )
-      SELECT
-        period_start::text AS period_start,
-        COUNT(*)::int AS population,
-        COUNT(*) FILTER (WHERE total_hours <= 8)::int AS hours_8_or_less,
-        COUNT(*) FILTER (WHERE total_hours > 8 AND total_hours <= 10)::int AS hours_8_10,
-        COUNT(*) FILTER (WHERE total_hours > 10 AND total_hours < 12)::int AS hours_10_12,
-        COUNT(*) FILTER (WHERE total_hours >= 12)::int AS hours_12_plus,
-        COUNT(*) FILTER (WHERE working_days = 1)::int AS days_1,
-        COUNT(*) FILTER (WHERE working_days = 2)::int AS days_2,
-        COUNT(*) FILTER (WHERE working_days = 3)::int AS days_3,
-        COUNT(*) FILTER (WHERE working_days = 4)::int AS days_4,
-        COUNT(*) FILTER (WHERE working_days = 5)::int AS days_5,
-        COUNT(*) FILTER (WHERE working_days = 6)::int AS days_6,
-        COUNT(*) FILTER (WHERE working_days >= 7)::int AS days_7,
-        ROUND(AVG(total_hours)::numeric, 2) AS average_hours,
-        ROUND(AVG(NULLIF(working_days, 0))::numeric, 2) AS average_days
-      FROM period_person
-      GROUP BY period_start
-      ORDER BY period_start ASC
-      `,
-      [workforceDate, period]
-    );
+    const scans = await queryScans(startDate, workforceDate, group);
+    const daily = computeDailyRecords(scans, startDate, workforceDate);
+    const selectedDaily = daily.filter((row) => row.workforce_date === workforceDate);
+    const latestScanMs = scans.reduce((max, scan) => Math.max(max, scan.scan_ms || 0), 0);
 
     const daysPeriod = period === "DAILY" ? "WEEKLY" : period;
-    const daysTrendResult = await pool.query(
-      `
-      WITH bounds AS (
-        SELECT
-          CASE
-            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', $1::date)::date - INTERVAL '5 months'
-            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', $1::date)::date - INTERVAL '7 weeks'
-            ELSE $1::date - INTERVAL '13 days'
-          END AS start_date,
-          $1::date AS end_date
-      ),
-      scans AS (
-        SELECT
-          CASE
-            WHEN EXTRACT(HOUR FROM h."C_Time"::time) < 6
-              THEN (h."C_Date"::date - INTERVAL '1 day')::date
-            ELSE h."C_Date"::date
-          END AS workforce_date,
-          h."L_UID",
-          h."Person",
-          h."PersonGroup",
-          (h."C_Date"::date + h."C_Time"::time) AS scan_ts
-        FROM "hkvision"."tbhikvision" h
-        CROSS JOIN bounds b
-        WHERE (h."C_Date"::date + h."C_Time"::time) >= (b.start_date::date + TIME '06:00:00')
-          AND (h."C_Date"::date + h."C_Time"::time) < ((b.end_date::date + INTERVAL '1 day') + TIME '06:00:00')
-          AND COALESCE(TRIM(h."Person"), '') <> ''
-          ${groupSql.replaceAll('"PersonGroup"', 'h."PersonGroup"')}
-      ),
-      daily AS (
-        SELECT
-          workforce_date,
-          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
-          GREATEST(EXTRACT(EPOCH FROM ((CASE
-            WHEN COUNT(*) = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE MAX(scan_ts)
-          END) - MIN(scan_ts))) / 3600.0, 0) AS work_hours,
-          CASE
-            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
-            WHEN COUNT(*) = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE MAX(scan_ts)
-          END) - MIN(scan_ts))) / 3600.0, 0) > 4
-              THEN 1
-            ELSE 0
-          END AS counted_day
-        FROM scans
-        GROUP BY workforce_date, LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
-      ),
-      period_person AS (
-        SELECT
-          CASE
-            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', workforce_date)::date
-            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', workforce_date)::date
-            ELSE workforce_date
-          END AS period_start,
-          person_key,
-          SUM(work_hours) AS total_hours,
-          SUM(counted_day)::int AS working_days
-        FROM daily
-        GROUP BY
-          CASE
-            WHEN $2::text = 'MONTHLY' THEN date_trunc('month', workforce_date)::date
-            WHEN $2::text = 'WEEKLY' THEN date_trunc('week', workforce_date)::date
-            ELSE workforce_date
-          END,
-          person_key
-      )
-      SELECT
-        period_start::text AS period_start,
-        COUNT(*)::int AS population,
-        COUNT(*) FILTER (WHERE total_hours <= 8)::int AS hours_8_or_less,
-        COUNT(*) FILTER (WHERE total_hours > 8 AND total_hours <= 10)::int AS hours_8_10,
-        COUNT(*) FILTER (WHERE total_hours > 10 AND total_hours < 12)::int AS hours_10_12,
-        COUNT(*) FILTER (WHERE total_hours >= 12)::int AS hours_12_plus,
-        COUNT(*) FILTER (WHERE working_days = 1)::int AS days_1,
-        COUNT(*) FILTER (WHERE working_days = 2)::int AS days_2,
-        COUNT(*) FILTER (WHERE working_days = 3)::int AS days_3,
-        COUNT(*) FILTER (WHERE working_days = 4)::int AS days_4,
-        COUNT(*) FILTER (WHERE working_days = 5)::int AS days_5,
-        COUNT(*) FILTER (WHERE working_days = 6)::int AS days_6,
-        COUNT(*) FILTER (WHERE working_days >= 7)::int AS days_7,
-        ROUND(AVG(total_hours)::numeric, 2) AS average_hours,
-        ROUND(AVG(NULLIF(working_days, 0))::numeric, 2) AS average_days
-      FROM period_person
-      GROUP BY period_start
-      ORDER BY period_start ASC
-      `,
-      [workforceDate, daysPeriod]
-    );
 
-    const row = result.rows[0] || {};
     res.json({
       workforceDate,
       group,
       period,
-      totalPeople: Number(row.total_people) || 0,
-      countedDays: Number(row.counted_days) || 0,
-      greaterThan8Hours: Number(row.greater_than_8_hours) || 0,
-      greaterThan10Hours: Number(row.greater_than_10_hours) || 0,
-      greaterThan12Hours: Number(row.greater_than_12_hours) || 0,
-      latestScan: row.latest_scan,
-      timeSeries: trendResult.rows || [],
+      totalPeople: selectedDaily.length,
+      countedDays: selectedDaily.filter((row) => row.counted_day).length,
+      greaterThan8Hours: selectedDaily.filter((row) => row.work_hours_raw > 8 && row.work_hours_raw <= 10).length,
+      greaterThan10Hours: selectedDaily.filter((row) => row.work_hours_raw > 10 && row.work_hours_raw < 12).length,
+      greaterThan12Hours: selectedDaily.filter((row) => row.work_hours_raw >= 12).length,
+      latestScan: latestScanMs ? new Date(latestScanMs).toISOString() : null,
+      timeSeries: summarizeDailyForTrend(daily, period),
       daysPeriod,
-      daysTimeSeries: daysTrendResult.rows || [],
-      dayRule: "Entering counts toward workforce population. More than 4 hours counts as 1 working day.",
+      daysTimeSeries: summarizeDailyForTrend(daily, daysPeriod),
+      dayRule: "Entrance events start work time. Exit events close work time. More than 4 hours counts as 1 working day.",
     });
   } catch (err) {
     console.error("❌ WORKFORCE SUMMARY ERROR:", err.message);
@@ -401,125 +442,32 @@ app.get("/api/workforce/summary", async (req, res) => {
 app.get("/api/workforce/daily-record", async (req, res) => {
   try {
     const workforceDate = String(req.query.date || getWorkforceDateManila());
-    const search = String(req.query.search || "").trim();
+    const search = String(req.query.search || "").trim().toLowerCase();
     const group = String(req.query.group || "ALL");
     const { limit, offset } = parsePaging(req);
-    const groupSql = groupFilterSql(group);
 
-    const result = await pool.query(
-      `
-      WITH day_scans AS (
-        SELECT
-          "L_UID",
-          "Person",
-          "PersonGroup",
-          "L_Mode",
-          "L_TID",
-          "C_Date",
-          "C_Time",
-          ("C_Date"::date + "C_Time"::time) AS scan_ts
-        FROM "hkvision"."tbhikvision"
-        WHERE ("C_Date"::date + "C_Time"::time) >= ($1::date + TIME '06:00:00')
-          AND ("C_Date"::date + "C_Time"::time) < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-          AND COALESCE(TRIM("Person"), '') <> ''
-          ${groupSql}
-      ),
-      grouped AS (
-        SELECT
-          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
-          MAX("L_UID") AS l_uid,
-          MAX("Person") AS person,
-          MAX("PersonGroup") AS persongroup,
-          CASE
-            WHEN LOWER(COALESCE(MAX("PersonGroup"), '')) LIKE '%contract%' THEN 'CONTRACTOR'
-            ELSE 'FTE'
-          END AS workforce_group,
-          MIN(scan_ts) AS entry_time,
-          MAX(scan_ts) AS last_scan,
-          GREATEST(EXTRACT(EPOCH FROM ((CASE
-              WHEN COUNT(*) = 1
-                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-                THEN (NOW() AT TIME ZONE 'Asia/Manila')
-              ELSE MAX(scan_ts)
-            END) - MIN(scan_ts))) / 3600.0, 0) AS work_hours_raw,
-          ROUND(GREATEST(EXTRACT(EPOCH FROM ((CASE
-              WHEN COUNT(*) = 1
-                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-                THEN (NOW() AT TIME ZONE 'Asia/Manila')
-              ELSE MAX(scan_ts)
-            END) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours,
-          COUNT(*) AS scan_count,
-          CASE
-            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
-              WHEN COUNT(*) = 1
-                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-                THEN (NOW() AT TIME ZONE 'Asia/Manila')
-              ELSE MAX(scan_ts)
-            END) - MIN(scan_ts))) / 3600.0, 0) >= 12 THEN 'hours_12_plus'
-            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
-              WHEN COUNT(*) = 1
-                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-                THEN (NOW() AT TIME ZONE 'Asia/Manila')
-              ELSE MAX(scan_ts)
-            END) - MIN(scan_ts))) / 3600.0, 0) > 10 THEN 'hours_10_12'
-            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
-              WHEN COUNT(*) = 1
-                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-                THEN (NOW() AT TIME ZONE 'Asia/Manila')
-              ELSE MAX(scan_ts)
-            END) - MIN(scan_ts))) / 3600.0, 0) > 8 THEN 'hours_8_10'
-            ELSE 'hours_8_or_less'
-          END AS hours_bucket,
-          CASE
-            WHEN GREATEST(EXTRACT(EPOCH FROM ((CASE
-              WHEN COUNT(*) = 1
-                AND (NOW() AT TIME ZONE 'Asia/Manila') >= ($1::date + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-                AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-                THEN (NOW() AT TIME ZONE 'Asia/Manila')
-              ELSE MAX(scan_ts)
-            END) - MIN(scan_ts))) / 3600.0, 0) > 4
-              THEN TRUE
-            ELSE FALSE
-          END AS counted_day
-        FROM day_scans
-        GROUP BY LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
-      ),
-      filtered AS (
-        SELECT *, COUNT(*) OVER() AS total_count
-        FROM grouped
-        WHERE $2::text = ''
-          OR LOWER(person) LIKE LOWER('%' || $2::text || '%')
-          OR LOWER(persongroup) LIKE LOWER('%' || $2::text || '%')
-      )
-      SELECT *
-      FROM filtered
-      ORDER BY person ASC
-      LIMIT $3 OFFSET $4
-      `,
-      [workforceDate, search, limit, offset]
-    );
+    const scans = await queryScans(workforceDate, workforceDate, group);
+    let rows = computeDailyRecords(scans, workforceDate, workforceDate);
 
-    const rows = result.rows;
-    const total = rows.length ? Number(rows[0].total_count) || 0 : 0;
+    if (search) {
+      rows = rows.filter((row) =>
+        String(row.person || "").toLowerCase().includes(search) ||
+        String(row.persongroup || "").toLowerCase().includes(search)
+      );
+    }
+
+    rows.sort((a, b) => String(a.person || "").localeCompare(String(b.person || "")));
+    const total = rows.length;
+    const pagedRows = rows.slice(offset, offset + limit);
+
     res.json({
       workforceDate,
       group,
-      rows: rows.map(({ total_count, ...row }) => row),
+      rows: pagedRows,
       total,
       limit,
       offset,
-      hasMore: offset + rows.length < total,
+      hasMore: offset + pagedRows.length < total,
     });
   } catch (err) {
     console.error("❌ WORKFORCE DAILY RECORD ERROR:", err.message);
@@ -534,179 +482,90 @@ app.get("/api/workforce/compliance", async (req, res) => {
     const week = Number(req.query.week || currentWeek.week);
     const group = String(req.query.group || "ALL");
     const { startDate, endDate } = getWeekDateRangeManila(year, week);
-    const groupSql = groupFilterSql(group);
 
-    const result = await pool.query(
-      `
-      WITH scans AS (
-        SELECT
-          "L_UID",
-          "Person",
-          "PersonGroup",
-          ("C_Date"::date + "C_Time"::time) AS scan_ts,
-          CASE
-            WHEN EXTRACT(HOUR FROM ("C_Time"::time)) < 6
-              THEN ("C_Date"::date - INTERVAL '1 day')::date
-            ELSE "C_Date"::date
-          END AS workforce_date
-        FROM "hkvision"."tbhikvision"
-        WHERE "C_Date"::date >= $1::date
-          AND "C_Date"::date <= ($2::date + INTERVAL '1 day')::date
-          AND COALESCE(TRIM("Person"), '') <> ''
-          ${groupSql}
-      ),
-      daily_raw AS (
-        SELECT
-          workforce_date,
-          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
-          MAX("Person") AS person,
-          MAX("PersonGroup") AS persongroup,
-          ROUND(GREATEST(EXTRACT(EPOCH FROM ((CASE
-            WHEN COUNT(*) = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE MAX(scan_ts)
-          END) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours
-        FROM scans
-        WHERE workforce_date >= $1::date AND workforce_date <= $2::date
-        GROUP BY workforce_date, LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
-      ),
-      daily AS (
-        SELECT *
-        FROM daily_raw
-        WHERE work_hours > 4
-      ),
-      person_week AS (
-        SELECT
-          person_key,
-          MAX(person) AS person,
-          MAX(persongroup) AS persongroup,
-          COUNT(DISTINCT workforce_date)::int AS working_days,
-          ROUND(SUM(work_hours)::numeric, 2) AS total_hours
-        FROM daily
-        GROUP BY person_key
-      ),
-      subgroup AS (
-        SELECT
-          persongroup,
-          COUNT(*)::int AS population,
-          COUNT(*) FILTER (WHERE total_hours > 60)::int AS greater_than_60_hours,
-          COUNT(*) FILTER (WHERE total_hours >= 40 AND total_hours <= 60)::int AS hours_40_60,
-          COUNT(*) FILTER (WHERE total_hours < 40)::int AS less_than_40_hours,
-          COUNT(*) FILTER (WHERE working_days > 6)::int AS greater_than_6_days,
-          COUNT(*) FILTER (WHERE working_days >= 5 AND working_days <= 6)::int AS days_5_6,
-          COUNT(*) FILTER (WHERE working_days < 5)::int AS days_less_than_5,
-          ROUND(AVG(total_hours)::numeric, 2) AS avg_hours,
-          ROUND(AVG(working_days)::numeric, 2) AS avg_days
-        FROM person_week
-        GROUP BY persongroup
-      )
-      SELECT *
-      FROM subgroup
-      ORDER BY population DESC, persongroup ASC
-      `,
-      [startDate, endDate]
-    );
+    const scans = await queryScans(startDate, endDate, group);
+    const dailyRaw = computeDailyRecords(scans, startDate, endDate);
+    const daily = dailyRaw.filter((row) => row.work_hours_raw > 4);
 
-    const peopleResult = await pool.query(
-      `
-      WITH scans AS (
-        SELECT
-          "L_UID",
-          "Person",
-          "PersonGroup",
-          ("C_Date"::date + "C_Time"::time) AS scan_ts,
-          CASE
-            WHEN EXTRACT(HOUR FROM ("C_Time"::time)) < 6
-              THEN ("C_Date"::date - INTERVAL '1 day')::date
-            ELSE "C_Date"::date
-          END AS workforce_date
-        FROM "hkvision"."tbhikvision"
-        WHERE "C_Date"::date >= $1::date
-          AND "C_Date"::date <= ($2::date + INTERVAL '1 day')::date
-          AND COALESCE(TRIM("Person"), '') <> ''
-          ${groupSql}
-      ),
-      daily_raw AS (
-        SELECT
-          workforce_date,
-          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
-          MAX("Person") AS person,
-          MAX("PersonGroup") AS persongroup,
-          MIN(scan_ts) AS first_scan,
-          MAX(scan_ts) AS last_scan,
-          COUNT(*)::int AS scan_count,
-          ROUND(GREATEST(EXTRACT(EPOCH FROM ((CASE
-            WHEN COUNT(*) = 1
-              AND (NOW() AT TIME ZONE 'Asia/Manila') >= (workforce_date + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') < ((workforce_date + INTERVAL '1 day') + TIME '06:00:00')
-              AND (NOW() AT TIME ZONE 'Asia/Manila') > MIN(scan_ts)
-              THEN (NOW() AT TIME ZONE 'Asia/Manila')
-            ELSE MAX(scan_ts)
-          END) - MIN(scan_ts))) / 3600.0, 0)::numeric, 2) AS work_hours
-        FROM scans
-        WHERE workforce_date >= $1::date AND workforce_date <= $2::date
-        GROUP BY workforce_date, LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g'))
-      ),
-      daily AS (
-        SELECT *
-        FROM daily_raw
-        WHERE work_hours > 4
-      ),
-      person_week AS (
-        SELECT
-          person_key,
-          MAX(person) AS person,
-          MAX(persongroup) AS persongroup,
-          COUNT(DISTINCT workforce_date)::int AS working_days,
-          ROUND(SUM(work_hours)::numeric, 2) AS total_hours
-        FROM daily
-        GROUP BY person_key
-      ),
-      person_days AS (
-        SELECT
-          person_key,
-          json_agg(
-            json_build_object(
-              'date', workforce_date::text,
-              'hours', work_hours,
-              'firstScan', TO_CHAR(first_scan, 'HH24:MI'),
-              'lastScan', CASE WHEN scan_count > 1 THEN TO_CHAR(last_scan, 'HH24:MI') ELSE NULL END,
-              'hasOutScan', scan_count > 1,
-              'countedDay', work_hours > 4
-            )
-            ORDER BY workforce_date
-          ) AS week_days
-        FROM daily_raw
-        GROUP BY person_key
-      )
-      SELECT
-        person_week.person_key,
-        person_week.person,
-        person_week.persongroup,
-        person_week.working_days,
-        person_week.total_hours,
-        COALESCE(person_days.week_days, '[]'::json) AS week_days,
-        CASE
-          WHEN person_week.total_hours > 60 THEN 'greater_than_60_hours'
-          WHEN person_week.total_hours >= 40 AND person_week.total_hours <= 60 THEN 'hours_40_60'
-          ELSE 'less_than_40_hours'
-        END AS hours_category,
-        CASE
-          WHEN person_week.working_days > 6 THEN 'greater_than_6_days'
-          WHEN person_week.working_days >= 5 AND person_week.working_days <= 6 THEN 'days_5_6'
-          ELSE 'days_less_than_5'
-        END AS days_category
-      FROM person_week
-      LEFT JOIN person_days ON person_days.person_key = person_week.person_key
-      ORDER BY person_week.total_hours DESC, person_week.working_days DESC, person_week.person ASC
-      `,
-      [startDate, endDate]
-    );
+    const personMap = new Map();
+    for (const day of daily) {
+      if (!personMap.has(day.person_key)) {
+        personMap.set(day.person_key, {
+          person_key: day.person_key,
+          person: day.person,
+          persongroup: day.persongroup || "Unknown",
+          working_days: 0,
+          total_hours: 0,
+        });
+      }
+      const person = personMap.get(day.person_key);
+      person.person = day.person || person.person;
+      person.persongroup = day.persongroup || person.persongroup;
+      person.working_days += 1;
+      person.total_hours += Number(day.work_hours_raw) || 0;
+    }
 
-    const totals = result.rows.reduce(
+    const weekDayMap = new Map();
+    for (const day of dailyRaw) {
+      if (!weekDayMap.has(day.person_key)) weekDayMap.set(day.person_key, []);
+      weekDayMap.get(day.person_key).push({
+        date: day.workforce_date,
+        hours: day.work_hours,
+        firstScan: formatHHMM(new Date(day.entry_time).getTime()),
+        lastScan: day.exit_time ? formatHHMM(new Date(day.exit_time).getTime()) : null,
+        hasOutScan: Boolean(day.exit_time),
+        countedDay: day.work_hours_raw > 4,
+        segments: day.segments || [],
+      });
+    }
+
+    const people = [...personMap.values()].map((person) => {
+      const totalHours = Number(person.total_hours.toFixed(2));
+      const workingDays = person.working_days;
+      return {
+        ...person,
+        total_hours: totalHours,
+        working_days: workingDays,
+        week_days: weekDayMap.get(person.person_key) || [],
+        hours_category: totalHours > 60 ? "greater_than_60_hours" : totalHours >= 40 ? "hours_40_60" : "less_than_40_hours",
+        days_category: workingDays > 6 ? "greater_than_6_days" : workingDays >= 5 ? "days_5_6" : "days_less_than_5",
+      };
+    });
+
+    const subgroupMap = new Map();
+    for (const person of people) {
+      const groupName = person.persongroup || "Unknown";
+      if (!subgroupMap.has(groupName)) {
+        subgroupMap.set(groupName, {
+          persongroup: groupName,
+          population: 0,
+          greater_than_60_hours: 0,
+          hours_40_60: 0,
+          less_than_40_hours: 0,
+          greater_than_6_days: 0,
+          days_5_6: 0,
+          days_less_than_5: 0,
+          hours_sum: 0,
+          days_sum: 0,
+        });
+      }
+      const row = subgroupMap.get(groupName);
+      row.population += 1;
+      row[person.hours_category] += 1;
+      row[person.days_category] += 1;
+      row.hours_sum += Number(person.total_hours) || 0;
+      row.days_sum += Number(person.working_days) || 0;
+    }
+
+    const rows = [...subgroupMap.values()]
+      .map((row) => ({
+        ...row,
+        avg_hours: row.population ? Number((row.hours_sum / row.population).toFixed(2)) : 0,
+        avg_days: row.population ? Number((row.days_sum / row.population).toFixed(2)) : 0,
+      }))
+      .sort((a, b) => (b.population - a.population) || String(a.persongroup).localeCompare(String(b.persongroup)));
+
+    const totals = rows.reduce(
       (acc, row) => {
         acc.population += Number(row.population) || 0;
         acc.greaterThan60Hours += Number(row.greater_than_60_hours) || 0;
@@ -734,10 +593,10 @@ app.get("/api/workforce/compliance", async (req, res) => {
       group,
       startDate,
       endDate,
-      dayRule: "> 4 hours counts as 1 working day",
+      dayRule: "Entrance starts time. Exit closes time. > 4 hours counts as 1 working day.",
       totals,
-      rows: result.rows,
-      people: peopleResult.rows || [],
+      rows,
+      people: people.sort((a, b) => (Number(b.total_hours) || 0) - (Number(a.total_hours) || 0)),
     });
   } catch (err) {
     console.error("❌ WORKFORCE COMPLIANCE ERROR:", err.message);
@@ -748,36 +607,20 @@ app.get("/api/workforce/compliance", async (req, res) => {
 app.get("/api/workforce/population", async (req, res) => {
   try {
     const workforceDate = String(req.query.date || getWorkforceDateManila());
-    const result = await pool.query(
-      `
-      WITH day_scans AS (
-        SELECT
-          LOWER(REGEXP_REPLACE(TRIM("Person"), '\s+', ' ', 'g')) AS person_key,
-          "PersonGroup",
-          ("C_Date"::date + "C_Time"::time) AS scan_ts
-        FROM "hkvision"."tbhikvision"
-        WHERE ("C_Date"::date + "C_Time"::time) >= ($1::date + TIME '06:00:00')
-          AND ("C_Date"::date + "C_Time"::time) < (($1::date + INTERVAL '1 day') + TIME '06:00:00')
-          AND COALESCE(TRIM("Person"), '') <> ''
-      ),
-      grouped AS (
-        SELECT
-          person_key,
-          MAX("PersonGroup") AS persongroup,
-          GREATEST(EXTRACT(EPOCH FROM (MAX(scan_ts) - MIN(scan_ts))) / 3600.0, 0) AS work_hours
-        FROM day_scans
-        GROUP BY person_key
-      )
-      SELECT
-        COALESCE(persongroup, 'Unknown') AS persongroup,
-        COUNT(*)::int AS population
-      FROM grouped
-      GROUP BY COALESCE(persongroup, 'Unknown')
-      ORDER BY population DESC, persongroup ASC
-      `,
-      [workforceDate]
-    );
-    res.json({ workforceDate, rows: result.rows });
+    const scans = await queryScans(workforceDate, workforceDate, "ALL");
+    const daily = computeDailyRecords(scans, workforceDate, workforceDate);
+    const groupMap = new Map();
+
+    for (const row of daily) {
+      const key = row.persongroup || "Unknown";
+      groupMap.set(key, (groupMap.get(key) || 0) + 1);
+    }
+
+    const rows = [...groupMap.entries()]
+      .map(([persongroup, population]) => ({ persongroup, population }))
+      .sort((a, b) => (b.population - a.population) || String(a.persongroup).localeCompare(String(b.persongroup)));
+
+    res.json({ workforceDate, rows });
   } catch (err) {
     console.error("❌ WORKFORCE POPULATION ERROR:", err.message);
     res.status(500).json({ error: err.message });
@@ -796,7 +639,7 @@ app.use((req, res, next) => {
   return res.status(404).send("React build not found. In development, open the Vite URL instead: http://localhost:5173");
 });
 
-const PORT = Number(process.env.PORT) || 5000;
+const PORT = Number(process.env.PORT) || 5056;
 app.listen(PORT, () => {
   console.log(`🚀 Workforce backend running on http://localhost:${PORT}`);
 });

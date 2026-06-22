@@ -60,7 +60,7 @@ export default function PasscodePage() {
           placeholder="Enter passcode"
           autoFocus
         />
-        <button className="passcode-btn" disabled={loading}>
+        <button className="passcode-btn loading-aware-btn" disabled={loading}>
           {loading ? "Checking..." : "Continue"}
         </button>
       </form>

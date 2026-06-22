@@ -709,7 +709,7 @@ button:disabled {
   min-height: 1px;
   display: flex;
   flex-direction: column-reverse;
-  overflow: visible;
+  overflow: hidden;
   border-radius: 4px 4px 0 0;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
   z-index: 2;
@@ -1487,16 +1487,16 @@ button:disabled {
 }
 
 .powerbi-local-connector line {
-  stroke: #94a3b8 !important;
-  stroke-width: 2.8 !important;
+  stroke: #cfd9e8 !important;
+  stroke-width: 1.9 !important;
   stroke-linecap: round !important;
   vector-effect: non-scaling-stroke !important;
-  opacity: 1 !important;
+  opacity: 0.92 !important;
 }
 
 .app-shell[data-theme="dark"] .powerbi-local-connector line {
-  stroke: #ffffff !important;
-  opacity: 0.98 !important;
+  stroke: #e5edf9 !important;
+  opacity: 0.92 !important;
 }
 
 .powerbi-stacked-bar {
@@ -1627,35 +1627,6 @@ button:disabled {
 .latest-scan-kpi.no-mini .metric-value {
   font-size: 18px !important;
   line-height: 1.15 !important;
-}
-
-
-.powerbi-bar-dot {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  width: 9px;
-  height: 9px;
-  transform: translate(-50%, -50%);
-  border-radius: 999px;
-  background: #ffffff;
-  border: 2px solid #64748b;
-  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.28);
-  z-index: 10 !important;
-  pointer-events: none;
-}
-
-.app-shell[data-theme="dark"] .powerbi-bar-dot {
-  background: #f8fafc;
-  border-color: #ffffff;
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.42);
-}
-
-.powerbi-column:hover .powerbi-bar-dot,
-.powerbi-column:focus-visible .powerbi-bar-dot {
-  width: 11px;
-  height: 11px;
-  border-color: #2563eb;
 }
 
 /* =========================================================
@@ -2134,96 +2105,170 @@ button:disabled {
   pointer-events: none !important;
 }
 
-
-/* =========================================================
-   Time series visual cleanup
-   - remove old dash cap at top of buckets
-   - keep dot marker only
-   - improve light mode contrast/color pairing
-========================================================= */
-.powerbi-bar-topline {
-  display: none !important;
+/* === Workforce responsive fit + loading cursor patch === */
+body:has(.loading-aware-btn:disabled),
+body:has(.loading-aware-btn:disabled) * {
+  cursor: wait !important;
 }
 
-.app-shell:not([data-theme="dark"]) .powerbi-timeseries-card {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(238, 244, 255, 0.96) 100%) !important;
-  border-color: rgba(37, 99, 235, 0.16) !important;
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.10) !important;
+.loading-aware-btn:disabled {
+  position: relative;
+  overflow: hidden;
 }
 
-.app-shell:not([data-theme="dark"]) .powerbi-plot {
-  border-color: rgba(51, 65, 85, 0.22) !important;
-  background:
-    linear-gradient(to bottom, rgba(51, 65, 85, 0.14) 1px, transparent 1px) 0 0 / 100% 33.33%,
-    linear-gradient(180deg, rgba(226, 232, 240, 0.78), rgba(219, 234, 254, 0.82)) !important;
+.loading-aware-btn:disabled::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 999px;
+  display: inline-block;
+  vertical-align: -2px;
+  animation: workforceSpin 0.75s linear infinite;
 }
 
-.app-shell:not([data-theme="dark"]) .powerbi-y-axis,
-.app-shell:not([data-theme="dark"]) .powerbi-x-label,
-.app-shell:not([data-theme="dark"]) .powerbi-legend {
-  color: #334155 !important;
+@keyframes workforceSpin {
+  to { transform: rotate(360deg); }
 }
 
-.app-shell:not([data-theme="dark"]) .powerbi-local-connector line {
-  stroke: #334155 !important;
-  stroke-width: 2.5 !important;
-  opacity: 0.88 !important;
+.responsive-overview-fit,
+.overview-page-fit {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  padding: clamp(10px, 1.1vw, 18px);
+  box-sizing: border-box;
 }
 
-.app-shell:not([data-theme="dark"]) .powerbi-bar-dot {
-  width: 9px !important;
-  height: 9px !important;
-  background: #0f172a !important;
-  border: 2px solid #ffffff !important;
-  box-shadow:
-    0 0 0 2px rgba(51, 65, 85, 0.35),
-    0 4px 10px rgba(15, 23, 42, 0.32) !important;
+.overview-kpi-grid-five {
+  grid-template-columns: repeat(5, minmax(150px, 1fr));
+  gap: clamp(10px, 1vw, 16px);
 }
 
-.app-shell:not([data-theme="dark"]) .powerbi-column:hover .powerbi-bar-dot,
-.app-shell:not([data-theme="dark"]) .powerbi-column:focus-visible .powerbi-bar-dot {
-  background: #1d4ed8 !important;
-  border-color: #ffffff !important;
-  box-shadow:
-    0 0 0 3px rgba(37, 99, 235, 0.26),
-    0 5px 14px rgba(37, 99, 235, 0.35) !important;
+.overview-timeseries-stack {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(14px, 1.4vw, 22px);
+  width: 100%;
+  max-width: 100%;
 }
 
-/* Stronger light-mode bucket colors */
-.app-shell:not([data-theme="dark"]) .stack-blue,
-.app-shell:not([data-theme="dark"]) .fill-blue,
-.app-shell:not([data-theme="dark"]) .population-fill-blue {
-  background: linear-gradient(180deg, #2563eb, #1d4ed8) !important;
+.powerbi-timeseries-card {
+  min-width: 0;
+  width: 100%;
 }
 
-.app-shell:not([data-theme="dark"]) .stack-yellow,
-.app-shell:not([data-theme="dark"]) .fill-amber {
-  background: linear-gradient(180deg, #eab308, #a16207) !important;
+.powerbi-chart-area,
+.powerbi-plot {
+  min-width: 0;
+  max-width: 100%;
 }
 
-.app-shell:not([data-theme="dark"]) .stack-orange,
-.app-shell:not([data-theme="dark"]) .fill-orange {
-  background: linear-gradient(180deg, #f97316, #c2410c) !important;
+.airy-page-panel,
+.compliance-page-panel {
+  padding: clamp(16px, 1.7vw, 28px);
 }
 
-.app-shell:not([data-theme="dark"]) .stack-red,
-.app-shell:not([data-theme="dark"]) .fill-red {
-  background: linear-gradient(180deg, #ef4444, #b91c1c) !important;
+.airy-card {
+  padding: clamp(16px, 1.5vw, 24px);
 }
 
-.app-shell:not([data-theme="dark"]) .fill-violet {
-  background: linear-gradient(180deg, #8b5cf6, #6d28d9) !important;
+.compliance-shell-grid {
+  gap: clamp(18px, 2vw, 32px);
+  align-items: start;
 }
 
-.app-shell:not([data-theme="dark"]) .fill-indigo {
-  background: linear-gradient(180deg, #6366f1, #4338ca) !important;
+.compliance-left-grid,
+.compliance-right-grid {
+  gap: clamp(14px, 1.4vw, 20px);
 }
 
-.app-shell:not([data-theme="dark"]) .fill-green {
-  background: linear-gradient(180deg, #22c55e, #15803d) !important;
+.relaxed-bar-list,
+.compliance-bar-list {
+  gap: 10px;
 }
 
-.app-shell:not([data-theme="dark"]) .legend-box {
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.18) !important;
+.bar-row-button,
+.drilldown-row {
+  min-height: 42px;
+}
+
+.lazy-drilldown-list {
+  max-height: min(52vh, 520px);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.load-more-row {
+  width: 100%;
+  border: 1px dashed rgba(100, 116, 139, 0.45);
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.split-segment-list {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+  font-style: normal;
+  opacity: 0.82;
+}
+
+.split-segment-list span {
+  font-size: 11px;
+  line-height: 1.25;
+}
+
+@media (max-width: 1280px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(3, minmax(160px, 1fr));
+  }
+
+  .powerbi-chart-area {
+    min-height: 260px;
+  }
+}
+
+@media (max-width: 900px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+
+  .summary-filter-field,
+  .summary-filter-small,
+  .summary-filter-medium,
+  .summary-filter-small-wide {
+    min-width: 120px;
+  }
+
+  .compliance-shell-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .compliance-middle-gap {
+    display: none;
+  }
+}
+
+@media (max-width: 620px) {
+  .overview-kpi-grid-five {
+    grid-template-columns: 1fr;
+  }
+
+  .metric-card.kpi-card {
+    min-height: auto;
+  }
+
+  .powerbi-chart-area {
+    overflow-x: auto;
+  }
+
+  .powerbi-plot {
+    min-width: 620px;
+  }
 }

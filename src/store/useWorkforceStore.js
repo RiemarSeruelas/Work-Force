@@ -1,5 +1,7 @@
 import { create } from "zustand";
 
+const PAGE_SIZE = 20;
+
 function getWorkforceDateManilaClient() {
   const now = new Date();
   const manila = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Manila" }));
@@ -58,6 +60,10 @@ export const useWorkforceStore = create((set, get) => ({
   summary: null,
   dailyRows: [],
   dailyTotal: 0,
+  dailyLimit: PAGE_SIZE,
+  dailyOffset: 0,
+  dailyHasMore: false,
+  dailyLoadingMore: false,
   compliance: null,
   populationRows: [],
   loading: false,
@@ -70,14 +76,14 @@ export const useWorkforceStore = create((set, get) => ({
       return { theme: nextTheme };
     }),
 
-  setWorkforceDate: (value) => set({ workforceDate: value }),
+  setWorkforceDate: (value) => set({ workforceDate: value, dailyRows: [], dailyOffset: 0, dailyHasMore: false }),
   setSelectedYear: (value) =>
     set({ selectedYear: Number(value) || getCurrentIsoWeekManilaClient().year }),
   setSelectedWeek: (value) =>
     set({ selectedWeek: Number(value) || getCurrentIsoWeekManilaClient().week }),
-  setGroup: (value) => set({ group: value || "ALL" }),
+  setGroup: (value) => set({ group: value || "ALL", dailyRows: [], dailyOffset: 0, dailyHasMore: false }),
   setTrendPeriod: (value) => set({ trendPeriod: value || "DAILY" }),
-  setSearch: (value) => set({ search: value || "" }),
+  setSearch: (value) => set({ search: value || "", dailyRows: [], dailyOffset: 0, dailyHasMore: false }),
 
   fetchSummary: async () => {
     set({ loading: true, error: "" });
@@ -99,31 +105,48 @@ export const useWorkforceStore = create((set, get) => ({
     }
   },
 
-  fetchDailyRecord: async () => {
-    set({ loading: true, error: "" });
+  fetchDailyRecord: async ({ reset = true } = {}) => {
+    const { dailyLoadingMore, dailyHasMore, dailyRows } = get();
+    if (!reset && dailyLoadingMore) return;
+    if (!reset && !dailyHasMore && dailyRows.length > 0) return;
+
+    set({ loading: reset, dailyLoadingMore: !reset, error: "" });
     try {
-      const { workforceDate, search, group } = get();
+      const { workforceDate, search, group, dailyLimit, dailyOffset } = get();
+      const nextOffset = reset ? 0 : dailyOffset;
       const params = new URLSearchParams({
         date: workforceDate,
         search,
         group,
-        limit: "5000",
-        offset: "0",
+        limit: String(dailyLimit || PAGE_SIZE),
+        offset: String(nextOffset),
         _t: String(Date.now()),
       });
       const res = await fetch(`/api/workforce/daily-record?${params.toString()}`, {
         cache: "no-store",
       });
       const data = await parseJsonResponse(res);
-      set({
-        dailyRows: data.rows || [],
+      const newRows = data.rows || [];
+      set((state) => ({
+        dailyRows: reset ? newRows : [...state.dailyRows, ...newRows],
         dailyTotal: Number(data.total) || 0,
+        dailyOffset: nextOffset + newRows.length,
+        dailyHasMore: Boolean(data.hasMore),
         loading: false,
-      });
+        dailyLoadingMore: false,
+      }));
     } catch (err) {
-      set({ error: err.message, dailyRows: [], dailyTotal: 0, loading: false });
+      set({
+        error: err.message,
+        dailyRows: reset ? [] : get().dailyRows,
+        dailyTotal: reset ? 0 : get().dailyTotal,
+        loading: false,
+        dailyLoadingMore: false,
+      });
     }
   },
+
+  fetchDailyRecordNextPage: async () => get().fetchDailyRecord({ reset: false }),
 
   fetchCompliance: async (forcedGroup) => {
     set({ loading: true, error: "" });
