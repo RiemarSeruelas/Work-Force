@@ -2272,3 +2272,85 @@ body:has(.loading-aware-btn:disabled) * {
     min-width: 620px;
   }
 }
+
+/* ===== Desktop fit fix: make 100% browser zoom look like 85-90% ===== */
+
+@media (min-width: 1100px) {
+  .app-shell,
+  .workforce-shell,
+  .dashboard-shell {
+    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .app-main,
+  .workforce-main,
+  .dashboard-main {
+    height: calc(100vh - 76px);
+    overflow: hidden;
+  }
+
+  .workforce-full-span,
+  .overview-page-fit {
+    height: 100%;
+    max-height: calc(100vh - 105px);
+    overflow: hidden;
+  }
+
+  .overview-page-fit {
+    transform: scale(0.9);
+    transform-origin: top left;
+    width: 111.111%;
+    height: 111.111%;
+  }
+
+  .overview-kpi-grid {
+    margin-bottom: 12px;
+  }
+
+  .overview-timeseries-stack {
+    gap: 12px;
+  }
+
+  .powerbi-timeseries-card {
+    padding: 14px 16px;
+  }
+
+  .powerbi-chart-area {
+    min-height: 210px;
+    height: 24vh;
+  }
+}
+
+@media (min-width: 1400px) {
+  .overview-page-fit {
+    transform: scale(0.92);
+    width: 108.7%;
+    height: 108.7%;
+  }
+
+  .powerbi-chart-area {
+    height: 26vh;
+  }
+}
+
+@media (max-width: 1099px) {
+  .app-shell,
+  .workforce-shell,
+  .dashboard-shell,
+  .app-main,
+  .workforce-main,
+  .dashboard-main,
+  .workforce-full-span,
+  .overview-page-fit {
+    height: auto;
+    min-height: 100vh;
+    overflow: auto;
+  }
+
+  .overview-page-fit {
+    transform: none;
+    width: 100%;
+  }
+}
