@@ -6,6 +6,7 @@ const EMPTY_DAILY_BUCKET_TOTALS = {
   hours_8_10: 0,
   hours_10_12: 0,
   hours_12_plus: 0,
+  hours_24h_alarm: 0,
 };
 
 function getWorkforceDateManilaClient() {

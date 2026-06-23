@@ -3584,3 +3584,116 @@ body:has(.loading-aware-btn:disabled) * {
     height: auto;
   }
 }
+
+/* =========================================================
+   24-hour cap / No OUT alarm indicators
+   - shows a clear warning beside names and compliance cards
+   - supports light and dark mode
+========================================================= */
+.person-name-with-alarm {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.person-name-with-alarm > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.alarm-badge,
+.chart-alarm-badge,
+.bar-alarm-marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.12);
+  color: #dc2626;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.alarm-badge {
+  min-height: 22px;
+  padding: 0 8px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.chart-alarm-badge {
+  min-height: 24px;
+  padding: 0 9px;
+  font-size: 11px;
+  box-shadow: 0 8px 18px rgba(239, 68, 68, 0.1);
+}
+
+.bar-alarm-marker {
+  min-height: 19px;
+  padding: 0 6px;
+  margin-left: 5px;
+  font-size: 9px;
+  line-height: 1;
+}
+
+.inline-alarm-dot {
+  display: inline-flex;
+  margin-left: 6px;
+  color: #dc2626;
+  font-size: 11px;
+  vertical-align: 1px;
+}
+
+.compliance-card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.compliance-category-card.has-card-alarm {
+  border-color: rgba(239, 68, 68, 0.22) !important;
+  box-shadow:
+    var(--shadow),
+    inset 0 0 0 1px rgba(239, 68, 68, 0.06) !important;
+}
+
+.status-chip.cap {
+  background: rgba(239, 68, 68, 0.16);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+
+.daily-record-table td:nth-child(2),
+.daily-record-table th:nth-child(2) {
+  min-width: 210px;
+}
+
+.app-shell[data-theme="dark"] .alarm-badge,
+.app-shell[data-theme="dark"] .chart-alarm-badge,
+.app-shell[data-theme="dark"] .bar-alarm-marker {
+  background: rgba(248, 113, 113, 0.13);
+  border-color: rgba(248, 113, 113, 0.3);
+  color: #fca5a5;
+}
+
+.app-shell[data-theme="dark"] .inline-alarm-dot {
+  color: #fca5a5;
+}
+
+.app-shell[data-theme="dark"] .compliance-category-card.has-card-alarm {
+  border-color: rgba(248, 113, 113, 0.26) !important;
+  box-shadow:
+    var(--shadow),
+    inset 0 0 0 1px rgba(248, 113, 113, 0.08) !important;
+}
+
+.app-shell[data-theme="dark"] .status-chip.cap {
+  background: rgba(248, 113, 113, 0.14);
+  color: #fecaca;
+  border-color: rgba(248, 113, 113, 0.26);
+}

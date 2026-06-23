@@ -28,6 +28,8 @@ const MANILA_TZ = "Asia/Manila";
 const APP_PASSWORD = String(process.env.APP_PASSWORD || "Workforce2026").trim();
 const DAY_MS = 24 * 60 * 60 * 1000;
 const OUT_SCAN_LOOKAHEAD_DAYS = 1;
+const MAX_WORK_HOURS_PER_PERSON = 24;
+const MAX_WORK_INTERVAL_MS = MAX_WORK_HOURS_PER_PERSON * 60 * 60 * 1000;
 
 function getManilaDateParts(date = new Date()) {
   return new Date(date.toLocaleString("en-US", { timeZone: MANILA_TZ }));
@@ -199,12 +201,12 @@ function getTidDirection(row) {
 }
 
 function getScanDirection(row) {
-  const modeDirection = getModeDirection(row);
   const tidDirection = getTidDirection(row);
+  const modeDirection = getModeDirection(row);
 
-  // If both fields exist but conflict, keep L_Mode as source of truth because it
-  // explicitly says Entrance/Exit. L_TID stays as fallback for numeric-only rows.
-  return modeDirection || tidDirection;
+  // L_TID is the first source of truth for IN/OUT. L_Mode is only a fallback
+  // for rows where L_TID is empty or not readable.
+  return tidDirection || modeDirection;
 }
 
 function isEntrance(row) {
@@ -275,6 +277,57 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
   const byDatePerson = new Map();
   const people = new Map();
 
+  function closeInterval({ person, currentIn, outScan = null, countedEndMs, actualEndMs, hasOutScan, has24HourAlarm }) {
+    if (!currentIn || !countedEndMs || countedEndMs <= currentIn.scan_ms) return;
+
+    const assignedDate = assignedWorkforceDateForInterval(currentIn.scan_ms, countedEndMs);
+
+    if (assignedDate < fromDate || assignedDate > toDate) return;
+
+    const key = `${assignedDate}|${person.person_key}`;
+    if (!byDatePerson.has(key)) {
+      byDatePerson.set(key, {
+        workforce_date: assignedDate,
+        person_key: person.person_key,
+        l_uid: person.l_uid,
+        person: person.person,
+        persongroup: person.persongroup || "Unknown",
+        workforce_group: isContractor(person.persongroup) ? "CONTRACTOR" : "FTE",
+        intervals: [],
+        scan_count: 0,
+        work_hours_raw: 0,
+        has_out_scan: false,
+        has_24h_alarm: false,
+      });
+    }
+
+    const row = byDatePerson.get(key);
+    const intervalHours = Math.max(countedEndMs - currentIn.scan_ms, 0) / 3600000;
+
+    row.intervals.push({
+      assignedDate,
+      inScan: currentIn,
+      outScan,
+      startMs: currentIn.scan_ms,
+      countedEndMs,
+      actualEndMs: actualEndMs || countedEndMs,
+      hasOutScan,
+      has24HourAlarm,
+      intervalHours,
+    });
+    row.scan_count += hasOutScan ? 2 : 1;
+    row.work_hours_raw += intervalHours;
+    row.has_out_scan = row.has_out_scan || hasOutScan;
+    row.has_24h_alarm = row.has_24h_alarm || has24HourAlarm || row.work_hours_raw > MAX_WORK_HOURS_PER_PERSON;
+
+    if (!row.first_start_ms || currentIn.scan_ms < row.first_start_ms) row.first_start_ms = currentIn.scan_ms;
+    if (!row.last_counted_end_ms || countedEndMs > row.last_counted_end_ms) row.last_counted_end_ms = countedEndMs;
+    if (!row.latest_actual_scan_ms || (actualEndMs || countedEndMs) > row.latest_actual_scan_ms) row.latest_actual_scan_ms = actualEndMs || countedEndMs;
+    if (hasOutScan && outScan && (!row.latest_out_scan_ms || outScan.scan_ms > row.latest_out_scan_ms)) {
+      row.latest_out_scan_ms = outScan.scan_ms;
+    }
+  }
+
   for (const scan of scans) {
     if (!scan.person_key) continue;
     if (!people.has(scan.person_key)) {
@@ -300,120 +353,114 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
 
   for (const person of people.values()) {
     person.scans.sort((a, b) => a.scan_ms - b.scan_ms);
-    const intervals = [];
     let currentIn = null;
 
     for (const scan of person.scans) {
       const direction = getScanDirection(scan);
 
       if (direction === "IN") {
-        // Duplicate IN scans before a valid OUT are ignored so the first IN remains
-        // the start of the work interval.
-        if (!currentIn) currentIn = scan;
+        if (!currentIn) {
+          currentIn = scan;
+          continue;
+        }
+
+        // If another IN appears after the 24-hour limit, close the old open
+        // interval at exactly 24 hours with No OUT, then start a new interval.
+        if (scan.scan_ms - currentIn.scan_ms >= MAX_WORK_INTERVAL_MS) {
+          closeInterval({
+            person,
+            currentIn,
+            countedEndMs: currentIn.scan_ms + MAX_WORK_INTERVAL_MS,
+            actualEndMs: currentIn.scan_ms + MAX_WORK_INTERVAL_MS,
+            hasOutScan: false,
+            has24HourAlarm: true,
+          });
+          currentIn = scan;
+        }
+
+        // Duplicate IN scans inside 24 hours are ignored so the first IN remains
+        // the start of the person's current work interval.
         continue;
       }
 
       if (direction === "OUT") {
-        // Orphan OUT scans are ignored. This prevents 06:00 OUT + 15:00 IN from
-        // becoming a fake 06:00-15:00 interval.
-        if (currentIn && scan.scan_ms > currentIn.scan_ms) {
-          const assignedDate = assignedWorkforceDateForInterval(currentIn.scan_ms, scan.scan_ms);
-          // For a real OUT scan, count until the actual OUT time even if it lands
-          // after the 06:00 workforce cutoff or in the next ISO week. Example:
-          // Sunday 15:00 IN -> Monday 06:30 OUT still belongs to Sunday.
-          const countedEndMs = scan.scan_ms;
+        // Orphan OUT scans are ignored. This prevents an OUT scan from becoming
+        // the beginning of a fake interval.
+        if (!currentIn || scan.scan_ms <= currentIn.scan_ms) continue;
 
-          if (countedEndMs > currentIn.scan_ms) {
-            intervals.push({
-              assignedDate,
-              inScan: currentIn,
-              outScan: scan,
-              startMs: currentIn.scan_ms,
-              countedEndMs,
-              actualEndMs: scan.scan_ms,
-              hasOutScan: true,
-            });
-          }
+        const elapsedMs = scan.scan_ms - currentIn.scan_ms;
 
-          currentIn = null;
+        if (elapsedMs <= MAX_WORK_INTERVAL_MS) {
+          closeInterval({
+            person,
+            currentIn,
+            outScan: scan,
+            countedEndMs: scan.scan_ms,
+            actualEndMs: scan.scan_ms,
+            hasOutScan: true,
+            has24HourAlarm: false,
+          });
+        } else {
+          // OUT came too late. Stop at 24 hours and keep the record as No OUT.
+          // The late OUT is ignored as a stale/out-of-window scan.
+          closeInterval({
+            person,
+            currentIn,
+            countedEndMs: currentIn.scan_ms + MAX_WORK_INTERVAL_MS,
+            actualEndMs: currentIn.scan_ms + MAX_WORK_INTERVAL_MS,
+            hasOutScan: false,
+            has24HourAlarm: true,
+          });
         }
+
+        currentIn = null;
       }
     }
 
     if (currentIn) {
-      // No OUT yet: close the record at now if the interval is active, otherwise at
-      // the workforce-day cutoff. Early arrivals still use the assigned day rule.
-      const provisionalEndMs = Math.max(nowMs, currentIn.scan_ms);
-      const assignedDate = assignedWorkforceDateForInterval(currentIn.scan_ms, provisionalEndMs);
-      const assignedEndMs = windowEndMs(assignedDate);
-      const activeNow = nowMs >= currentIn.scan_ms && nowMs < assignedEndMs;
-      const countedEndMs = activeNow ? nowMs : assignedEndMs;
+      const elapsedToNowMs = Math.max(nowMs - currentIn.scan_ms, 0);
+      const shouldCapAt24 = elapsedToNowMs >= MAX_WORK_INTERVAL_MS;
+      const countedEndMs = currentIn.scan_ms + Math.min(elapsedToNowMs, MAX_WORK_INTERVAL_MS);
 
       if (countedEndMs > currentIn.scan_ms) {
-        intervals.push({
-          assignedDate,
-          inScan: currentIn,
-          outScan: null,
-          startMs: currentIn.scan_ms,
+        closeInterval({
+          person,
+          currentIn,
           countedEndMs,
           actualEndMs: countedEndMs,
           hasOutScan: false,
+          has24HourAlarm: shouldCapAt24,
         });
-      }
-    }
-
-    for (const interval of intervals) {
-      if (interval.assignedDate < fromDate || interval.assignedDate > toDate) continue;
-
-      const key = `${interval.assignedDate}|${person.person_key}`;
-      if (!byDatePerson.has(key)) {
-        byDatePerson.set(key, {
-          workforce_date: interval.assignedDate,
-          person_key: person.person_key,
-          l_uid: person.l_uid,
-          person: person.person,
-          persongroup: person.persongroup || "Unknown",
-          workforce_group: isContractor(person.persongroup) ? "CONTRACTOR" : "FTE",
-          intervals: [],
-          scan_count: 0,
-          work_hours_raw: 0,
-          has_out_scan: false,
-        });
-      }
-
-      const row = byDatePerson.get(key);
-      row.intervals.push(interval);
-      row.scan_count += interval.hasOutScan ? 2 : 1;
-      row.work_hours_raw += Math.max(interval.countedEndMs - interval.startMs, 0) / 3600000;
-      row.has_out_scan = row.has_out_scan || interval.hasOutScan;
-
-      if (!row.first_start_ms || interval.startMs < row.first_start_ms) row.first_start_ms = interval.startMs;
-      if (!row.last_counted_end_ms || interval.countedEndMs > row.last_counted_end_ms) row.last_counted_end_ms = interval.countedEndMs;
-      if (!row.latest_actual_scan_ms || interval.actualEndMs > row.latest_actual_scan_ms) row.latest_actual_scan_ms = interval.actualEndMs;
-      if (interval.outScan && (!row.latest_out_scan_ms || interval.outScan.scan_ms > row.latest_out_scan_ms)) {
-        row.latest_out_scan_ms = interval.outScan.scan_ms;
       }
     }
   }
 
   return [...byDatePerson.values()]
-    .map((row) => ({
-      workforce_date: row.workforce_date,
-      person_key: row.person_key,
-      l_uid: row.l_uid,
-      person: row.person,
-      persongroup: row.persongroup || "Unknown",
-      workforce_group: row.workforce_group,
-      entry_time: new Date(row.first_start_ms).toISOString(),
-      last_scan: new Date(row.latest_actual_scan_ms || row.last_counted_end_ms).toISOString(),
-      exit_time: row.latest_out_scan_ms ? new Date(row.latest_out_scan_ms).toISOString() : null,
-      scan_count: row.scan_count,
-      has_out_scan: row.has_out_scan,
-      work_hours_raw: row.work_hours_raw,
-      work_hours: Number(row.work_hours_raw.toFixed(2)),
-      hours_bucket: row.work_hours_raw >= 12 ? "hours_12_plus" : row.work_hours_raw > 10 ? "hours_10_12" : row.work_hours_raw > 8 ? "hours_8_10" : "hours_8_or_less",
-      counted_day: row.work_hours_raw > 4,
-    }))
+    .map((row) => {
+      const cappedWorkHoursRaw = Math.min(Number(row.work_hours_raw) || 0, MAX_WORK_HOURS_PER_PERSON);
+      const has24HourAlarm = Boolean(row.has_24h_alarm || row.work_hours_raw > MAX_WORK_HOURS_PER_PERSON);
+      const latestOutScanMs = has24HourAlarm ? null : row.latest_out_scan_ms;
+
+      return {
+        workforce_date: row.workforce_date,
+        person_key: row.person_key,
+        l_uid: row.l_uid,
+        person: row.person,
+        persongroup: row.persongroup || "Unknown",
+        workforce_group: row.workforce_group,
+        entry_time: new Date(row.first_start_ms).toISOString(),
+        last_scan: new Date(row.latest_actual_scan_ms || row.last_counted_end_ms).toISOString(),
+        exit_time: latestOutScanMs ? new Date(latestOutScanMs).toISOString() : null,
+        scan_count: row.scan_count,
+        has_out_scan: has24HourAlarm ? false : row.has_out_scan,
+        has_24h_alarm: has24HourAlarm,
+        alarm_reason: has24HourAlarm ? "No OUT within 24 hours" : null,
+        work_hours_raw: cappedWorkHoursRaw,
+        work_hours: Number(cappedWorkHoursRaw.toFixed(2)),
+        hours_bucket: cappedWorkHoursRaw >= 12 ? "hours_12_plus" : cappedWorkHoursRaw > 10 ? "hours_10_12" : cappedWorkHoursRaw > 8 ? "hours_8_10" : "hours_8_or_less",
+        counted_day: cappedWorkHoursRaw > 4,
+      };
+    })
     .sort((a, b) => {
       const groupDiff = String(a.persongroup || "").localeCompare(String(b.persongroup || ""));
       if (groupDiff !== 0) return groupDiff;
@@ -534,7 +581,7 @@ app.get("/api/workforce/summary", async (req, res) => {
       timeSeries: summarizeDailyForTrend(daily, period),
       daysPeriod,
       daysTimeSeries: summarizeDailyForTrend(daily, daysPeriod),
-      dayRule: "L_Mode/L_TID determines IN and OUT. The workforce day is 06:00-05:59. Cross-midnight work is counted back to the original IN workforce date, even when the OUT scan is after 06:00 or in the next ISO week. Early arrivals before 06:00 are kept with the new day when they exit after 06:00. More than 4 hours counts as 1 working day.",
+      dayRule: "L_TID determines IN and OUT first. L_Mode is only used as fallback. The workforce day is 06:00-05:59. Cross-midnight work is counted back to the original IN workforce date, even when the OUT scan is after 06:00 or in the next ISO week. Early arrivals before 06:00 are kept with the new day when they exit after 06:00. A person is capped at 24 hours if no valid OUT scan is found within 24 hours. More than 4 hours counts as 1 working day.",
     });
   } catch (err) {
     console.error("❌ WORKFORCE SUMMARY ERROR:", err.message);
@@ -568,6 +615,7 @@ app.get("/api/workforce/daily-record", async (req, res) => {
       (acc, row) => {
         const bucket = row.hours_bucket || "hours_8_or_less";
         acc[bucket] = (Number(acc[bucket]) || 0) + 1;
+        if (row.has_24h_alarm) acc.hours_24h_alarm += 1;
         return acc;
       },
       {
@@ -575,6 +623,7 @@ app.get("/api/workforce/daily-record", async (req, res) => {
         hours_8_10: 0,
         hours_10_12: 0,
         hours_12_plus: 0,
+        hours_24h_alarm: 0,
       }
     );
     const pagedRows = rows.slice(offset, offset + limit);
@@ -620,6 +669,8 @@ app.get("/api/workforce/compliance", async (req, res) => {
           persongroup: day.persongroup || "Unknown",
           working_days: 0,
           total_hours: 0,
+          has_24h_alarm: false,
+          alarm_days: 0,
         });
       }
       const person = personMap.get(day.person_key);
@@ -627,6 +678,10 @@ app.get("/api/workforce/compliance", async (req, res) => {
       person.persongroup = day.persongroup || person.persongroup;
       person.working_days += 1;
       person.total_hours += Number(day.work_hours_raw) || 0;
+      if (day.has_24h_alarm) {
+        person.has_24h_alarm = true;
+        person.alarm_days += 1;
+      }
     }
 
     const weekDayMap = new Map();
@@ -639,6 +694,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
         lastScan: day.exit_time ? formatHHMM(new Date(day.exit_time).getTime()) : null,
         hasOutScan: Boolean(day.exit_time),
         countedDay: day.work_hours_raw > 4,
+        has24HourAlarm: Boolean(day.has_24h_alarm),
       });
     }
 
@@ -650,6 +706,8 @@ app.get("/api/workforce/compliance", async (req, res) => {
           ...person,
           total_hours: totalHours,
           working_days: workingDays,
+          has_24h_alarm: Boolean(person.has_24h_alarm),
+          alarm_days: Number(person.alarm_days) || 0,
           week_days: weekDayMap.get(person.person_key) || [],
           hours_category: totalHours > 60 ? "greater_than_60_hours" : totalHours >= 40 ? "hours_40_60" : "less_than_40_hours",
           days_category: workingDays > 6 ? "greater_than_6_days" : workingDays >= 5 ? "days_5_6" : "days_less_than_5",
@@ -676,6 +734,13 @@ app.get("/api/workforce/compliance", async (req, res) => {
           days_less_than_5: 0,
           hours_sum: 0,
           days_sum: 0,
+          alarm_count: 0,
+          greater_than_60_hours_alarm_count: 0,
+          hours_40_60_alarm_count: 0,
+          less_than_40_hours_alarm_count: 0,
+          greater_than_6_days_alarm_count: 0,
+          days_5_6_alarm_count: 0,
+          days_less_than_5_alarm_count: 0,
         });
       }
       const row = subgroupMap.get(groupName);
@@ -684,6 +749,11 @@ app.get("/api/workforce/compliance", async (req, res) => {
       row[person.days_category] += 1;
       row.hours_sum += Number(person.total_hours) || 0;
       row.days_sum += Number(person.working_days) || 0;
+      if (person.has_24h_alarm) {
+        row.alarm_count += 1;
+        row[`${person.hours_category}_alarm_count`] += 1;
+        row[`${person.days_category}_alarm_count`] += 1;
+      }
     }
 
     const rows = [...subgroupMap.values()]
@@ -704,6 +774,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
         acc.nonCompliantWorkingDays += Number(row.greater_than_6_days) || 0;
         acc.days5To6 += Number(row.days_5_6) || 0;
         acc.daysLessThan5 += Number(row.days_less_than_5) || 0;
+        acc.alarmCount += Number(row.alarm_count) || 0;
         return acc;
       },
       {
@@ -714,6 +785,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
         nonCompliantWorkingDays: 0,
         days5To6: 0,
         daysLessThan5: 0,
+        alarmCount: 0,
       }
     );
 
@@ -732,7 +804,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
       group,
       startDate,
       endDate,
-      dayRule: "L_Mode/L_TID determines IN and OUT. Cross-midnight work is counted back to the original IN workforce date, even when the OUT scan is after 06:00 or in the next ISO week. Early arrivals before 06:00 are kept with the new day when they exit after 06:00. > 4 hours counts as 1 working day.",
+      dayRule: "L_TID determines IN and OUT first. L_Mode is only used as fallback. Cross-midnight work is counted back to the original IN workforce date, even when the OUT scan is after 06:00 or in the next ISO week. Early arrivals before 06:00 are kept with the new day when they exit after 06:00. A person is capped at 24 hours if no valid OUT scan is found within 24 hours. > 4 hours counts as 1 working day.",
       totals,
       rows,
       people: pagedPeople,

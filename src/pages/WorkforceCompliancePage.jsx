@@ -58,17 +58,25 @@ function formatHours(value) {
 }
 
 function BarList({ title, rows, field, colorClass, onSelect, selected }) {
+  const alarmField = `${field}_alarm_count`;
   const sortedRows = [...rows]
     .filter((row) => (Number(row.population) || 0) > 0 && (Number(row[field]) || 0) > 0)
     .sort((a, b) => (Number(b[field]) || 0) - (Number(a[field]) || 0));
   const max = Math.max(...sortedRows.map((r) => Number(r[field]) || 0), 1);
+  const alarmTotal = sortedRows.reduce((sum, row) => sum + (Number(row[alarmField]) || 0), 0);
 
   return (
-    <div className="chart-card compact-chart-card airy-card compliance-category-card">
-      <div className="compact-card-title">{title}</div>
+    <div className={`chart-card compact-chart-card airy-card compliance-category-card ${alarmTotal ? "has-card-alarm" : ""}`}>
+      <div className="compact-card-title compliance-card-title-row">
+        <span>{title}</span>
+        {alarmTotal > 0 ? (
+          <span className="chart-alarm-badge" title="People capped at 24 hours because no OUT was found within 24 hours">⚠ {alarmTotal}</span>
+        ) : null}
+      </div>
       <div className="bar-list compliance-bar-list">
         {sortedRows.map((row) => {
           const value = Number(row[field]) || 0;
+          const alarmCount = Number(row[alarmField]) || 0;
           const isActive = selected?.field === field && selected?.persongroup === row.persongroup;
 
           return (
@@ -86,7 +94,10 @@ function BarList({ title, rows, field, colorClass, onSelect, selected }) {
                   style={{ width: `${Math.max((value / max) * 100, value ? 4 : 0)}%` }}
                 />
               </span>
-              <span className="bar-num">{value}</span>
+              <span className="bar-num">
+                {value}
+                {alarmCount > 0 ? <span className="bar-alarm-marker" title={`${alarmCount} 24-hour No OUT alarm(s)`}>⚠{alarmCount}</span> : null}
+              </span>
             </button>
           );
         })}
@@ -125,7 +136,10 @@ function PersonWeekTooltip({ hover }) {
           return (
             <div className={`person-week-day ${hasScan ? "has-scan" : "no-scan"}`} key={day.date}>
               <span>{formatDayLabel(day.date)}</span>
-              <b>{formatHours(hours)}</b>
+              <b>
+                {formatHours(hours)}
+                {day.has24HourAlarm ? <span className="inline-alarm-dot" title="Capped at 24 hours because no OUT was found">⚠</span> : null}
+              </b>
               <small>{timeRange}</small>
             </div>
           );
@@ -202,7 +216,14 @@ function PersonDrilldown({
             onFocus={(event) => showWeeklyHover(event, person)}
             onBlur={() => setHover(null)}
           >
-            <div className="drilldown-name">{person.person || "Unknown"}</div>
+            <div className="drilldown-name">
+              <span className="person-name-with-alarm">
+                <span>{person.person || "Unknown"}</span>
+                {person.has_24h_alarm ? (
+                  <span className="alarm-badge" title="No OUT within 24 hours">⚠ 24H</span>
+                ) : null}
+              </span>
+            </div>
             <div className="drilldown-meta">{Number(person.total_hours || 0).toFixed(2)} hrs</div>
             <div className="drilldown-meta">{person.working_days} days</div>
           </div>
@@ -328,6 +349,7 @@ export default function WorkforceCompliancePage() {
         { value: totals.lessThan40Hours ?? 0, label: "< 40 HOURS", variant: "amber" },
         { value: totals.hours40To60 ?? 0, label: "40-60 HOURS", variant: "amber" },
         { value: totals.nonCompliantWorkingDays ?? 0, label: "6+ DAYS", variant: "red" },
+        { value: totals.alarmCount ?? 0, label: "24H NO OUT", variant: "red" },
       ]}
     >
       <section className="panel center-panel workforce-full-span compliance-page-panel airy-page-panel compliance-roomy-page">

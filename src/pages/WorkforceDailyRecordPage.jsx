@@ -15,6 +15,7 @@ function getHourBucket(row) {
 function getHourStatus(row) {
   const bucket = getHourBucket(row);
 
+  if (row?.has_24h_alarm) return { label: "24H CAP", className: "bad cap" };
   if (bucket === "hours_12_plus") return { label: "12+ HRS", className: "bad" };
   if (bucket === "hours_10_12") return { label: "> 10 HRS", className: "orange" };
   if (bucket === "hours_8_10") return { label: "> 8 HRS", className: "warn" };
@@ -83,6 +84,7 @@ export default function WorkforceDailyRecordPage() {
   const over8 = Number(bucketTotals?.hours_8_10 ?? countLoadedRows(rows, "hours_8_10"));
   const over10 = Number(bucketTotals?.hours_10_12 ?? countLoadedRows(rows, "hours_10_12"));
   const over12 = Number(bucketTotals?.hours_12_plus ?? countLoadedRows(rows, "hours_12_plus"));
+  const alarm24 = Number(bucketTotals?.hours_24h_alarm ?? rows.filter((row) => row.has_24h_alarm).length);
 
   return (
     <AppShell
@@ -94,6 +96,7 @@ export default function WorkforceDailyRecordPage() {
         { value: over8, label: "> 8 HOURS", variant: "amber" },
         { value: over10, label: "> 10 HOURS", variant: "orange" },
         { value: over12, label: "12+ HRS", variant: "red" },
+        { value: alarm24, label: "24H NO OUT", variant: "red" },
       ]}
     >
       <aside className="panel left-panel">
@@ -154,10 +157,17 @@ export default function WorkforceDailyRecordPage() {
                 {rows.map((row) => (
                   <tr key={`${row.person_key}-${row.workforce_date || workforceDate}`}>
                     <td>{row.persongroup || "Unknown"}</td>
-                    <td>{row.person}</td>
+                    <td>
+                      <span className="person-name-with-alarm">
+                        <span>{row.person}</span>
+                        {row.has_24h_alarm ? (
+                          <span className="alarm-badge" title={row.alarm_reason || "No OUT within 24 hours"}>⚠ 24H</span>
+                        ) : null}
+                      </span>
+                    </td>
                     <td>{fmt(row.entry_time)}</td>
                     <td>{row.exit_time ? fmt(row.exit_time) : <span className="muted-cell">No OUT</span>}</td>
-                    <td>{Number(row.work_hours || 0).toFixed(2)}</td>
+                    <td>{row.has_24h_alarm ? "24.00" : Number(row.work_hours || 0).toFixed(2)}</td>
                     <td>{row.scan_count}</td>
                     <td>{row.workforce_group || "FTE"}</td>
                     <td>
