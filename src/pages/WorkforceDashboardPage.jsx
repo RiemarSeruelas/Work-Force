@@ -80,10 +80,10 @@ function getTooltipSide(index, total) {
   return "";
 }
 
-function BarTooltip({ row, period, segments, total }) {
+function BarTooltip({ row, period, segments, total, showAverageDays = true }) {
   const averageHours = row?.average_hours ?? row?.averageHours;
   const rawAverageDays = row?.average_days ?? row?.averageDays;
-  const averageDays = period === "DAILY" ? null : rawAverageDays;
+  const averageDays = showAverageDays && period !== "DAILY" ? rawAverageDays : null;
 
   return (
     <div className="powerbi-tooltip" role="tooltip">
@@ -155,10 +155,10 @@ function buildLineSegments(rows, segments, maxVisibleTotal) {
   return segmentsOut;
 }
 
-function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineLabel = "" }) {
+function VerticalTimeSeriesChart({ title, description, rows, period, segments, lineLabel = "", chartClassName = "", showAverageDays = true }) {
   const maxVisibleTotal = Math.max(...rows.map((row) => getSegmentTotal(row, segments)), 1);
   return (
-    <div className="chart-card powerbi-timeseries-card">
+    <div className={`chart-card powerbi-timeseries-card ${chartClassName}`.trim()}>
       <div className="chart-header-row compact-chart-header">
         <div>
           <h3>{title}</h3>
@@ -214,7 +214,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
                 </div>
                 {visibleTotal > 0 ? (
                   <div className={`powerbi-tooltip-wrap ${tooltipSide}`}>
-                    <BarTooltip row={row} period={period} segments={segments} total={visibleTotal} />
+                    <BarTooltip row={row} period={period} segments={segments} total={visibleTotal} showAverageDays={showAverageDays} />
                   </div>
                 ) : null}
                 <div className="powerbi-x-label">{formatSeriesDate(row.period_start, period)}</div>
@@ -307,7 +307,7 @@ export default function WorkforceDashboardPage() {
         </select>
       </label>
 
-      <button className="summary-refresh-btn loading-aware-btn" onClick={fetchSummary} disabled={loading}>
+      <button className="summary-refresh-btn" onClick={fetchSummary} disabled={loading}>
         {loading ? "Refreshing..." : "Refresh"}
       </button>
     </>
@@ -315,7 +315,7 @@ export default function WorkforceDashboardPage() {
 
   return (
     <AppShell title="Workforce Monitoring Overview" subtitle="" summaryControls={controls} summaryStats={[]}>
-      <section className="center-panel workforce-full-span no-panel-bg overview-page-fit responsive-overview-fit">
+      <section className="center-panel workforce-full-span no-panel-bg overview-page-fit">
         {error && <div className="error-box page-error">{error}</div>}
 
         <div className="kpi-grid compact-kpi-grid overview-kpi-grid overview-kpi-grid-five">
@@ -368,6 +368,8 @@ export default function WorkforceDashboardPage() {
             rows={workingDaysSeries}
             period={workingDaysPeriod}
             lineLabel={workingDaysPeriod === "WEEKLY" ? "Weekly only" : "Monthly only"}
+            chartClassName="days-chart-card"
+            showAverageDays={false}
             segments={[
               { key: "days_1", label: "1 Day", className: "stack-violet" },
               { key: "days_2", label: "2 Days", className: "stack-indigo" },
