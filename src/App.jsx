@@ -5,6 +5,7 @@ import WorkforceDashboardPage from "./pages/WorkforceDashboardPage.jsx";
 import WorkforceDailyRecordPage from "./pages/WorkforceDailyRecordPage.jsx";
 import WorkforceCompliancePage from "./pages/WorkforceCompliancePage.jsx";
 import WorkforcePopulationPage from "./pages/WorkforcePopulationPage.jsx";
+import WorkforceMapPage from "./pages/WorkforceMapPage.jsx";
 
 export default function App() {
   return (
@@ -50,6 +51,15 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+  path="/workforce/map"
+  element={
+    <RequireAccess>
+      <WorkforceMapPage />
+    </RequireAccess>
+  }
+/>
 
         <Route path="/" element={<Navigate to="/workforce" replace />} />
       </Routes>

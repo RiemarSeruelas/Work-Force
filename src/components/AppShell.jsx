@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
+
 const navItems = [
   { label: "Overview", path: "/workforce" },
   { label: "Daily Record", path: "/workforce/daily-record" },
