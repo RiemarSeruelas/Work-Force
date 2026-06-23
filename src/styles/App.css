@@ -3697,3 +3697,413 @@ body:has(.loading-aware-btn:disabled) * {
   color: #fecaca;
   border-color: rgba(248, 113, 113, 0.26);
 }
+
+/* =========================================================
+   Workforce Map page
+   - color-coded site areas with active inside count
+   - background image can be replaced at /public/workforce-map-base.jpg
+========================================================= */
+.workforce-map-page {
+  min-height: calc(100vh - 190px);
+  padding: clamp(14px, 1.4vw, 22px);
+  overflow: hidden;
+}
+
+.map-layout-grid {
+  height: 100%;
+  min-height: 610px;
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+  gap: clamp(14px, 1.4vw, 22px);
+  align-items: stretch;
+}
+
+.map-side-card,
+.map-stage-card {
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,251,255,0.92));
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+}
+
+.app-shell[data-theme="dark"] .map-side-card,
+.app-shell[data-theme="dark"] .map-stage-card {
+  background: linear-gradient(180deg, rgba(24,38,60,0.96), rgba(17,27,46,0.92));
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+.map-side-card {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+.map-side-title {
+  font-size: 15px;
+  font-weight: 950;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.map-side-title.small {
+  font-size: 13px;
+}
+
+.map-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.map-legend-row {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 14px;
+  background: rgba(148, 163, 184, 0.08);
+}
+
+.map-legend-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 950;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.24);
+}
+
+.map-legend-name {
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 850;
+  color: var(--text);
+}
+
+.map-legend-row b {
+  font-size: 13px;
+  font-weight: 950;
+  color: var(--text);
+}
+
+.map-latest-card {
+  padding: 13px 14px;
+  border-radius: 18px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.10), rgba(124, 58, 237, 0.10));
+  border: 1px solid rgba(96, 165, 250, 0.16);
+}
+
+.map-latest-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 950;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.map-latest-card b {
+  display: block;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.map-people-card {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.map-people-list {
+  min-height: 0;
+  max-height: 230px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 4px;
+}
+
+.map-person-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.map-person-row strong,
+.map-person-row span {
+  display: block;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-person-row strong {
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 950;
+}
+
+.map-person-row span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  margin-top: 3px;
+}
+
+.map-person-row em {
+  font-style: normal;
+  color: var(--amber-500);
+}
+
+.compact-empty {
+  padding: 12px !important;
+  text-align: left !important;
+}
+
+.map-stage-card {
+  position: relative;
+  overflow: hidden;
+  padding: clamp(14px, 1.4vw, 20px);
+}
+
+.map-blueprint-canvas {
+  position: relative;
+  height: 100%;
+  min-height: 570px;
+  border-radius: 22px;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 62% 32%, rgba(59, 130, 246, 0.08), transparent 32%),
+    linear-gradient(180deg, rgba(255,255,255,0.95), rgba(239,246,255,0.7));
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.map-blueprint-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/workforce-map-base.jpg");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.20;
+  filter: grayscale(1) contrast(1.12);
+  z-index: 0;
+}
+
+.app-shell[data-theme="dark"] .map-blueprint-canvas {
+  background:
+    radial-gradient(circle at 62% 32%, rgba(96, 165, 250, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(17, 27, 46, 0.96));
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+.app-shell[data-theme="dark"] .map-blueprint-canvas::before {
+  opacity: 0.12;
+  filter: grayscale(1) invert(1) contrast(0.9);
+}
+
+.map-faint-building,
+.map-dock-row,
+.map-tree-row,
+.map-road {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.map-faint-building {
+  border: 2px solid rgba(100, 116, 139, 0.16);
+  background:
+    linear-gradient(90deg, rgba(100,116,139,0.08) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(0deg, rgba(100,116,139,0.07) 1px, transparent 1px) 0 0 / 28px 28px,
+    rgba(255,255,255,0.28);
+  border-radius: 8px;
+}
+
+.app-shell[data-theme="dark"] .map-faint-building {
+  background:
+    linear-gradient(90deg, rgba(148,163,184,0.08) 1px, transparent 1px) 0 0 / 28px 28px,
+    linear-gradient(0deg, rgba(148,163,184,0.07) 1px, transparent 1px) 0 0 / 28px 28px,
+    rgba(15,23,42,0.18);
+}
+
+.building-top { left: 37%; top: 9%; width: 48%; height: 37%; }
+.building-mid { left: 42%; top: 49%; width: 39%; height: 30%; }
+.building-bottom { left: 24%; top: 69%; width: 21%; height: 18%; }
+
+.map-road {
+  color: rgba(100, 116, 139, 0.45);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.road-left {
+  left: 14%;
+  top: 25%;
+  transform: rotate(-67deg);
+}
+
+.road-right {
+  right: 6%;
+  top: 35%;
+  writing-mode: vertical-rl;
+}
+
+.dock-right-one,
+.dock-right-two {
+  right: 10%;
+  width: 110px;
+  height: 160px;
+  border-right: 8px solid rgba(100,116,139,0.14);
+  background: repeating-linear-gradient(to bottom, rgba(100,116,139,0.16) 0 8px, transparent 8px 28px);
+}
+.dock-right-one { top: 20%; }
+.dock-right-two { top: 55%; }
+
+.tree-bottom,
+.tree-right {
+  background: radial-gradient(circle, rgba(132, 170, 100, 0.55) 0 38%, transparent 42%) 0 0 / 42px 42px;
+}
+.tree-bottom { left: 18%; right: 10%; bottom: 5%; height: 28px; }
+.tree-right { right: 3%; top: 10%; bottom: 10%; width: 28px; }
+
+.map-zone {
+  position: absolute;
+  z-index: 5;
+  border: 2px solid rgba(255,255,255,0.28);
+  border-radius: 12px;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  cursor: default;
+  text-align: center;
+  box-shadow:
+    0 22px 48px rgba(15, 23, 42, 0.18),
+    inset 0 1px 0 rgba(255,255,255,0.28),
+    inset 0 -24px 60px rgba(0,0,0,0.10);
+  backdrop-filter: blur(1px);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+.map-zone:hover,
+.map-zone:focus-visible {
+  transform: translateY(-2px) scale(1.01);
+  filter: brightness(1.05);
+  outline: none;
+  box-shadow:
+    0 26px 58px rgba(15, 23, 42, 0.24),
+    0 0 0 4px rgba(96, 165, 250, 0.18),
+    inset 0 1px 0 rgba(255,255,255,0.34);
+}
+
+.map-zone-label {
+  font-size: clamp(10px, 0.85vw, 13px);
+  font-weight: 950;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.28);
+}
+
+.map-zone strong {
+  font-size: clamp(24px, 3.2vw, 48px);
+  font-weight: 950;
+  line-height: 1;
+  text-shadow: 0 3px 12px rgba(0,0,0,0.34);
+}
+
+.map-zone small {
+  font-size: clamp(9px, 0.75vw, 11px);
+  font-weight: 900;
+  opacity: 0.9;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.24);
+}
+
+.area-engineering { background: rgba(94, 53, 177, 0.78); }
+.area-production { background: rgba(37, 99, 235, 0.78); }
+.area-warehouse { background: rgba(13, 148, 136, 0.78); }
+.area-utilities { background: rgba(234, 88, 12, 0.78); }
+.area-admin { background: rgba(219, 39, 119, 0.78); }
+
+.app-shell[data-theme="dark"] .area-engineering { background: rgba(124, 58, 237, 0.82); }
+.app-shell[data-theme="dark"] .area-production { background: rgba(37, 99, 235, 0.82); }
+.app-shell[data-theme="dark"] .area-warehouse { background: rgba(20, 184, 166, 0.78); }
+.app-shell[data-theme="dark"] .area-utilities { background: rgba(249, 115, 22, 0.80); }
+.app-shell[data-theme="dark"] .area-admin { background: rgba(236, 72, 153, 0.78); }
+
+.zone-engineering { left: 37%; top: 4%; width: 17%; height: 20%; }
+.zone-production { left: 47%; top: 19%; width: 39%; height: 29%; }
+.zone-warehouse { left: 49%; top: 53%; width: 35%; height: 28%; }
+.zone-utilities { left: 29%; top: 67%; width: 16%; height: 11%; }
+.zone-admin { left: 26%; top: 80%; width: 18%; height: 12%; }
+
+@media (min-width: 1181px) {
+  .workforce-map-page {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .map-layout-grid {
+    min-height: 0;
+  }
+
+  .map-blueprint-canvas {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 1180px) {
+  .workforce-map-page {
+    overflow: visible;
+  }
+
+  .map-layout-grid {
+    grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .map-blueprint-canvas {
+    min-height: 560px;
+  }
+
+  .map-side-card {
+    order: 2;
+  }
+
+  .map-stage-card {
+    order: 1;
+  }
+}
+
+@media (max-width: 720px) {
+  .map-blueprint-canvas {
+    min-width: 760px;
+  }
+
+  .map-stage-card {
+    overflow-x: auto;
+  }
+}

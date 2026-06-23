@@ -605,6 +605,76 @@ function summarizeDailyForTrend(daily, period) {
     }));
 }
 
+
+const WORKFORCE_MAP_AREAS = [
+  {
+    key: "engineering",
+    label: "Engineering",
+    keywords: ["engineering", "maintenance", "automation", "electrical", "mechanical", "instrument", "technician", "project"],
+  },
+  {
+    key: "production",
+    label: "Production",
+    keywords: ["production", "process", "packing", "packaging", "dressing", "dressings", "savoury", "condiments", "operator", "line", "filler", "mespack", "volpak", "fd", "cl"],
+  },
+  {
+    key: "warehouse",
+    label: "Warehouse",
+    keywords: ["warehouse", "logistics", "material", "store", "stores", "receiving", "dispatch", "rm", "pm", "fg", "forklift", "inventory"],
+  },
+  {
+    key: "utilities",
+    label: "Utilities",
+    keywords: ["utilities", "utility", "boiler", "compressor", "refrigeration", "wastewater", "waste water", "water", "power", "substation", "wwtp", "chiller", "cooling"],
+  },
+  {
+    key: "admin",
+    label: "Admin",
+    keywords: ["admin", "office", "hr", "finance", "quality", "qa", "qc", "r&d", "rnd", "lab", "laboratory", "ehs", "hse", "safety", "security"],
+  },
+  {
+    key: "other",
+    label: "Other",
+    keywords: [],
+  },
+];
+
+function makeMapAreaLookup() {
+  return new Map(
+    WORKFORCE_MAP_AREAS.map((area) => [
+      area.key,
+      {
+        key: area.key,
+        label: area.label,
+        activeCount: 0,
+        totalToday: 0,
+        exitedCount: 0,
+        alarmCount: 0,
+        groups: {},
+      },
+    ])
+  );
+}
+
+function classifyMapArea(row) {
+  const text = `${row?.persongroup || ""} ${row?.person || ""}`.toLowerCase();
+
+  for (const area of WORKFORCE_MAP_AREAS) {
+    if (area.key === "other") continue;
+    if (area.keywords.some((word) => text.includes(word))) return area.key;
+  }
+
+  return "production";
+}
+
+function compactAreaGroups(groups) {
+  return Object.entries(groups || {})
+    .map(([name, value]) => ({ name, value: Number(value) || 0 }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => (b.value - a.value) || a.name.localeCompare(b.name))
+    .slice(0, 5);
+}
+
 app.get("/api/health", async (_req, res) => {
   try {
     await testDb();
@@ -891,6 +961,71 @@ app.get("/api/workforce/compliance", async (req, res) => {
     });
   } catch (err) {
     console.error("❌ WORKFORCE COMPLIANCE ERROR:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+app.get("/api/workforce/map", async (req, res) => {
+  try {
+    const workforceDate = String(req.query.date || getWorkforceDateManila());
+    const group = String(req.query.group || "ALL");
+    const scans = await queryScans(workforceDate, workforceDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
+    const daily = computeDailyRecords(scans, workforceDate, workforceDate);
+    const areasByKey = makeMapAreaLookup();
+    const latestScanMs = scans.reduce((max, scan) => Math.max(max, Number(scan.scan_ms) || 0), 0);
+    const people = [];
+
+    for (const row of daily) {
+      const areaKey = classifyMapArea(row);
+      const area = areasByKey.get(areaKey) || areasByKey.get("other");
+      const isActiveInside = Boolean(row.has_open_interval && !row.has_24h_alarm);
+      const groupName = row.persongroup || "Unknown";
+
+      area.totalToday += 1;
+      if (isActiveInside) area.activeCount += 1;
+      else area.exitedCount += 1;
+      if (row.has_24h_alarm) area.alarmCount += 1;
+      area.groups[groupName] = (Number(area.groups[groupName]) || 0) + 1;
+
+      people.push({
+        person: row.person,
+        persongroup: row.persongroup || "Unknown",
+        areaKey,
+        areaLabel: area.label,
+        isActiveInside,
+        has24HourAlarm: Boolean(row.has_24h_alarm),
+        scanIn: row.display_entry_time || row.entry_time,
+        scanOut: row.exit_time,
+        workHours: row.work_hours,
+      });
+    }
+
+    const areas = [...areasByKey.values()]
+      .map((area) => ({
+        ...area,
+        groups: compactAreaGroups(area.groups),
+      }))
+      .filter((area) => area.key !== "other" || area.totalToday > 0);
+
+    res.json({
+      workforceDate,
+      group,
+      summary: {
+        totalToday: daily.length,
+        activeInside: areas.reduce((sum, area) => sum + (Number(area.activeCount) || 0), 0),
+        occupiedAreas: areas.filter((area) => (Number(area.activeCount) || 0) > 0).length,
+        alarmCount: areas.reduce((sum, area) => sum + (Number(area.alarmCount) || 0), 0),
+        latestScan: latestScanMs ? new Date(latestScanMs).toISOString() : null,
+        countMode: "Active inside = people with IN scan and no valid OUT yet, capped at 24 hours.",
+      },
+      areas,
+      people: people
+        .sort((a, b) => String(a.areaLabel).localeCompare(String(b.areaLabel)) || String(a.person).localeCompare(String(b.person)))
+        .slice(0, 250),
+    });
+  } catch (err) {
+    console.error("❌ WORKFORCE MAP ERROR:", err.message);
     res.status(500).json({ error: err.message });
   }
 });

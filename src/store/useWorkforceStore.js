@@ -85,6 +85,9 @@ export const useWorkforceStore = create((set, get) => ({
   compliancePeopleGroup: "",
 
   populationRows: [],
+  mapSummary: null,
+  mapAreas: [],
+  mapPeople: [],
   loading: false,
   error: "",
 
@@ -343,6 +346,36 @@ export const useWorkforceStore = create((set, get) => ({
       set({ populationRows: data.rows || [], loading: false });
     } catch (err) {
       set({ error: err.message, populationRows: [], loading: false });
+    }
+  },
+
+  fetchMap: async () => {
+    set({ loading: true, error: "" });
+    try {
+      const { workforceDate, group } = get();
+      const params = new URLSearchParams({
+        date: workforceDate,
+        group,
+        _t: String(Date.now()),
+      });
+      const res = await fetch(`/api/workforce/map?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const data = await parseJsonResponse(res);
+      set({
+        mapSummary: data.summary || null,
+        mapAreas: data.areas || [],
+        mapPeople: data.people || [],
+        loading: false,
+      });
+    } catch (err) {
+      set({
+        error: err.message,
+        mapSummary: null,
+        mapAreas: [],
+        mapPeople: [],
+        loading: false,
+      });
     }
   },
 }));
