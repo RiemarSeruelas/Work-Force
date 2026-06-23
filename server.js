@@ -27,6 +27,7 @@ const pool = new Pool({
 const MANILA_TZ = "Asia/Manila";
 const APP_PASSWORD = String(process.env.APP_PASSWORD || "Workforce2026").trim();
 const DAY_MS = 24 * 60 * 60 * 1000;
+const OUT_SCAN_LOOKAHEAD_DAYS = 1;
 
 function getManilaDateParts(date = new Date()) {
   return new Date(date.toLocaleString("en-US", { timeZone: MANILA_TZ }));
@@ -118,12 +119,18 @@ function parseScanTs(value) {
 function formatHHMM(ms) {
   if (!ms) return null;
   const date = new Date(ms);
-  return date.toLocaleTimeString("en-PH", {
+  if (Number.isNaN(date.getTime())) return null;
+
+  const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: MANILA_TZ,
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false,
-  });
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const hour = parts.find((part) => part.type === "hour")?.value || "00";
+  const minute = parts.find((part) => part.type === "minute")?.value || "00";
+  return `${hour}:${minute}`;
 }
 
 function startOfManilaDayMs(dateString) {
@@ -212,11 +219,12 @@ async function testDb() {
   await pool.query("SELECT 1");
 }
 
-async function queryScans(fromDate, toDate, group = "ALL", search = "") {
+async function queryScans(fromDate, toDate, group = "ALL", search = "", options = {}) {
   // Pull from 00:00 of the first date so early arrivals before 06:00 are available
   // for the new workforce day. Still stop at 06:00 after the final date.
   const fromMs = startOfManilaDayMs(fromDate);
-  const toMs = windowEndMs(toDate);
+  const lookaheadDays = Math.max(Number(options.lookaheadDays) || 0, 0);
+  const toMs = windowEndMs(toDate) + lookaheadDays * DAY_MS;
   const fromText = new Date(fromMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
   const toText = new Date(toMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
   const searchText = String(search || "").trim();
@@ -310,7 +318,10 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
         // becoming a fake 06:00-15:00 interval.
         if (currentIn && scan.scan_ms > currentIn.scan_ms) {
           const assignedDate = assignedWorkforceDateForInterval(currentIn.scan_ms, scan.scan_ms);
-          const countedEndMs = Math.min(scan.scan_ms, windowEndMs(assignedDate));
+          // For a real OUT scan, count until the actual OUT time even if it lands
+          // after the 06:00 workforce cutoff or in the next ISO week. Example:
+          // Sunday 15:00 IN -> Monday 06:30 OUT still belongs to Sunday.
+          const countedEndMs = scan.scan_ms;
 
           if (countedEndMs > currentIn.scan_ms) {
             intervals.push({
@@ -500,10 +511,13 @@ app.get("/api/workforce/summary", async (req, res) => {
     const period = ["DAILY", "WEEKLY", "MONTHLY"].includes(periodRaw) ? periodRaw : "DAILY";
     const startDate = period === "MONTHLY" ? addDays(workforceDate, -185) : period === "WEEKLY" ? addDays(workforceDate, -56) : addDays(workforceDate, -13);
 
-    const scans = await queryScans(startDate, workforceDate, group);
+    const scans = await queryScans(startDate, workforceDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
     const daily = computeDailyRecords(scans, startDate, workforceDate);
     const selectedDaily = daily.filter((row) => row.workforce_date === workforceDate);
-    const latestScanMs = scans.reduce((max, scan) => Math.max(max, scan.scan_ms || 0), 0);
+    const latestScanMs = selectedDaily.reduce((max, row) => {
+      const rowLastScanMs = row.last_scan ? new Date(row.last_scan).getTime() : 0;
+      return Math.max(max, Number.isNaN(rowLastScanMs) ? 0 : rowLastScanMs);
+    }, 0);
 
     const daysPeriod = period === "DAILY" ? "WEEKLY" : period;
 
@@ -520,7 +534,7 @@ app.get("/api/workforce/summary", async (req, res) => {
       timeSeries: summarizeDailyForTrend(daily, period),
       daysPeriod,
       daysTimeSeries: summarizeDailyForTrend(daily, daysPeriod),
-      dayRule: "L_Mode/L_TID determines IN and OUT. The workforce day is 06:00-05:59. Cross-midnight work is counted back to the assigned workforce date, and early arrivals before 06:00 are kept with the new day when they exit after 06:00. More than 4 hours counts as 1 working day.",
+      dayRule: "L_Mode/L_TID determines IN and OUT. The workforce day is 06:00-05:59. Cross-midnight work is counted back to the original IN workforce date, even when the OUT scan is after 06:00 or in the next ISO week. Early arrivals before 06:00 are kept with the new day when they exit after 06:00. More than 4 hours counts as 1 working day.",
     });
   } catch (err) {
     console.error("❌ WORKFORCE SUMMARY ERROR:", err.message);
@@ -535,7 +549,7 @@ app.get("/api/workforce/daily-record", async (req, res) => {
     const group = String(req.query.group || "ALL");
     const { limit, offset } = parsePaging(req);
 
-    const scans = await queryScans(workforceDate, workforceDate, group, search);
+    const scans = await queryScans(workforceDate, workforceDate, group, search, { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
     let rows = computeDailyRecords(scans, workforceDate, workforceDate);
 
     // Safety filter after interval computation. The DB query already narrows the scan rows,
@@ -593,7 +607,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
     const { peopleLimit, peopleOffset } = parseCompliancePeoplePaging(req);
     const { startDate, endDate } = getWeekDateRangeManila(year, week);
 
-    const scans = await queryScans(startDate, endDate, group);
+    const scans = await queryScans(startDate, endDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
     const dailyRaw = computeDailyRecords(scans, startDate, endDate);
     const daily = dailyRaw.filter((row) => row.work_hours_raw > 4);
 
@@ -718,7 +732,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
       group,
       startDate,
       endDate,
-      dayRule: "L_Mode/L_TID determines IN and OUT. Cross-midnight work is counted back to the assigned workforce date, and early arrivals before 06:00 are kept with the new day when they exit after 06:00. > 4 hours counts as 1 working day.",
+      dayRule: "L_Mode/L_TID determines IN and OUT. Cross-midnight work is counted back to the original IN workforce date, even when the OUT scan is after 06:00 or in the next ISO week. Early arrivals before 06:00 are kept with the new day when they exit after 06:00. > 4 hours counts as 1 working day.",
       totals,
       rows,
       people: pagedPeople,
@@ -738,7 +752,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
 app.get("/api/workforce/population", async (req, res) => {
   try {
     const workforceDate = String(req.query.date || getWorkforceDateManila());
-    const scans = await queryScans(workforceDate, workforceDate, "ALL");
+    const scans = await queryScans(workforceDate, workforceDate, "ALL", "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
     const daily = computeDailyRecords(scans, workforceDate, workforceDate);
     const groupMap = new Map();
 

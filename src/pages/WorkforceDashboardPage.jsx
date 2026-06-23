@@ -6,11 +6,23 @@ function formatDateTime(value) {
   if (!value) return "No scan yet";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleString("en-PH", {
+
+  const dateText = new Intl.DateTimeFormat("en-PH", {
     timeZone: "Asia/Manila",
-    dateStyle: "medium",
-    timeStyle: "medium",
-  });
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  }).format(date);
+
+  const timeText = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+
+  return `${dateText}, ${timeText}`;
 }
 
 function getIsoWeekNumber(date) {

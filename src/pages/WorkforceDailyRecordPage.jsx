@@ -25,12 +25,12 @@ function fmt(value) {
   if (!value) return "-";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleTimeString("en-PH", {
+  return new Intl.DateTimeFormat("en-GB", {
     timeZone: "Asia/Manila",
     hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
-  });
+    hourCycle: "h23",
+  }).format(date);
 }
 
 function countLoadedRows(rows, bucketName) {
