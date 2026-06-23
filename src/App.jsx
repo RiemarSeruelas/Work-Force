@@ -55,9 +55,9 @@ export default function App() {
         <Route
   path="/workforce/map"
   element={
-    <RequireAccess>
+    <ProtectedRoute>
       <WorkforceMapPage />
-    </RequireAccess>
+    </ProtectedRoute>
   }
 />
 
