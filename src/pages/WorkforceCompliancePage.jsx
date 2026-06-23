@@ -59,14 +59,12 @@ function formatHours(value) {
 
 function BarList({ title, rows, field, colorClass, onSelect, selected }) {
   const sortedRows = [...rows]
-    .filter((row) => (Number(row[field]) || 0) > 0)
-    .sort(
-      (a, b) => (Number(b[field]) || 0) - (Number(a[field]) || 0)
-    );
+    .filter((row) => (Number(row.population) || 0) > 0 && (Number(row[field]) || 0) > 0)
+    .sort((a, b) => (Number(b[field]) || 0) - (Number(a[field]) || 0));
   const max = Math.max(...sortedRows.map((r) => Number(r[field]) || 0), 1);
 
   return (
-    <div className="chart-card compact-chart-card airy-card">
+    <div className="chart-card compact-chart-card airy-card compliance-category-card">
       <div className="compact-card-title">{title}</div>
       <div className="bar-list compliance-bar-list">
         {sortedRows.map((row) => {
@@ -93,7 +91,7 @@ function BarList({ title, rows, field, colorClass, onSelect, selected }) {
           );
         })}
 
-        {sortedRows.length === 0 && <div className="empty-cell">No data.</div>}
+        {sortedRows.length === 0 && <div className="empty-cell compact-empty">No groups in this bucket.</div>}
       </div>
     </div>
   );
@@ -145,15 +143,19 @@ function PersonWeekTooltip({ hover }) {
   );
 }
 
-function PersonDrilldown({ selected, people, startDate }) {
-  const category = selected?.field || "greater_than_60_hours";
+function PersonDrilldown({
+  selected,
+  people,
+  total,
+  startDate,
+  hasMore,
+  loading,
+  loadingMore,
+  onLoadMore,
+}) {
+  const category = selected?.field || "";
   const persongroup = selected?.persongroup || "";
   const [hover, setHover] = useState(null);
-  const [visibleCount, setVisibleCount] = useState(20);
-
-  useEffect(() => {
-    setVisibleCount(20);
-  }, [category, persongroup, people]);
 
   function showWeeklyHover(event, person) {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -170,30 +172,10 @@ function PersonDrilldown({ selected, people, startDate }) {
     });
   }
 
-  const filteredPeople = useMemo(() => {
-    return people
-      .filter((person) => {
-        const sameGroup = !persongroup || person.persongroup === persongroup;
-        const sameCategory =
-          person.hours_category === category || person.days_category === category;
-        return sameGroup && sameCategory;
-      })
-      .sort((a, b) => {
-        const hoursDiff = (Number(b.total_hours) || 0) - (Number(a.total_hours) || 0);
-        if (hoursDiff !== 0) return hoursDiff;
-        return String(a.person || "").localeCompare(String(b.person || ""));
-      });
-  }, [people, persongroup, category]);
-
-  const visiblePeople = filteredPeople.slice(0, visibleCount);
-  const hasMorePeople = visibleCount < filteredPeople.length;
-
   function handleListScroll(event) {
     const el = event.currentTarget;
     const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 80;
-    if (nearBottom && hasMorePeople) {
-      setVisibleCount((count) => Math.min(count + 20, filteredPeople.length));
-    }
+    if (nearBottom && hasMore && !loading && !loadingMore) onLoadMore?.();
   }
 
   return (
@@ -201,17 +183,27 @@ function PersonDrilldown({ selected, people, startDate }) {
       <div className="chart-header-row compact-chart-header">
         <div>
           <h3>Names in Category</h3>
-          {selected && (
-            <p>{`${persongroup || "All groups"} · ${CATEGORY_LABELS[category] || category}`}</p>
+          {selected ? (
+            <p>{`${persongroup || "All groups"} · ${CATEGORY_LABELS[category] || category} · ${people.length} of ${total}`}</p>
+          ) : (
+            <p>Select a bar bucket to load names.</p>
           )}
         </div>
       </div>
 
       <div className="drilldown-list lazy-drilldown-list" onScroll={handleListScroll}>
-        {visiblePeople.map((person, index) => (
+        {!selected && (
+          <div className="empty-cell drilldown-placeholder">Click any compliance bar to fetch the first 20 names.</div>
+        )}
+
+        {selected && loading && people.length === 0 && (
+          <div className="empty-cell loading-row">Loading names...</div>
+        )}
+
+        {people.map((person, index) => (
           <div
             className="drilldown-row person-hover-row"
-            key={`${person.person}-${index}`}
+            key={`${person.person}-${person.person_key || index}`}
             tabIndex={0}
             onMouseEnter={(event) => showWeeklyHover(event, person)}
             onMouseLeave={() => setHover(null)}
@@ -224,14 +216,20 @@ function PersonDrilldown({ selected, people, startDate }) {
           </div>
         ))}
 
-        {filteredPeople.length === 0 && (
+        {selected && !loading && people.length === 0 && (
           <div className="empty-cell">No names for this category yet.</div>
         )}
 
-        {hasMorePeople && (
-          <button type="button" className="load-more-row" onClick={() => setVisibleCount((count) => Math.min(count + 20, filteredPeople.length))}>
+        {loadingMore && <div className="empty-cell loading-row">Loading 20 more names...</div>}
+
+        {selected && hasMore && !loadingMore && (
+          <button type="button" className="load-more-row loading-aware-btn" onClick={onLoadMore}>
             Load 20 more
           </button>
+        )}
+
+        {selected && people.length > 0 && !hasMore && !loadingMore && (
+          <div className="empty-cell compact-empty">End of list · {people.length} of {total}</div>
         )}
       </div>
 
@@ -248,9 +246,16 @@ export default function WorkforceCompliancePage() {
   const group = useWorkforceStore((s) => s.group);
   const setGroup = useWorkforceStore((s) => s.setGroup);
   const compliance = useWorkforceStore((s) => s.compliance);
+  const people = useWorkforceStore((s) => s.compliancePeople);
+  const peopleTotal = useWorkforceStore((s) => s.compliancePeopleTotal);
+  const peopleHasMore = useWorkforceStore((s) => s.compliancePeopleHasMore);
+  const peopleLoading = useWorkforceStore((s) => s.compliancePeopleLoading);
+  const peopleLoadingMore = useWorkforceStore((s) => s.compliancePeopleLoadingMore);
   const loading = useWorkforceStore((s) => s.loading);
   const error = useWorkforceStore((s) => s.error);
   const fetchCompliance = useWorkforceStore((s) => s.fetchCompliance);
+  const fetchCompliancePeople = useWorkforceStore((s) => s.fetchCompliancePeople);
+  const fetchCompliancePeopleNextPage = useWorkforceStore((s) => s.fetchCompliancePeopleNextPage);
   const [selectedBucket, setSelectedBucket] = useState(null);
 
   useEffect(() => {
@@ -258,8 +263,16 @@ export default function WorkforceCompliancePage() {
     setSelectedBucket(null);
   }, [fetchCompliance, selectedYear, selectedWeek, group]);
 
+  useEffect(() => {
+    if (!selectedBucket) return;
+    fetchCompliancePeople?.({
+      category: selectedBucket.field,
+      persongroup: selectedBucket.persongroup,
+      reset: true,
+    });
+  }, [fetchCompliancePeople, selectedBucket?.field, selectedBucket?.persongroup]);
+
   const rows = useMemo(() => compliance?.rows || [], [compliance]);
-  const people = useMemo(() => compliance?.people || [], [compliance]);
   const totals = compliance?.totals || {};
 
   const controls = (
@@ -299,7 +312,14 @@ export default function WorkforceCompliancePage() {
         </select>
       </label>
 
-      <button className="summary-refresh-btn loading-aware-btn" onClick={() => fetchCompliance(group)} disabled={loading}>
+      <button
+        className="summary-refresh-btn loading-aware-btn"
+        onClick={() => {
+          setSelectedBucket(null);
+          fetchCompliance(group);
+        }}
+        disabled={loading}
+      >
         {loading ? "Loading..." : "Refresh"}
       </button>
     </>
@@ -318,10 +338,10 @@ export default function WorkforceCompliancePage() {
         { value: totals.nonCompliantWorkingDays ?? 0, label: "6+ DAYS", variant: "red" },
       ]}
     >
-      <section className="panel center-panel workforce-full-span compliance-page-panel airy-page-panel">
+      <section className="panel center-panel workforce-full-span compliance-page-panel airy-page-panel compliance-roomy-page">
         {error && <div className="error-box page-error">{error}</div>}
 
-        <div className="compliance-shell-grid">
+        <div className="compliance-shell-grid compliance-roomy-grid">
           <div className="compliance-left-grid">
             <BarList title="60+ Hours" rows={rows} field="greater_than_60_hours" colorClass="fill-red" selected={selectedBucket} onSelect={setSelectedBucket} />
             <BarList title="40-60 Hours" rows={rows} field="hours_40_60" colorClass="fill-orange" selected={selectedBucket} onSelect={setSelectedBucket} />
@@ -336,7 +356,16 @@ export default function WorkforceCompliancePage() {
             <BarList title="< 5 Days" rows={rows} field="days_less_than_5" colorClass="fill-amber" selected={selectedBucket} onSelect={setSelectedBucket} />
           </div>
 
-          <PersonDrilldown selected={selectedBucket} people={people} startDate={compliance?.startDate} />
+          <PersonDrilldown
+            selected={selectedBucket}
+            people={people}
+            total={peopleTotal}
+            startDate={compliance?.startDate}
+            hasMore={peopleHasMore}
+            loading={peopleLoading}
+            loadingMore={peopleLoadingMore}
+            onLoadMore={fetchCompliancePeopleNextPage}
+          />
         </div>
       </section>
     </AppShell>

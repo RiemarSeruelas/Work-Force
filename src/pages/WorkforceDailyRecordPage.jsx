@@ -33,6 +33,33 @@ function fmt(value) {
   });
 }
 
+function fmtSegmentDate(value) {
+  if (!value) return "";
+  const date = new Date(`${value}T12:00:00+08:00`);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleDateString("en-PH", {
+    timeZone: "Asia/Manila",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function TimeSegmentsCell({ segments }) {
+  const safeSegments = Array.isArray(segments) ? segments : [];
+  if (!safeSegments.length) return <span className="muted-cell">-</span>;
+
+  return (
+    <div className="time-segment-list">
+      {safeSegments.map((segment, index) => (
+        <span className="time-segment-chip" key={`${segment.calendarDate || "date"}-${index}`}>
+          <b>{fmtSegmentDate(segment.calendarDate)}</b>
+          {segment.firstScan || "--"}-{segment.lastScan || "--"}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 function countLoadedRows(rows, bucketName) {
   return rows.filter((row) => getHourBucket(row) === bucketName).length;
 }
@@ -107,7 +134,7 @@ export default function WorkforceDailyRecordPage() {
           onChange={(e) => setWorkforceDate(e.target.value)}
         />
 
-        <label className="field-label">Name / Department</label>
+        <label className="field-label">Name / Department / ID</label>
         <input
           className="styled-input"
           value={searchDraft}
@@ -132,17 +159,18 @@ export default function WorkforceDailyRecordPage() {
         {error && <div className="error-box">{error}</div>}
       </aside>
 
-      <section className="panel center-panel workforce-center-span">
+      <section className="panel center-panel workforce-center-span daily-record-panel-fit">
         <div className="table-card">
           <div className="table-title">Daily Working Hours · Loaded {rows.length} of {total}</div>
 
           <div className="data-table-wrap" onScroll={handleTableScroll}>
-            <table className="data-table">
+            <table className="data-table daily-record-table">
               <thead>
                 <tr>
                   <th>Subgroup</th>
                   <th>Person</th>
                   <th>Entry Time</th>
+                  <th>Time Segments</th>
                   <th>Last Scan</th>
                   <th>Work Hours</th>
                   <th>Scan Count</th>
@@ -156,6 +184,7 @@ export default function WorkforceDailyRecordPage() {
                     <td>{row.persongroup || "Unknown"}</td>
                     <td>{row.person}</td>
                     <td>{fmt(row.entry_time)}</td>
+                    <td><TimeSegmentsCell segments={row.segments} /></td>
                     <td>{fmt(row.last_scan)}</td>
                     <td>{Number(row.work_hours || 0).toFixed(2)}</td>
                     <td>{row.scan_count}</td>
@@ -171,25 +200,25 @@ export default function WorkforceDailyRecordPage() {
 
                 {loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="empty-cell">Loading workforce records...</td>
+                    <td colSpan="9" className="empty-cell">Loading workforce records...</td>
                   </tr>
                 )}
 
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="empty-cell">No workforce records found.</td>
+                    <td colSpan="9" className="empty-cell">No workforce records found.</td>
                   </tr>
                 )}
 
                 {loadingMore && (
                   <tr>
-                    <td colSpan="8" className="empty-cell">Loading 20 more records...</td>
+                    <td colSpan="9" className="empty-cell loading-row">Loading 20 more records...</td>
                   </tr>
                 )}
 
                 {!loading && !loadingMore && rows.length > 0 && !hasMore && (
                   <tr>
-                    <td colSpan="8" className="empty-cell">End of results · {rows.length} of {total}</td>
+                    <td colSpan="9" className="empty-cell">End of results · {rows.length} of {total}</td>
                   </tr>
                 )}
               </tbody>

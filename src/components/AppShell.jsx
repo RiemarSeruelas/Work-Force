@@ -18,6 +18,13 @@ export default function AppShell({
   const location = useLocation();
   const theme = useWorkforceStore((s) => s.theme);
   const toggleTheme = useWorkforceStore((s) => s.toggleTheme);
+  const isBusy = useWorkforceStore(
+    (s) =>
+      s.loading ||
+      s.dailyLoadingMore ||
+      s.compliancePeopleLoading ||
+      s.compliancePeopleLoadingMore
+  );
 
   const logout = () => {
     sessionStorage.removeItem("appAccess");
@@ -25,7 +32,7 @@ export default function AppShell({
   };
 
   return (
-    <div className="app-shell" data-theme={theme}>
+    <div className="app-shell" data-theme={theme} data-busy={isBusy ? "true" : "false"}>
       <header className="topbar">
         <div className="brand-card">
           <div className="brand-icon">CF</div>

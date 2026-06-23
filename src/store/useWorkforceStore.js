@@ -71,7 +71,18 @@ export const useWorkforceStore = create((set, get) => ({
   dailyOffset: 0,
   dailyHasMore: false,
   dailyLoadingMore: false,
+
   compliance: null,
+  compliancePeople: [],
+  compliancePeopleTotal: 0,
+  compliancePeopleOffset: 0,
+  compliancePeopleHasMore: false,
+  compliancePeopleLoading: false,
+  compliancePeopleLoadingMore: false,
+  compliancePeopleLimit: PAGE_SIZE,
+  compliancePeopleCategory: "",
+  compliancePeopleGroup: "",
+
   populationRows: [],
   loading: false,
   error: "",
@@ -92,9 +103,19 @@ export const useWorkforceStore = create((set, get) => ({
       dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
     }),
   setSelectedYear: (value) =>
-    set({ selectedYear: Number(value) || getCurrentIsoWeekManilaClient().year }),
+    set({
+      selectedYear: Number(value) || getCurrentIsoWeekManilaClient().year,
+      compliancePeople: [],
+      compliancePeopleOffset: 0,
+      compliancePeopleHasMore: false,
+    }),
   setSelectedWeek: (value) =>
-    set({ selectedWeek: Number(value) || getCurrentIsoWeekManilaClient().week }),
+    set({
+      selectedWeek: Number(value) || getCurrentIsoWeekManilaClient().week,
+      compliancePeople: [],
+      compliancePeopleOffset: 0,
+      compliancePeopleHasMore: false,
+    }),
   setGroup: (value) =>
     set({
       group: value || "ALL",
@@ -102,6 +123,9 @@ export const useWorkforceStore = create((set, get) => ({
       dailyOffset: 0,
       dailyHasMore: false,
       dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
+      compliancePeople: [],
+      compliancePeopleOffset: 0,
+      compliancePeopleHasMore: false,
     }),
   setTrendPeriod: (value) => set({ trendPeriod: value || "DAILY" }),
   setSearch: (value) =>
@@ -179,13 +203,24 @@ export const useWorkforceStore = create((set, get) => ({
   fetchDailyRecordNextPage: async () => get().fetchDailyRecord({ reset: false }),
 
   fetchCompliance: async (forcedGroup) => {
-    set({ loading: true, error: "" });
+    set({
+      loading: true,
+      error: "",
+      compliancePeople: [],
+      compliancePeopleTotal: 0,
+      compliancePeopleOffset: 0,
+      compliancePeopleHasMore: false,
+      compliancePeopleLoading: false,
+      compliancePeopleLoadingMore: false,
+    });
     try {
       const { selectedYear, selectedWeek, group } = get();
       const params = new URLSearchParams({
         year: String(selectedYear),
         week: String(selectedWeek),
         group: forcedGroup || group,
+        peopleLimit: "0",
+        peopleOffset: "0",
         _t: String(Date.now()),
       });
       const res = await fetch(`/api/workforce/compliance?${params.toString()}`, {
@@ -196,6 +231,100 @@ export const useWorkforceStore = create((set, get) => ({
     } catch (err) {
       set({ error: err.message, compliance: null, loading: false });
     }
+  },
+
+  fetchCompliancePeople: async ({ category = "", persongroup = "", reset = true } = {}) => {
+    const cleanCategory = String(category || "").trim();
+    const cleanPersongroup = String(persongroup || "").trim();
+
+    if (!cleanCategory) {
+      set({
+        compliancePeople: [],
+        compliancePeopleTotal: 0,
+        compliancePeopleOffset: 0,
+        compliancePeopleHasMore: false,
+        compliancePeopleCategory: "",
+        compliancePeopleGroup: "",
+        compliancePeopleLoading: false,
+        compliancePeopleLoadingMore: false,
+      });
+      return;
+    }
+
+    const {
+      compliancePeopleLoading,
+      compliancePeopleLoadingMore,
+      compliancePeopleHasMore,
+      compliancePeople,
+    } = get();
+
+    if (!reset && (compliancePeopleLoading || compliancePeopleLoadingMore)) return;
+    if (!reset && !compliancePeopleHasMore && compliancePeople.length > 0) return;
+
+    set({
+      compliancePeopleLoading: reset,
+      compliancePeopleLoadingMore: !reset,
+      error: "",
+      ...(reset
+        ? {
+            compliancePeople: [],
+            compliancePeopleOffset: 0,
+            compliancePeopleHasMore: false,
+            compliancePeopleTotal: 0,
+            compliancePeopleCategory: cleanCategory,
+            compliancePeopleGroup: cleanPersongroup,
+          }
+        : {}),
+    });
+
+    try {
+      const { selectedYear, selectedWeek, group, compliancePeopleLimit, compliancePeopleOffset } = get();
+      const nextOffset = reset ? 0 : compliancePeopleOffset;
+      const params = new URLSearchParams({
+        year: String(selectedYear),
+        week: String(selectedWeek),
+        group,
+        category: cleanCategory,
+        persongroup: cleanPersongroup,
+        peopleLimit: String(compliancePeopleLimit || PAGE_SIZE),
+        peopleOffset: String(nextOffset),
+        _t: String(Date.now()),
+      });
+      const res = await fetch(`/api/workforce/compliance?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const data = await parseJsonResponse(res);
+      const newPeople = data.people || [];
+
+      set((state) => ({
+        compliance: data.rows ? { ...data, people: [] } : state.compliance,
+        compliancePeople: reset ? newPeople : [...state.compliancePeople, ...newPeople],
+        compliancePeopleTotal: Number(data.peopleTotal) || 0,
+        compliancePeopleOffset: nextOffset + newPeople.length,
+        compliancePeopleHasMore: Boolean(data.peopleHasMore),
+        compliancePeopleCategory: cleanCategory,
+        compliancePeopleGroup: cleanPersongroup,
+        compliancePeopleLoading: false,
+        compliancePeopleLoadingMore: false,
+      }));
+    } catch (err) {
+      set({
+        error: err.message,
+        compliancePeople: reset ? [] : get().compliancePeople,
+        compliancePeopleTotal: reset ? 0 : get().compliancePeopleTotal,
+        compliancePeopleLoading: false,
+        compliancePeopleLoadingMore: false,
+      });
+    }
+  },
+
+  fetchCompliancePeopleNextPage: async () => {
+    const { compliancePeopleCategory, compliancePeopleGroup } = get();
+    return get().fetchCompliancePeople({
+      category: compliancePeopleCategory,
+      persongroup: compliancePeopleGroup,
+      reset: false,
+    });
   },
 
   fetchPopulation: async () => {

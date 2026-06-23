@@ -85,6 +85,14 @@ function parsePaging(req) {
   return { limit, offset };
 }
 
+function parseCompliancePeoplePaging(req) {
+  const rawLimit = req.query.peopleLimit;
+  const parsedLimit = rawLimit === "0" ? 0 : parseInt(rawLimit, 10) || 20;
+  const peopleLimit = Math.min(Math.max(parsedLimit, 0), 200);
+  const peopleOffset = Math.max(parseInt(req.query.peopleOffset, 10) || 0, 0);
+  return { peopleLimit, peopleOffset };
+}
+
 function normalizeName(value) {
   return String(value ?? "").trim().replace(/\s+/g, " ").toLowerCase();
 }
@@ -143,20 +151,43 @@ function periodStartForDate(dateString, period) {
   return dateString;
 }
 
+function getModeDirection(row) {
+  const mode = String(row?.l_mode ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\-_]+/g, " ");
+
+  if (!mode) return null;
+
+  // Prefer the semantic L_Mode text when it is available.
+  if (/\b(exit|out|check out|clock out|leave|leaving|egress)\b/.test(mode)) return "OUT";
+  if (/\b(entrance|entry|enter|in|check in|clock in|ingress)\b/.test(mode)) return "IN";
+
+  return null;
+}
+
+function getTidDirection(row) {
+  const tid = String(row?.l_tid ?? "").trim().toLowerCase();
+  if (["1", "in", "entry", "enter", "entrance"].includes(tid)) return "IN";
+  if (["0", "out", "exit", "leave"].includes(tid)) return "OUT";
+  return null;
+}
+
+function getScanDirection(row) {
+  const modeDirection = getModeDirection(row);
+  const tidDirection = getTidDirection(row);
+
+  // If both fields exist but conflict, keep L_Mode as source of truth because it
+  // explicitly says Entrance/Exit. L_TID stays as fallback for numeric-only rows.
+  return modeDirection || tidDirection;
+}
+
 function isEntrance(row) {
-  const tid = String(row.l_tid ?? "").trim();
-  const mode = String(row.l_mode ?? "").toLowerCase();
-  if (mode.includes("entrance")) return true;
-  if (mode.includes("exit")) return false;
-  return tid === "1";
+  return getScanDirection(row) === "IN";
 }
 
 function isExit(row) {
-  const tid = String(row.l_tid ?? "").trim();
-  const mode = String(row.l_mode ?? "").toLowerCase();
-  if (mode.includes("exit")) return true;
-  if (mode.includes("entrance")) return false;
-  return tid === "0";
+  return getScanDirection(row) === "OUT";
 }
 
 function splitIntervalSegments(startMs, endMs, hasOutScan) {
@@ -177,6 +208,7 @@ function splitIntervalSegments(startMs, endMs, hasOutScan) {
       lastScan: endsAtMidnight ? "24:00" : formatHHMM(segmentEnd),
       hasOutScan: hasOutScan || !endsAtMidnight,
       hours: Number(((segmentEnd - cursor) / 3600000).toFixed(2)),
+      display_label: `${calendarDate} ${formatHHMM(cursor)}-${endsAtMidnight ? "24:00" : formatHHMM(segmentEnd)}`,
     });
 
     cursor = segmentEnd;
@@ -207,7 +239,7 @@ async function queryScans(fromDate, toDate, group = "ALL", search = "") {
       TO_CHAR(("C_Date"::date + "C_Time"::time), 'YYYY-MM-DD HH24:MI:SS') AS scan_ts_text
     FROM "hkvision"."tbhikvision"
     WHERE ("C_Date"::date + "C_Time"::time) >= $1::timestamp
-      AND ("C_Date"::date + "C_Time"::time) < $2::timestamp
+      AND ("C_Date"::date + "C_Time"::time) <= $2::timestamp
       AND COALESCE(TRIM("Person"), '') <> ''
       AND (
         $3::text = ''
@@ -229,6 +261,7 @@ async function queryScans(fromDate, toDate, group = "ALL", search = "") {
             person_key: normalizeName(row.person),
             scan_ms: parsed.getTime(),
             scan_iso: parsed.toISOString(),
+            scan_direction: getScanDirection(row),
           }
         : null;
     })
@@ -243,7 +276,11 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
   for (let date = fromDate; date <= toDate; date = addDays(date, 1)) {
     const start = windowStartMs(date);
     const end = windowEndMs(date);
-    const dayScans = scans.filter((scan) => scan.scan_ms >= start && scan.scan_ms < end);
+    const dayScans = scans.filter((scan) => {
+      if (scan.scan_ms >= start && scan.scan_ms < end) return true;
+      // Let a clean OUT scan exactly at 06:00 close the previous workforce day.
+      return scan.scan_ms === end && isExit(scan);
+    });
     const people = new Map();
 
     for (const scan of dayScans) {
@@ -274,24 +311,30 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
       let currentIn = null;
 
       for (const scan of person.scans) {
-        if (isEntrance(scan)) {
+        const direction = getScanDirection(scan);
+
+        if (direction === "IN") {
+          // Duplicate IN scans before an OUT are ignored so the earliest IN keeps the hours correct.
           if (!currentIn) currentIn = scan;
           continue;
         }
 
-        if (isExit(scan) && currentIn && scan.scan_ms > currentIn.scan_ms) {
-          intervals.push({
-            startMs: currentIn.scan_ms,
-            endMs: scan.scan_ms,
-            hasOutScan: true,
-          });
-          currentIn = null;
+        if (direction === "OUT") {
+          // Orphan OUT scans are ignored. This prevents 06:00 OUT + 15:00 IN from becoming 06-15.
+          if (currentIn && scan.scan_ms > currentIn.scan_ms) {
+            intervals.push({
+              startMs: currentIn.scan_ms,
+              endMs: Math.min(scan.scan_ms, end),
+              hasOutScan: true,
+            });
+            currentIn = null;
+          }
         }
       }
 
       if (currentIn) {
         const activeWindow = nowMs >= start && nowMs < end;
-        const endMs = activeWindow && nowMs > currentIn.scan_ms ? nowMs : end;
+        const endMs = activeWindow && nowMs > currentIn.scan_ms ? Math.min(nowMs, end) : end;
         intervals.push({
           startMs: currentIn.scan_ms,
           endMs,
@@ -440,7 +483,7 @@ app.get("/api/workforce/summary", async (req, res) => {
       timeSeries: summarizeDailyForTrend(daily, period),
       daysPeriod,
       daysTimeSeries: summarizeDailyForTrend(daily, daysPeriod),
-      dayRule: "Entrance events start work time. Exit events close work time. More than 4 hours counts as 1 working day.",
+      dayRule: "L_Mode/L_TID determines IN and OUT. The workforce day is 06:00-05:59. Cross-midnight work is split for display but counted back to the entry workforce date. More than 4 hours counts as 1 working day.",
     });
   } catch (err) {
     console.error("❌ WORKFORCE SUMMARY ERROR:", err.message);
@@ -508,6 +551,9 @@ app.get("/api/workforce/compliance", async (req, res) => {
     const year = Number(req.query.year || currentWeek.year);
     const week = Number(req.query.week || currentWeek.week);
     const group = String(req.query.group || "ALL");
+    const selectedCategory = String(req.query.category || "").trim();
+    const selectedPersongroup = String(req.query.persongroup || "").trim();
+    const { peopleLimit, peopleOffset } = parseCompliancePeoplePaging(req);
     const { startDate, endDate } = getWeekDateRangeManila(year, week);
 
     const scans = await queryScans(startDate, endDate, group);
@@ -546,21 +592,27 @@ app.get("/api/workforce/compliance", async (req, res) => {
       });
     }
 
-    const people = [...personMap.values()].map((person) => {
-      const totalHours = Number(person.total_hours.toFixed(2));
-      const workingDays = person.working_days;
-      return {
-        ...person,
-        total_hours: totalHours,
-        working_days: workingDays,
-        week_days: weekDayMap.get(person.person_key) || [],
-        hours_category: totalHours > 60 ? "greater_than_60_hours" : totalHours >= 40 ? "hours_40_60" : "less_than_40_hours",
-        days_category: workingDays > 6 ? "greater_than_6_days" : workingDays >= 5 ? "days_5_6" : "days_less_than_5",
-      };
-    });
+    const peopleAll = [...personMap.values()]
+      .map((person) => {
+        const totalHours = Number(person.total_hours.toFixed(2));
+        const workingDays = person.working_days;
+        return {
+          ...person,
+          total_hours: totalHours,
+          working_days: workingDays,
+          week_days: weekDayMap.get(person.person_key) || [],
+          hours_category: totalHours > 60 ? "greater_than_60_hours" : totalHours >= 40 ? "hours_40_60" : "less_than_40_hours",
+          days_category: workingDays > 6 ? "greater_than_6_days" : workingDays >= 5 ? "days_5_6" : "days_less_than_5",
+        };
+      })
+      .sort((a, b) => {
+        const hoursDiff = (Number(b.total_hours) || 0) - (Number(a.total_hours) || 0);
+        if (hoursDiff !== 0) return hoursDiff;
+        return String(a.person || "").localeCompare(String(b.person || ""));
+      });
 
     const subgroupMap = new Map();
-    for (const person of people) {
+    for (const person of peopleAll) {
       const groupName = person.persongroup || "Unknown";
       if (!subgroupMap.has(groupName)) {
         subgroupMap.set(groupName, {
@@ -585,6 +637,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
     }
 
     const rows = [...subgroupMap.values()]
+      .filter((row) => (Number(row.population) || 0) > 0)
       .map((row) => ({
         ...row,
         avg_hours: row.population ? Number((row.hours_sum / row.population).toFixed(2)) : 0,
@@ -614,16 +667,31 @@ app.get("/api/workforce/compliance", async (req, res) => {
       }
     );
 
+    const filteredPeople = peopleAll.filter((person) => {
+      const categoryMatches = !selectedCategory || person.hours_category === selectedCategory || person.days_category === selectedCategory;
+      const groupMatches = !selectedPersongroup || person.persongroup === selectedPersongroup;
+      return categoryMatches && groupMatches;
+    });
+
+    const peopleTotal = filteredPeople.length;
+    const pagedPeople = peopleLimit > 0 ? filteredPeople.slice(peopleOffset, peopleOffset + peopleLimit) : [];
+
     res.json({
       year,
       week,
       group,
       startDate,
       endDate,
-      dayRule: "Entrance starts time. Exit closes time. > 4 hours counts as 1 working day.",
+      dayRule: "L_Mode/L_TID determines IN and OUT. Cross-midnight work is split for display but counted back to the entry workforce date. > 4 hours counts as 1 working day.",
       totals,
       rows,
-      people: people.sort((a, b) => (Number(b.total_hours) || 0) - (Number(a.total_hours) || 0)),
+      people: pagedPeople,
+      peopleTotal,
+      peopleLimit,
+      peopleOffset,
+      peopleHasMore: peopleOffset + pagedPeople.length < peopleTotal,
+      selectedCategory,
+      selectedPersongroup,
     });
   } catch (err) {
     console.error("❌ WORKFORCE COMPLIANCE ERROR:", err.message);
