@@ -3009,3 +3009,417 @@ body:has(.loading-aware-btn:disabled) * {
     grid-template-columns: minmax(160px, 1fr) repeat(3, minmax(130px, 0.86fr)) minmax(185px, 1.05fr) !important;
   }
 }
+
+
+/* =========================================================
+   FINAL OVERVIEW POLISH FIX - Jun 23, round 2
+   Fixes:
+   - summary strip has more breathing room
+   - overview error state no longer collapses charts
+   - chart descriptions hidden/removed visually
+   - hover tooltips and line-dot markers remain visible
+   - light and dark mode chart polish
+========================================================= */
+@media (min-width: 1181px) {
+  .summary-strip {
+    flex: 0 0 76px !important;
+    min-height: 76px !important;
+    height: 76px !important;
+    padding: 10px 22px !important;
+    grid-template-columns: minmax(360px, 1fr) auto !important;
+    grid-template-areas: "copy right" !important;
+    align-items: center !important;
+    gap: 20px !important;
+    overflow: visible !important;
+  }
+
+  .summary-copy {
+    min-height: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    padding-right: 12px !important;
+  }
+
+  .summary-title {
+    font-size: 20px !important;
+    line-height: 1.05 !important;
+    letter-spacing: -0.015em !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
+  }
+
+  .summary-subtitle {
+    display: none !important;
+  }
+
+  .summary-right,
+  .summary-controls,
+  .summary-stats {
+    align-items: center !important;
+    flex-wrap: nowrap !important;
+    min-width: 0 !important;
+  }
+
+  .summary-right {
+    justify-content: flex-end !important;
+    gap: 12px !important;
+  }
+
+  .summary-controls {
+    gap: 10px !important;
+    padding: 8px 12px !important;
+    border-radius: 18px !important;
+    background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.07)) !important;
+    border: 1px solid rgba(255, 255, 255, 0.22) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 10px 24px rgba(12, 48, 132, 0.16) !important;
+  }
+
+  .summary-filter-field {
+    min-width: 144px !important;
+    width: 144px !important;
+    gap: 5px !important;
+    justify-content: center !important;
+  }
+
+  .summary-filter-small,
+  .summary-controls .summary-filter-small {
+    min-width: 96px !important;
+    width: 96px !important;
+    max-width: 96px !important;
+  }
+
+  .summary-filter-small-wide {
+    min-width: 124px !important;
+    width: 124px !important;
+    max-width: 124px !important;
+  }
+
+  .summary-filter-medium {
+    min-width: 154px !important;
+    width: 154px !important;
+    max-width: 154px !important;
+  }
+
+  .summary-filter-field span {
+    font-size: 8.5px !important;
+    line-height: 1 !important;
+    letter-spacing: 0.09em !important;
+    margin-left: 2px !important;
+    opacity: 0.92 !important;
+  }
+
+  .summary-input,
+  .summary-refresh-btn {
+    height: 38px !important;
+    border-radius: 14px !important;
+    font-size: 12.5px !important;
+    font-weight: 850 !important;
+  }
+
+  .summary-input {
+    padding: 0 13px !important;
+    background: rgba(255, 255, 255, 0.97) !important;
+    color: #0f172a !important;
+    border: 1px solid rgba(255, 255, 255, 0.32) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.58) !important;
+  }
+
+  .summary-refresh-btn {
+    min-width: 94px !important;
+    padding: 0 18px !important;
+    box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24) !important;
+  }
+
+  .workspace,
+  .workforce-workspace {
+    padding: 10px 18px 12px !important;
+    gap: 10px !important;
+  }
+
+  .overview-page-fit {
+    grid-template-rows: 82px minmax(0, 1fr) !important;
+    gap: 10px !important;
+    overflow: visible !important;
+  }
+
+  .overview-page-fit.has-page-error,
+  .overview-page-fit:has(.page-error) {
+    grid-template-rows: auto 82px minmax(0, 1fr) !important;
+  }
+
+  .overview-page-fit .page-error {
+    margin: 0 !important;
+    min-height: 54px !important;
+    display: flex !important;
+    align-items: center !important;
+    border-radius: 16px !important;
+  }
+
+  .overview-kpi-grid,
+  .overview-kpi-grid-five {
+    height: 82px !important;
+    min-height: 82px !important;
+    margin: 0 !important;
+    gap: 12px !important;
+  }
+
+  .overview-kpi-grid-five .metric-card,
+  .overview-kpi-grid-five .kpi-card {
+    height: 82px !important;
+    min-height: 82px !important;
+    padding: 11px 15px !important;
+    border-radius: 18px !important;
+  }
+
+  .overview-timeseries-stack {
+    height: 100% !important;
+    min-height: 0 !important;
+    gap: 10px !important;
+    overflow: visible !important;
+  }
+
+  .powerbi-timeseries-card {
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 11px 13px 9px !important;
+    border-radius: 19px !important;
+    display: grid !important;
+    grid-template-rows: auto minmax(0, 1fr) auto !important;
+    overflow: visible !important;
+  }
+
+  .powerbi-timeseries-card .chart-header-row {
+    margin-bottom: 8px !important;
+    align-items: center !important;
+  }
+
+  .powerbi-timeseries-card h3 {
+    font-size: 13.5px !important;
+    line-height: 1.05 !important;
+  }
+
+  .powerbi-timeseries-card .chart-header-row p,
+  .powerbi-timeseries-card p {
+    display: none !important;
+  }
+
+  .powerbi-chart-area {
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: visible !important;
+    grid-template-columns: 38px minmax(0, 1fr) !important;
+    gap: 7px !important;
+  }
+
+  .powerbi-plot {
+    min-height: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    padding: 8px 11px 20px !important;
+    gap: 5px !important;
+    overflow: visible !important;
+    isolation: isolate !important;
+  }
+
+  .powerbi-column {
+    position: relative !important;
+    min-height: 0 !important;
+    grid-template-rows: minmax(0, 1fr) 15px !important;
+    gap: 3px !important;
+  }
+
+  .powerbi-bar-slot {
+    position: relative !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+
+  .powerbi-stacked-bar {
+    position: relative !important;
+    overflow: visible !important;
+    z-index: 8 !important;
+    width: min(100%, 32px) !important;
+  }
+
+  .powerbi-local-connector {
+    z-index: 6 !important;
+    overflow: visible !important;
+  }
+
+  .powerbi-local-connector line {
+    stroke: #3b82f6 !important;
+    stroke-width: 2 !important;
+    opacity: 0.82 !important;
+  }
+
+  .powerbi-bar-dot {
+    position: absolute !important;
+    left: 50% !important;
+    top: 0 !important;
+    width: 10px !important;
+    height: 10px !important;
+    border-radius: 999px !important;
+    transform: translate(-50%, -50%) !important;
+    background: #ffffff !important;
+    border: 2px solid #3b82f6 !important;
+    box-shadow: 0 1px 5px rgba(37, 99, 235, 0.38) !important;
+    z-index: 30 !important;
+    pointer-events: none !important;
+    flex: 0 0 auto !important;
+  }
+
+  .powerbi-tooltip-wrap {
+    z-index: 250 !important;
+    bottom: 24px !important;
+    width: 250px !important;
+  }
+
+  .powerbi-tooltip {
+    border-radius: 15px !important;
+    box-shadow: 0 22px 50px rgba(15, 23, 42, 0.22) !important;
+  }
+
+  .days-chart-card .powerbi-tooltip-wrap {
+    bottom: 20px !important;
+    width: 274px !important;
+  }
+
+  .powerbi-x-label {
+    font-size: 7.5px !important;
+  }
+
+  .powerbi-legend {
+    margin-top: 5px !important;
+    gap: 5px 11px !important;
+    font-size: 9.5px !important;
+  }
+}
+
+.app-shell[data-theme="dark"] .summary-input {
+  background: rgba(248, 250, 252, 0.95) !important;
+  color: #0f172a !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-timeseries-card {
+  background: linear-gradient(180deg, #111b2e 0%, #0f172a 100%) !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.34) !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-plot {
+  border-color: rgba(148, 163, 184, 0.22) !important;
+  background:
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.18) 1px, transparent 1px) 0 0 / 100% 33.33%,
+    rgba(255, 255, 255, 0.025) !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-local-connector line {
+  stroke: #93c5fd !important;
+  opacity: 0.9 !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-bar-dot {
+  background: #111b2e !important;
+  border-color: #93c5fd !important;
+  box-shadow: 0 1px 7px rgba(147, 197, 253, 0.42) !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-tooltip {
+  background: rgba(15, 23, 42, 0.96) !important;
+  color: #f8fafc !important;
+  border-color: rgba(191, 219, 254, 0.22) !important;
+  box-shadow: 0 24px 54px rgba(0, 0, 0, 0.48) !important;
+}
+
+@media (min-width: 1181px) and (max-height: 780px) {
+  .summary-strip {
+    flex-basis: 70px !important;
+    min-height: 70px !important;
+    height: 70px !important;
+    padding-top: 9px !important;
+    padding-bottom: 9px !important;
+  }
+
+  .summary-title {
+    font-size: 18px !important;
+  }
+
+  .summary-controls {
+    padding: 7px 10px !important;
+    gap: 9px !important;
+  }
+
+  .summary-input,
+  .summary-refresh-btn {
+    height: 34px !important;
+  }
+
+  .overview-page-fit {
+    grid-template-rows: 76px minmax(0, 1fr) !important;
+  }
+
+  .overview-page-fit.has-page-error,
+  .overview-page-fit:has(.page-error) {
+    grid-template-rows: auto 76px minmax(0, 1fr) !important;
+  }
+
+  .overview-page-fit .page-error {
+    min-height: 48px !important;
+  }
+
+  .overview-kpi-grid,
+  .overview-kpi-grid-five,
+  .overview-kpi-grid-five .metric-card,
+  .overview-kpi-grid-five .kpi-card {
+    height: 76px !important;
+    min-height: 76px !important;
+  }
+
+  .overview-kpi-grid-five .metric-card,
+  .overview-kpi-grid-five .kpi-card {
+    padding: 9px 13px !important;
+  }
+
+  .overview-timeseries-stack {
+    gap: 8px !important;
+  }
+
+  .powerbi-timeseries-card {
+    padding: 9px 11px 7px !important;
+  }
+
+  .powerbi-chart-area {
+    grid-template-columns: 35px minmax(0, 1fr) !important;
+  }
+
+  .powerbi-plot {
+    padding: 7px 9px 18px !important;
+  }
+}
+
+@media (min-width: 1181px) and (max-width: 1500px) {
+  .summary-filter-field {
+    min-width: 132px !important;
+    width: 132px !important;
+  }
+
+  .summary-filter-small-wide {
+    min-width: 116px !important;
+    width: 116px !important;
+    max-width: 116px !important;
+  }
+
+  .summary-filter-medium {
+    min-width: 142px !important;
+    width: 142px !important;
+    max-width: 142px !important;
+  }
+
+  .summary-refresh-btn {
+    min-width: 86px !important;
+    padding: 0 14px !important;
+  }
+}

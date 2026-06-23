@@ -162,7 +162,7 @@ function VerticalTimeSeriesChart({ title, description, rows, period, segments, l
       <div className="chart-header-row compact-chart-header">
         <div>
           <h3>{title}</h3>
-          <p>{description}</p>
+          {description ? <p>{description}</p> : null}
         </div>
         {lineLabel ? <span className="soft-pill">{lineLabel}</span> : null}
       </div>
@@ -315,7 +315,7 @@ export default function WorkforceDashboardPage() {
 
   return (
     <AppShell title="Workforce Monitoring Overview" subtitle="" summaryControls={controls} summaryStats={[]}>
-      <section className="center-panel workforce-full-span no-panel-bg overview-page-fit">
+      <section className={`center-panel workforce-full-span no-panel-bg overview-page-fit ${error ? "has-page-error" : ""}`}>
         {error && <div className="error-box page-error">{error}</div>}
 
         <div className="kpi-grid compact-kpi-grid overview-kpi-grid overview-kpi-grid-five">
@@ -351,7 +351,7 @@ export default function WorkforceDashboardPage() {
         <div className="overview-timeseries-stack">
           <VerticalTimeSeriesChart
             title="Working Hours Compliance"
-            description="Stacked population by work-hour bucket."
+            description=""
             rows={series}
             period={trendPeriod}
             segments={[
@@ -364,7 +364,7 @@ export default function WorkforceDashboardPage() {
 
           <VerticalTimeSeriesChart
             title="Working Days Compliance"
-            description="Weekly or monthly only. More than 4 hours counts as one day."
+            description=""
             rows={workingDaysSeries}
             period={workingDaysPeriod}
             lineLabel={workingDaysPeriod === "WEEKLY" ? "Weekly only" : "Monthly only"}
