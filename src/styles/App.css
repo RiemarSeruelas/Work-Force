@@ -2211,19 +2211,6 @@ body:has(.loading-aware-btn:disabled) * {
   cursor: pointer;
 }
 
-.split-segment-list {
-  display: grid;
-  gap: 2px;
-  margin-top: 4px;
-  font-style: normal;
-  opacity: 0.82;
-}
-
-.split-segment-list span {
-  font-size: 11px;
-  line-height: 1.25;
-}
-
 @media (max-width: 1280px) {
   .overview-kpi-grid-five {
     grid-template-columns: repeat(3, minmax(160px, 1fr));
@@ -3428,7 +3415,6 @@ body:has(.loading-aware-btn:disabled) * {
    Daily/Compliance patch
    - visible loading cursor/spinner
    - more compliance breathing room
-   - daily time segments for cross-midnight work
 ========================================================= */
 .app-shell[data-busy="true"],
 .app-shell[data-busy="true"] * {
@@ -3473,46 +3459,6 @@ body:has(.loading-aware-btn:disabled) * {
 .daily-record-table th:nth-child(4),
 .daily-record-table td:nth-child(4) {
   min-width: 190px;
-}
-
-.time-segment-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  max-width: 280px;
-}
-
-.time-segment-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-height: 23px;
-  padding: 0 8px;
-  border-radius: 999px;
-  background: rgba(37, 99, 235, 0.08);
-  border: 1px solid rgba(37, 99, 235, 0.12);
-  color: var(--text);
-  font-size: 10px;
-  font-weight: 850;
-  white-space: nowrap;
-}
-
-.time-segment-chip b {
-  color: var(--blue-700);
-  font-weight: 950;
-}
-
-.muted-cell {
-  color: var(--muted);
-}
-
-.app-shell[data-theme="dark"] .time-segment-chip {
-  background: rgba(96, 165, 250, 0.12);
-  border-color: rgba(147, 197, 253, 0.18);
-}
-
-.app-shell[data-theme="dark"] .time-segment-chip b {
-  color: #93c5fd;
 }
 
 .compliance-roomy-page {

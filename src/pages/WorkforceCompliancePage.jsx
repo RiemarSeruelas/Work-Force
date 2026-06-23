@@ -118,9 +118,8 @@ function PersonWeekTooltip({ hover }) {
         {weekDays.map((day) => {
           const hours = Number(day.hours) || 0;
           const hasScan = hours > 0;
-          const segments = Array.isArray(day.segments) ? day.segments : [];
           const timeRange = day.firstScan
-            ? `${day.firstScan} - ${day.hasOutScan && day.lastScan ? day.lastScan : "No Scan"}`
+            ? `${day.firstScan} - ${day.hasOutScan && day.lastScan ? day.lastScan : "No OUT"}`
             : "No scan";
 
           return (
@@ -128,13 +127,6 @@ function PersonWeekTooltip({ hover }) {
               <span>{formatDayLabel(day.date)}</span>
               <b>{formatHours(hours)}</b>
               <small>{timeRange}</small>
-              {segments.length > 1 ? (
-                <em className="split-segment-list">
-                  {segments.map((segment, index) => (
-                    <span key={`${day.date}-${index}`}>{segment.calendarDate}: {segment.firstScan}-{segment.lastScan}</span>
-                  ))}
-                </em>
-              ) : null}
             </div>
           );
         })}

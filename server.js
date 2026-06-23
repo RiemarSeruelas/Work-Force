@@ -138,6 +138,24 @@ function windowEndMs(workforceDate) {
   return windowStartMs(workforceDate) + DAY_MS;
 }
 
+function calendarDateForMs(ms) {
+  return formatDateOnly(getManilaDateParts(new Date(ms)));
+}
+
+function assignedWorkforceDateForInterval(startMs, endMs) {
+  const startCalendarDate = calendarDateForMs(startMs);
+  const currentDayStart = windowStartMs(startCalendarDate);
+
+  // Early arrivals before 06:00 who exit after 06:00 belong to the new
+  // workforce day, not the previous day. Example: 05:37 IN -> 16:00 OUT
+  // counts on that calendar date and is not cut to 05:37-06:00.
+  if (startMs < currentDayStart && endMs > currentDayStart) {
+    return startCalendarDate;
+  }
+
+  return getWorkforceDateManila(new Date(startMs));
+}
+
 function periodStartForDate(dateString, period) {
   const date = new Date(`${dateString}T12:00:00+08:00`);
   if (period === "MONTHLY") {
@@ -190,39 +208,14 @@ function isExit(row) {
   return getScanDirection(row) === "OUT";
 }
 
-function splitIntervalSegments(startMs, endMs, hasOutScan) {
-  const segments = [];
-  let cursor = startMs;
-
-  while (cursor < endMs) {
-    const currentDate = getWorkforceDateManila(new Date(cursor));
-    const calendarDate = formatDateOnly(getManilaDateParts(new Date(cursor)));
-    const nextMidnight = startOfManilaDayMs(addDays(calendarDate, 1));
-    const segmentEnd = Math.min(endMs, nextMidnight);
-    const endsAtMidnight = segmentEnd === nextMidnight;
-
-    segments.push({
-      workforceDate: currentDate,
-      calendarDate,
-      firstScan: formatHHMM(cursor),
-      lastScan: endsAtMidnight ? "24:00" : formatHHMM(segmentEnd),
-      hasOutScan: hasOutScan || !endsAtMidnight,
-      hours: Number(((segmentEnd - cursor) / 3600000).toFixed(2)),
-      display_label: `${calendarDate} ${formatHHMM(cursor)}-${endsAtMidnight ? "24:00" : formatHHMM(segmentEnd)}`,
-    });
-
-    cursor = segmentEnd;
-  }
-
-  return segments;
-}
-
 async function testDb() {
   await pool.query("SELECT 1");
 }
 
 async function queryScans(fromDate, toDate, group = "ALL", search = "") {
-  const fromMs = windowStartMs(fromDate);
+  // Pull from 00:00 of the first date so early arrivals before 06:00 are available
+  // for the new workforce day. Still stop at 06:00 after the final date.
+  const fromMs = startOfManilaDayMs(fromDate);
   const toMs = windowEndMs(toDate);
   const fromText = new Date(fromMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
   const toText = new Date(toMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
@@ -272,105 +265,149 @@ async function queryScans(fromDate, toDate, group = "ALL", search = "") {
 function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
   const nowMs = now.getTime();
   const byDatePerson = new Map();
+  const people = new Map();
 
-  for (let date = fromDate; date <= toDate; date = addDays(date, 1)) {
-    const start = windowStartMs(date);
-    const end = windowEndMs(date);
-    const dayScans = scans.filter((scan) => {
-      if (scan.scan_ms >= start && scan.scan_ms < end) return true;
-      // Let a clean OUT scan exactly at 06:00 close the previous workforce day.
-      return scan.scan_ms === end && isExit(scan);
-    });
-    const people = new Map();
-
-    for (const scan of dayScans) {
-      if (!scan.person_key) continue;
-      if (!people.has(scan.person_key)) {
-        people.set(scan.person_key, {
-          workforce_date: date,
-          person_key: scan.person_key,
-          l_uid: scan.l_uid,
-          person: scan.person,
-          persongroup: scan.persongroup,
-          scans: [],
-        });
-      }
-      const person = people.get(scan.person_key);
-      person.scans.push(scan);
-      if (scan.scan_ms >= (person.latest_actual_scan_ms || 0)) {
-        person.l_uid = scan.l_uid;
-        person.person = scan.person || person.person;
-        person.persongroup = scan.persongroup || person.persongroup;
-        person.latest_actual_scan_ms = scan.scan_ms;
-      }
+  for (const scan of scans) {
+    if (!scan.person_key) continue;
+    if (!people.has(scan.person_key)) {
+      people.set(scan.person_key, {
+        person_key: scan.person_key,
+        l_uid: scan.l_uid,
+        person: scan.person,
+        persongroup: scan.persongroup,
+        scans: [],
+      });
     }
 
-    for (const person of people.values()) {
-      person.scans.sort((a, b) => a.scan_ms - b.scan_ms);
-      const intervals = [];
-      let currentIn = null;
+    const person = people.get(scan.person_key);
+    person.scans.push(scan);
 
-      for (const scan of person.scans) {
-        const direction = getScanDirection(scan);
-
-        if (direction === "IN") {
-          // Duplicate IN scans before an OUT are ignored so the earliest IN keeps the hours correct.
-          if (!currentIn) currentIn = scan;
-          continue;
-        }
-
-        if (direction === "OUT") {
-          // Orphan OUT scans are ignored. This prevents 06:00 OUT + 15:00 IN from becoming 06-15.
-          if (currentIn && scan.scan_ms > currentIn.scan_ms) {
-            intervals.push({
-              startMs: currentIn.scan_ms,
-              endMs: Math.min(scan.scan_ms, end),
-              hasOutScan: true,
-            });
-            currentIn = null;
-          }
-        }
-      }
-
-      if (currentIn) {
-        const activeWindow = nowMs >= start && nowMs < end;
-        const endMs = activeWindow && nowMs > currentIn.scan_ms ? Math.min(nowMs, end) : end;
-        intervals.push({
-          startMs: currentIn.scan_ms,
-          endMs,
-          hasOutScan: false,
-        });
-      }
-
-      if (!intervals.length) continue;
-
-      const workHoursRaw = intervals.reduce((sum, item) => sum + Math.max(item.endMs - item.startMs, 0) / 3600000, 0);
-      const firstInterval = intervals[0];
-      const lastInterval = intervals[intervals.length - 1];
-      const segmentList = intervals.flatMap((item) => splitIntervalSegments(item.startMs, item.endMs, item.hasOutScan));
-
-      byDatePerson.set(`${date}|${person.person_key}`, {
-        workforce_date: date,
-        person_key: person.person_key,
-        l_uid: person.l_uid,
-        person: person.person,
-        persongroup: person.persongroup || "Unknown",
-        workforce_group: isContractor(person.persongroup) ? "CONTRACTOR" : "FTE",
-        entry_time: new Date(firstInterval.startMs).toISOString(),
-        last_scan: new Date(person.latest_actual_scan_ms || lastInterval.endMs).toISOString(),
-        exit_time: lastInterval.hasOutScan ? new Date(lastInterval.endMs).toISOString() : null,
-        scan_count: person.scans.length,
-        has_out_scan: intervals.some((item) => item.hasOutScan),
-        work_hours_raw: workHoursRaw,
-        work_hours: Number(workHoursRaw.toFixed(2)),
-        hours_bucket: workHoursRaw >= 12 ? "hours_12_plus" : workHoursRaw > 10 ? "hours_10_12" : workHoursRaw > 8 ? "hours_8_10" : "hours_8_or_less",
-        counted_day: workHoursRaw > 4,
-        segments: segmentList,
-      });
+    if (scan.scan_ms >= (person.latest_seen_scan_ms || 0)) {
+      person.latest_seen_scan_ms = scan.scan_ms;
+      person.l_uid = scan.l_uid || person.l_uid;
+      person.person = scan.person || person.person;
+      person.persongroup = scan.persongroup || person.persongroup;
     }
   }
 
-  return [...byDatePerson.values()];
+  for (const person of people.values()) {
+    person.scans.sort((a, b) => a.scan_ms - b.scan_ms);
+    const intervals = [];
+    let currentIn = null;
+
+    for (const scan of person.scans) {
+      const direction = getScanDirection(scan);
+
+      if (direction === "IN") {
+        // Duplicate IN scans before a valid OUT are ignored so the first IN remains
+        // the start of the work interval.
+        if (!currentIn) currentIn = scan;
+        continue;
+      }
+
+      if (direction === "OUT") {
+        // Orphan OUT scans are ignored. This prevents 06:00 OUT + 15:00 IN from
+        // becoming a fake 06:00-15:00 interval.
+        if (currentIn && scan.scan_ms > currentIn.scan_ms) {
+          const assignedDate = assignedWorkforceDateForInterval(currentIn.scan_ms, scan.scan_ms);
+          const countedEndMs = Math.min(scan.scan_ms, windowEndMs(assignedDate));
+
+          if (countedEndMs > currentIn.scan_ms) {
+            intervals.push({
+              assignedDate,
+              inScan: currentIn,
+              outScan: scan,
+              startMs: currentIn.scan_ms,
+              countedEndMs,
+              actualEndMs: scan.scan_ms,
+              hasOutScan: true,
+            });
+          }
+
+          currentIn = null;
+        }
+      }
+    }
+
+    if (currentIn) {
+      // No OUT yet: close the record at now if the interval is active, otherwise at
+      // the workforce-day cutoff. Early arrivals still use the assigned day rule.
+      const provisionalEndMs = Math.max(nowMs, currentIn.scan_ms);
+      const assignedDate = assignedWorkforceDateForInterval(currentIn.scan_ms, provisionalEndMs);
+      const assignedEndMs = windowEndMs(assignedDate);
+      const activeNow = nowMs >= currentIn.scan_ms && nowMs < assignedEndMs;
+      const countedEndMs = activeNow ? nowMs : assignedEndMs;
+
+      if (countedEndMs > currentIn.scan_ms) {
+        intervals.push({
+          assignedDate,
+          inScan: currentIn,
+          outScan: null,
+          startMs: currentIn.scan_ms,
+          countedEndMs,
+          actualEndMs: countedEndMs,
+          hasOutScan: false,
+        });
+      }
+    }
+
+    for (const interval of intervals) {
+      if (interval.assignedDate < fromDate || interval.assignedDate > toDate) continue;
+
+      const key = `${interval.assignedDate}|${person.person_key}`;
+      if (!byDatePerson.has(key)) {
+        byDatePerson.set(key, {
+          workforce_date: interval.assignedDate,
+          person_key: person.person_key,
+          l_uid: person.l_uid,
+          person: person.person,
+          persongroup: person.persongroup || "Unknown",
+          workforce_group: isContractor(person.persongroup) ? "CONTRACTOR" : "FTE",
+          intervals: [],
+          scan_count: 0,
+          work_hours_raw: 0,
+          has_out_scan: false,
+        });
+      }
+
+      const row = byDatePerson.get(key);
+      row.intervals.push(interval);
+      row.scan_count += interval.hasOutScan ? 2 : 1;
+      row.work_hours_raw += Math.max(interval.countedEndMs - interval.startMs, 0) / 3600000;
+      row.has_out_scan = row.has_out_scan || interval.hasOutScan;
+
+      if (!row.first_start_ms || interval.startMs < row.first_start_ms) row.first_start_ms = interval.startMs;
+      if (!row.last_counted_end_ms || interval.countedEndMs > row.last_counted_end_ms) row.last_counted_end_ms = interval.countedEndMs;
+      if (!row.latest_actual_scan_ms || interval.actualEndMs > row.latest_actual_scan_ms) row.latest_actual_scan_ms = interval.actualEndMs;
+      if (interval.outScan && (!row.latest_out_scan_ms || interval.outScan.scan_ms > row.latest_out_scan_ms)) {
+        row.latest_out_scan_ms = interval.outScan.scan_ms;
+      }
+    }
+  }
+
+  return [...byDatePerson.values()]
+    .map((row) => ({
+      workforce_date: row.workforce_date,
+      person_key: row.person_key,
+      l_uid: row.l_uid,
+      person: row.person,
+      persongroup: row.persongroup || "Unknown",
+      workforce_group: row.workforce_group,
+      entry_time: new Date(row.first_start_ms).toISOString(),
+      last_scan: new Date(row.latest_actual_scan_ms || row.last_counted_end_ms).toISOString(),
+      exit_time: row.latest_out_scan_ms ? new Date(row.latest_out_scan_ms).toISOString() : null,
+      scan_count: row.scan_count,
+      has_out_scan: row.has_out_scan,
+      work_hours_raw: row.work_hours_raw,
+      work_hours: Number(row.work_hours_raw.toFixed(2)),
+      hours_bucket: row.work_hours_raw >= 12 ? "hours_12_plus" : row.work_hours_raw > 10 ? "hours_10_12" : row.work_hours_raw > 8 ? "hours_8_10" : "hours_8_or_less",
+      counted_day: row.work_hours_raw > 4,
+    }))
+    .sort((a, b) => {
+      const groupDiff = String(a.persongroup || "").localeCompare(String(b.persongroup || ""));
+      if (groupDiff !== 0) return groupDiff;
+      return String(a.person || "").localeCompare(String(b.person || ""));
+    });
 }
 
 function summarizeDailyForTrend(daily, period) {
@@ -483,7 +520,7 @@ app.get("/api/workforce/summary", async (req, res) => {
       timeSeries: summarizeDailyForTrend(daily, period),
       daysPeriod,
       daysTimeSeries: summarizeDailyForTrend(daily, daysPeriod),
-      dayRule: "L_Mode/L_TID determines IN and OUT. The workforce day is 06:00-05:59. Cross-midnight work is split for display but counted back to the entry workforce date. More than 4 hours counts as 1 working day.",
+      dayRule: "L_Mode/L_TID determines IN and OUT. The workforce day is 06:00-05:59. Cross-midnight work is counted back to the assigned workforce date, and early arrivals before 06:00 are kept with the new day when they exit after 06:00. More than 4 hours counts as 1 working day.",
     });
   } catch (err) {
     console.error("❌ WORKFORCE SUMMARY ERROR:", err.message);
@@ -588,7 +625,6 @@ app.get("/api/workforce/compliance", async (req, res) => {
         lastScan: day.exit_time ? formatHHMM(new Date(day.exit_time).getTime()) : null,
         hasOutScan: Boolean(day.exit_time),
         countedDay: day.work_hours_raw > 4,
-        segments: day.segments || [],
       });
     }
 
@@ -682,7 +718,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
       group,
       startDate,
       endDate,
-      dayRule: "L_Mode/L_TID determines IN and OUT. Cross-midnight work is split for display but counted back to the entry workforce date. > 4 hours counts as 1 working day.",
+      dayRule: "L_Mode/L_TID determines IN and OUT. Cross-midnight work is counted back to the assigned workforce date, and early arrivals before 06:00 are kept with the new day when they exit after 06:00. > 4 hours counts as 1 working day.",
       totals,
       rows,
       people: pagedPeople,
