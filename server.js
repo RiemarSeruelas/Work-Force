@@ -189,11 +189,12 @@ async function testDb() {
   await pool.query("SELECT 1");
 }
 
-async function queryScans(fromDate, toDate, group = "ALL") {
+async function queryScans(fromDate, toDate, group = "ALL", search = "") {
   const fromMs = windowStartMs(fromDate);
   const toMs = windowEndMs(toDate);
   const fromText = new Date(fromMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
   const toText = new Date(toMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
+  const searchText = String(search || "").trim();
 
   const result = await pool.query(
     `
@@ -208,9 +209,15 @@ async function queryScans(fromDate, toDate, group = "ALL") {
     WHERE ("C_Date"::date + "C_Time"::time) >= $1::timestamp
       AND ("C_Date"::date + "C_Time"::time) < $2::timestamp
       AND COALESCE(TRIM("Person"), '') <> ''
+      AND (
+        $3::text = ''
+        OR LOWER(COALESCE("Person", '')) LIKE '%' || LOWER($3::text) || '%'
+        OR LOWER(COALESCE("PersonGroup", '')) LIKE '%' || LOWER($3::text) || '%'
+        OR LOWER(COALESCE("L_UID"::text, '')) LIKE '%' || LOWER($3::text) || '%'
+      )
     ORDER BY "Person" ASC, ("C_Date"::date + "C_Time"::time) ASC
     `,
-    [fromText, toText]
+    [fromText, toText, searchText]
   );
 
   return result.rows
@@ -448,25 +455,43 @@ app.get("/api/workforce/daily-record", async (req, res) => {
     const group = String(req.query.group || "ALL");
     const { limit, offset } = parsePaging(req);
 
-    const scans = await queryScans(workforceDate, workforceDate, group);
+    const scans = await queryScans(workforceDate, workforceDate, group, search);
     let rows = computeDailyRecords(scans, workforceDate, workforceDate);
 
+    // Safety filter after interval computation. The DB query already narrows the scan rows,
+    // but this keeps the response correct if more searchable fields are added later.
     if (search) {
       rows = rows.filter((row) =>
         String(row.person || "").toLowerCase().includes(search) ||
-        String(row.persongroup || "").toLowerCase().includes(search)
+        String(row.persongroup || "").toLowerCase().includes(search) ||
+        String(row.l_uid || "").toLowerCase().includes(search)
       );
     }
 
     rows.sort((a, b) => String(a.person || "").localeCompare(String(b.person || "")));
     const total = rows.length;
+    const bucketTotals = rows.reduce(
+      (acc, row) => {
+        const bucket = row.hours_bucket || "hours_8_or_less";
+        acc[bucket] = (Number(acc[bucket]) || 0) + 1;
+        return acc;
+      },
+      {
+        hours_8_or_less: 0,
+        hours_8_10: 0,
+        hours_10_12: 0,
+        hours_12_plus: 0,
+      }
+    );
     const pagedRows = rows.slice(offset, offset + limit);
 
     res.json({
       workforceDate,
       group,
+      search,
       rows: pagedRows,
       total,
+      bucketTotals,
       limit,
       offset,
       hasMore: offset + pagedRows.length < total,

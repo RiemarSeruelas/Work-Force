@@ -1,6 +1,12 @@
 import { create } from "zustand";
 
 const PAGE_SIZE = 20;
+const EMPTY_DAILY_BUCKET_TOTALS = {
+  hours_8_or_less: 0,
+  hours_8_10: 0,
+  hours_10_12: 0,
+  hours_12_plus: 0,
+};
 
 function getWorkforceDateManilaClient() {
   const now = new Date();
@@ -60,6 +66,7 @@ export const useWorkforceStore = create((set, get) => ({
   summary: null,
   dailyRows: [],
   dailyTotal: 0,
+  dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
   dailyLimit: PAGE_SIZE,
   dailyOffset: 0,
   dailyHasMore: false,
@@ -76,14 +83,35 @@ export const useWorkforceStore = create((set, get) => ({
       return { theme: nextTheme };
     }),
 
-  setWorkforceDate: (value) => set({ workforceDate: value, dailyRows: [], dailyOffset: 0, dailyHasMore: false }),
+  setWorkforceDate: (value) =>
+    set({
+      workforceDate: value,
+      dailyRows: [],
+      dailyOffset: 0,
+      dailyHasMore: false,
+      dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
+    }),
   setSelectedYear: (value) =>
     set({ selectedYear: Number(value) || getCurrentIsoWeekManilaClient().year }),
   setSelectedWeek: (value) =>
     set({ selectedWeek: Number(value) || getCurrentIsoWeekManilaClient().week }),
-  setGroup: (value) => set({ group: value || "ALL", dailyRows: [], dailyOffset: 0, dailyHasMore: false }),
+  setGroup: (value) =>
+    set({
+      group: value || "ALL",
+      dailyRows: [],
+      dailyOffset: 0,
+      dailyHasMore: false,
+      dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
+    }),
   setTrendPeriod: (value) => set({ trendPeriod: value || "DAILY" }),
-  setSearch: (value) => set({ search: value || "", dailyRows: [], dailyOffset: 0, dailyHasMore: false }),
+  setSearch: (value) =>
+    set({
+      search: value || "",
+      dailyRows: [],
+      dailyOffset: 0,
+      dailyHasMore: false,
+      dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
+    }),
 
   fetchSummary: async () => {
     set({ loading: true, error: "" });
@@ -130,6 +158,7 @@ export const useWorkforceStore = create((set, get) => ({
       set((state) => ({
         dailyRows: reset ? newRows : [...state.dailyRows, ...newRows],
         dailyTotal: Number(data.total) || 0,
+        dailyBucketTotals: data.bucketTotals || { ...EMPTY_DAILY_BUCKET_TOTALS },
         dailyOffset: nextOffset + newRows.length,
         dailyHasMore: Boolean(data.hasMore),
         loading: false,
@@ -140,6 +169,7 @@ export const useWorkforceStore = create((set, get) => ({
         error: err.message,
         dailyRows: reset ? [] : get().dailyRows,
         dailyTotal: reset ? 0 : get().dailyTotal,
+        dailyBucketTotals: reset ? { ...EMPTY_DAILY_BUCKET_TOTALS } : get().dailyBucketTotals,
         loading: false,
         dailyLoadingMore: false,
       });

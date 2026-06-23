@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
@@ -33,6 +33,10 @@ function fmt(value) {
   });
 }
 
+function countLoadedRows(rows, bucketName) {
+  return rows.filter((row) => getHourBucket(row) === bucketName).length;
+}
+
 export default function WorkforceDailyRecordPage() {
   const workforceDate = useWorkforceStore((s) => s.workforceDate);
   const setWorkforceDate = useWorkforceStore((s) => s.setWorkforceDate);
@@ -42,18 +46,43 @@ export default function WorkforceDailyRecordPage() {
   const setSearch = useWorkforceStore((s) => s.setSearch);
   const rows = useWorkforceStore((s) => s.dailyRows);
   const total = useWorkforceStore((s) => s.dailyTotal);
+  const bucketTotals = useWorkforceStore((s) => s.dailyBucketTotals);
+  const hasMore = useWorkforceStore((s) => s.dailyHasMore);
+  const loadingMore = useWorkforceStore((s) => s.dailyLoadingMore);
   const loading = useWorkforceStore((s) => s.loading);
   const error = useWorkforceStore((s) => s.error);
   const fetchDailyRecord = useWorkforceStore((s) => s.fetchDailyRecord);
+  const fetchDailyRecordNextPage = useWorkforceStore((s) => s.fetchDailyRecordNextPage);
+  const [searchDraft, setSearchDraft] = useState(search);
 
   useEffect(() => {
-    fetchDailyRecord?.();
+    setSearchDraft(search);
+  }, [search]);
+
+  useEffect(() => {
+    fetchDailyRecord?.({ reset: true });
   }, [fetchDailyRecord, workforceDate, group]);
 
-  const under8 = rows.filter((r) => getHourBucket(r) === "hours_8_or_less").length;
-  const over8 = rows.filter((r) => getHourBucket(r) === "hours_8_10").length;
-  const over10 = rows.filter((r) => getHourBucket(r) === "hours_10_12").length;
-  const over12 = rows.filter((r) => getHourBucket(r) === "hours_12_plus").length;
+  function handleSearchSubmit(event) {
+    event?.preventDefault?.();
+    setSearch(searchDraft.trim());
+    fetchDailyRecord?.({ reset: true });
+  }
+
+  function handleTableScroll(event) {
+    const el = event.currentTarget;
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom <= 90;
+
+    if (nearBottom && hasMore && !loading && !loadingMore) {
+      fetchDailyRecordNextPage?.();
+    }
+  }
+
+  const under8 = Number(bucketTotals?.hours_8_or_less ?? countLoadedRows(rows, "hours_8_or_less"));
+  const over8 = Number(bucketTotals?.hours_8_10 ?? countLoadedRows(rows, "hours_8_10"));
+  const over10 = Number(bucketTotals?.hours_10_12 ?? countLoadedRows(rows, "hours_10_12"));
+  const over12 = Number(bucketTotals?.hours_12_plus ?? countLoadedRows(rows, "hours_12_plus"));
 
   return (
     <AppShell
@@ -69,24 +98,45 @@ export default function WorkforceDailyRecordPage() {
     >
       <aside className="panel left-panel">
         <div className="panel-title">Filters</div>
+
         <label className="field-label">Workforce Date</label>
-        <input className="styled-input" type="date" value={workforceDate} onChange={(e) => setWorkforceDate(e.target.value)} />
+        <input
+          className="styled-input"
+          type="date"
+          value={workforceDate}
+          onChange={(e) => setWorkforceDate(e.target.value)}
+        />
+
         <label className="field-label">Name / Department</label>
-        <input className="styled-input" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search person..." />
+        <input
+          className="styled-input"
+          value={searchDraft}
+          onChange={(e) => setSearchDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSearchSubmit(e);
+          }}
+          placeholder="Search person..."
+        />
+
         <label className="field-label">Group</label>
         <select className="styled-input" value={group} onChange={(e) => setGroup(e.target.value)}>
           <option value="ALL">All Workforce</option>
           <option value="FTE">FTE</option>
           <option value="CONTRACTOR">Contractor</option>
         </select>
-        <button className="primary-action-btn" onClick={fetchDailyRecord} disabled={loading}>{loading ? "Loading..." : "Search"}</button>
+
+        <button className="primary-action-btn loading-aware-btn" onClick={handleSearchSubmit} disabled={loading}>
+          {loading ? "Loading..." : "Search"}
+        </button>
+
         {error && <div className="error-box">{error}</div>}
       </aside>
 
       <section className="panel center-panel workforce-center-span">
         <div className="table-card">
-          <div className="table-title">Daily Working Hours</div>
-          <div className="data-table-wrap">
+          <div className="table-title">Daily Working Hours · Loaded {rows.length} of {total}</div>
+
+          <div className="data-table-wrap" onScroll={handleTableScroll}>
             <table className="data-table">
               <thead>
                 <tr>
@@ -102,7 +152,7 @@ export default function WorkforceDailyRecordPage() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={row.person_key}>
+                  <tr key={`${row.person_key}-${row.workforce_date || workforceDate}`}>
                     <td>{row.persongroup || "Unknown"}</td>
                     <td>{row.person}</td>
                     <td>{fmt(row.entry_time)}</td>
@@ -118,8 +168,29 @@ export default function WorkforceDailyRecordPage() {
                     </td>
                   </tr>
                 ))}
-                {rows.length === 0 && (
-                  <tr><td colSpan="8" className="empty-cell">No workforce records found.</td></tr>
+
+                {loading && rows.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className="empty-cell">Loading workforce records...</td>
+                  </tr>
+                )}
+
+                {!loading && rows.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className="empty-cell">No workforce records found.</td>
+                  </tr>
+                )}
+
+                {loadingMore && (
+                  <tr>
+                    <td colSpan="8" className="empty-cell">Loading 20 more records...</td>
+                  </tr>
+                )}
+
+                {!loading && !loadingMore && rows.length > 0 && !hasMore && (
+                  <tr>
+                    <td colSpan="8" className="empty-cell">End of results · {rows.length} of {total}</td>
+                  </tr>
                 )}
               </tbody>
             </table>
