@@ -203,9 +203,15 @@ function getTidDirection(row) {
 function getScanDirection(row) {
   const tidDirection = getTidDirection(row);
   const modeDirection = getModeDirection(row);
+  const modeText = String(row?.l_mode ?? "").toLowerCase();
+  const modeIsExplicit = /\b(entrance|entry|enter|ingress|exit|out|egress|leave)\b/.test(modeText);
 
-  // L_TID is the first source of truth for IN/OUT. L_Mode is only a fallback
-  // for rows where L_TID is empty or not readable.
+  // Start with L_TID, but protect against lane IDs being mistaken as direction.
+  // Example: a value related to Lane 1 should not override L_Mode = "Exit".
+  if (tidDirection && modeDirection && tidDirection !== modeDirection && modeIsExplicit) {
+    return modeDirection;
+  }
+
   return tidDirection || modeDirection;
 }
 
@@ -277,7 +283,32 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
   const byDatePerson = new Map();
   const people = new Map();
 
-  function closeInterval({ person, currentIn, outScan = null, countedEndMs, actualEndMs, hasOutScan, has24HourAlarm }) {
+  function getScanWorkforceDate(scan) {
+    return getWorkforceDateManila(new Date(scan.scan_ms));
+  }
+
+  function getOpenIntervalCutoffMs(currentIn, nextScan = null) {
+    const startDate = getWorkforceDateManila(new Date(currentIn.scan_ms));
+    const workforceCutoffMs = windowEndMs(startDate);
+    const capMs = currentIn.scan_ms + MAX_WORK_INTERVAL_MS;
+    const nextScanMs = nextScan?.scan_ms || Number.POSITIVE_INFINITY;
+
+    // When a new IN happens on a later workforce date, the old unclosed IN must
+    // not keep running into the new visit. Stop it at the 06:00 workforce-day
+    // boundary, capped at 24 hours as an absolute safety limit.
+    return Math.min(workforceCutoffMs, capMs, nextScanMs);
+  }
+
+  function closeInterval({
+    person,
+    currentIn,
+    outScan = null,
+    countedEndMs,
+    actualEndMs,
+    hasOutScan,
+    has24HourAlarm,
+    closeReason = "",
+  }) {
     if (!currentIn || !countedEndMs || countedEndMs <= currentIn.scan_ms) return;
 
     const assignedDate = assignedWorkforceDateForInterval(currentIn.scan_ms, countedEndMs);
@@ -297,12 +328,14 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
         scan_count: 0,
         work_hours_raw: 0,
         has_out_scan: false,
+        has_open_interval: false,
         has_24h_alarm: false,
       });
     }
 
     const row = byDatePerson.get(key);
     const intervalHours = Math.max(countedEndMs - currentIn.scan_ms, 0) / 3600000;
+    const isOpenInterval = !hasOutScan;
 
     row.intervals.push({
       assignedDate,
@@ -313,18 +346,30 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
       actualEndMs: actualEndMs || countedEndMs,
       hasOutScan,
       has24HourAlarm,
+      closeReason,
       intervalHours,
     });
+
     row.scan_count += hasOutScan ? 2 : 1;
     row.work_hours_raw += intervalHours;
     row.has_out_scan = row.has_out_scan || hasOutScan;
+    row.has_open_interval = row.has_open_interval || isOpenInterval;
     row.has_24h_alarm = row.has_24h_alarm || has24HourAlarm || row.work_hours_raw > MAX_WORK_HOURS_PER_PERSON;
 
     if (!row.first_start_ms || currentIn.scan_ms < row.first_start_ms) row.first_start_ms = currentIn.scan_ms;
     if (!row.last_counted_end_ms || countedEndMs > row.last_counted_end_ms) row.last_counted_end_ms = countedEndMs;
     if (!row.latest_actual_scan_ms || (actualEndMs || countedEndMs) > row.latest_actual_scan_ms) row.latest_actual_scan_ms = actualEndMs || countedEndMs;
+
     if (hasOutScan && outScan && (!row.latest_out_scan_ms || outScan.scan_ms > row.latest_out_scan_ms)) {
       row.latest_out_scan_ms = outScan.scan_ms;
+    }
+
+    // This is the important display fix: when the day has a No OUT/open
+    // interval, show the IN time of that actual open interval, not the first IN
+    // of the day. Example: 10:01-11:30, 11:32-11:34, 13:28-No OUT displays
+    // 13:28-No OUT in the compliance hover.
+    if (isOpenInterval && (!row.latest_open_start_ms || currentIn.scan_ms > row.latest_open_start_ms)) {
+      row.latest_open_start_ms = currentIn.scan_ms;
     }
   }
 
@@ -364,9 +409,29 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
           continue;
         }
 
-        // If another IN appears after the 24-hour limit, close the old open
-        // interval at exactly 24 hours with No OUT, then start a new interval.
-        if (scan.scan_ms - currentIn.scan_ms >= MAX_WORK_INTERVAL_MS) {
+        const sameWorkforceDate = getScanWorkforceDate(scan) === getScanWorkforceDate(currentIn);
+        const elapsedMs = scan.scan_ms - currentIn.scan_ms;
+
+        if (!sameWorkforceDate) {
+          const countedEndMs = getOpenIntervalCutoffMs(currentIn, scan);
+          const cappedAt24 = countedEndMs >= currentIn.scan_ms + MAX_WORK_INTERVAL_MS;
+
+          closeInterval({
+            person,
+            currentIn,
+            countedEndMs,
+            actualEndMs: countedEndMs,
+            hasOutScan: false,
+            has24HourAlarm: cappedAt24,
+            closeReason: cappedAt24 ? "No OUT within 24 hours" : "New IN on next workforce day",
+          });
+
+          // The new IN is a real new visit, not a duplicate of yesterday.
+          currentIn = scan;
+          continue;
+        }
+
+        if (elapsedMs >= MAX_WORK_INTERVAL_MS) {
           closeInterval({
             person,
             currentIn,
@@ -374,12 +439,14 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
             actualEndMs: currentIn.scan_ms + MAX_WORK_INTERVAL_MS,
             hasOutScan: false,
             has24HourAlarm: true,
+            closeReason: "No OUT within 24 hours",
           });
           currentIn = scan;
+          continue;
         }
 
-        // Duplicate IN scans inside 24 hours are ignored so the first IN remains
-        // the start of the person's current work interval.
+        // Same workforce day duplicate IN: keep the original IN. This handles
+        // repeated lane scans without resetting the work interval.
         continue;
       }
 
@@ -399,6 +466,7 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
             actualEndMs: scan.scan_ms,
             hasOutScan: true,
             has24HourAlarm: false,
+            closeReason: "Matched OUT scan",
           });
         } else {
           // OUT came too late. Stop at 24 hours and keep the record as No OUT.
@@ -410,6 +478,7 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
             actualEndMs: currentIn.scan_ms + MAX_WORK_INTERVAL_MS,
             hasOutScan: false,
             has24HourAlarm: true,
+            closeReason: "No OUT within 24 hours",
           });
         }
 
@@ -430,6 +499,7 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
           actualEndMs: countedEndMs,
           hasOutScan: false,
           has24HourAlarm: shouldCapAt24,
+          closeReason: shouldCapAt24 ? "No OUT within 24 hours" : "Currently inside / no OUT yet",
         });
       }
     }
@@ -439,7 +509,9 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
     .map((row) => {
       const cappedWorkHoursRaw = Math.min(Number(row.work_hours_raw) || 0, MAX_WORK_HOURS_PER_PERSON);
       const has24HourAlarm = Boolean(row.has_24h_alarm || row.work_hours_raw > MAX_WORK_HOURS_PER_PERSON);
-      const latestOutScanMs = has24HourAlarm ? null : row.latest_out_scan_ms;
+      const hasOpenInterval = Boolean(row.has_open_interval || row.latest_open_start_ms);
+      const displayStartMs = hasOpenInterval ? row.latest_open_start_ms : row.first_start_ms;
+      const displayOutScanMs = hasOpenInterval ? null : row.latest_out_scan_ms;
 
       return {
         workforce_date: row.workforce_date,
@@ -449,12 +521,14 @@ function computeDailyRecords(scans, fromDate, toDate, now = new Date()) {
         persongroup: row.persongroup || "Unknown",
         workforce_group: row.workforce_group,
         entry_time: new Date(row.first_start_ms).toISOString(),
+        display_entry_time: displayStartMs ? new Date(displayStartMs).toISOString() : new Date(row.first_start_ms).toISOString(),
         last_scan: new Date(row.latest_actual_scan_ms || row.last_counted_end_ms).toISOString(),
-        exit_time: latestOutScanMs ? new Date(latestOutScanMs).toISOString() : null,
+        exit_time: displayOutScanMs ? new Date(displayOutScanMs).toISOString() : null,
         scan_count: row.scan_count,
-        has_out_scan: has24HourAlarm ? false : row.has_out_scan,
+        has_out_scan: hasOpenInterval ? false : row.has_out_scan,
+        has_open_interval: hasOpenInterval,
         has_24h_alarm: has24HourAlarm,
-        alarm_reason: has24HourAlarm ? "No OUT within 24 hours" : null,
+        alarm_reason: has24HourAlarm ? "No OUT within 24 hours" : hasOpenInterval ? "No OUT scan found before the next workforce day" : null,
         work_hours_raw: cappedWorkHoursRaw,
         work_hours: Number(cappedWorkHoursRaw.toFixed(2)),
         hours_bucket: cappedWorkHoursRaw >= 12 ? "hours_12_plus" : cappedWorkHoursRaw > 10 ? "hours_10_12" : cappedWorkHoursRaw > 8 ? "hours_8_10" : "hours_8_or_less",
@@ -581,7 +655,7 @@ app.get("/api/workforce/summary", async (req, res) => {
       timeSeries: summarizeDailyForTrend(daily, period),
       daysPeriod,
       daysTimeSeries: summarizeDailyForTrend(daily, daysPeriod),
-      dayRule: "L_TID determines IN and OUT first. L_Mode is only used as fallback. The workforce day is 06:00-05:59. Cross-midnight work is counted back to the original IN workforce date, even when the OUT scan is after 06:00 or in the next ISO week. Early arrivals before 06:00 are kept with the new day when they exit after 06:00. A person is capped at 24 hours if no valid OUT scan is found within 24 hours. More than 4 hours counts as 1 working day.",
+      dayRule: "L_TID determines IN and OUT first. L_Mode is only used as fallback. The workforce day is 06:00-05:59. Same-workforce-day duplicate IN scans do not reset the interval. An IN on the next workforce day closes the previous open interval at the 06:00 boundary and starts a new visit. Cross-midnight work with a valid OUT still counts back to the original IN workforce date. A person is capped at 24 hours if no valid OUT scan is found within 24 hours. More than 4 hours counts as 1 working day.",
     });
   } catch (err) {
     console.error("❌ WORKFORCE SUMMARY ERROR:", err.message);
@@ -690,7 +764,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
       weekDayMap.get(day.person_key).push({
         date: day.workforce_date,
         hours: day.work_hours,
-        firstScan: formatHHMM(new Date(day.entry_time).getTime()),
+        firstScan: formatHHMM(new Date(day.display_entry_time || day.entry_time).getTime()),
         lastScan: day.exit_time ? formatHHMM(new Date(day.exit_time).getTime()) : null,
         hasOutScan: Boolean(day.exit_time),
         countedDay: day.work_hours_raw > 4,
@@ -804,7 +878,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
       group,
       startDate,
       endDate,
-      dayRule: "L_TID determines IN and OUT first. L_Mode is only used as fallback. Cross-midnight work is counted back to the original IN workforce date, even when the OUT scan is after 06:00 or in the next ISO week. Early arrivals before 06:00 are kept with the new day when they exit after 06:00. A person is capped at 24 hours if no valid OUT scan is found within 24 hours. > 4 hours counts as 1 working day.",
+      dayRule: "L_TID determines IN and OUT first. L_Mode is only used as fallback. Same-workforce-day duplicate IN scans do not reset the interval. An IN on the next workforce day closes the previous open interval at the 06:00 boundary and starts a new visit. Cross-midnight work with a valid OUT still counts back to the original IN workforce date. A person is capped at 24 hours if no valid OUT scan is found within 24 hours. > 4 hours counts as 1 working day.",
       totals,
       rows,
       people: pagedPeople,
