@@ -3,21 +3,21 @@ import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
 const AREA_META = [
-  { key: "engineering", dataKey: "utilities", label: "Engineering", icon: "⚙", className: "area-engineering" },
+  { key: "admin", dataKey: "admin", label: "Admin", icon: "👤", className: "area-admin" },
   { key: "production", dataKey: "production", label: "Production", icon: "🏭", className: "area-production" },
+  { key: "engineering", dataKey: "utilities", label: "Engineering", icon: "⚙", className: "area-engineering" },
   { key: "logisticsqa", dataKey: "warehouse", label: "Logistics / QA", icon: "🧪", className: "area-logisticsqa" },
   { key: "rd", dataKey: "engineering", label: "R&D", icon: "🔬", className: "area-rd" },
-  { key: "admin", dataKey: "admin", label: "Admin", icon: "👤", className: "area-admin" },
 ];
 
 const MAP_ZONES = [
-  { id: "engineering", areaKey: "engineering", label: "Engineering", className: "area-engineering zone-engineering", showLabel: true, showValue: true },
+  { id: "admin", areaKey: "admin", label: "Admin", className: "area-admin zone-admin", showLabel: true, showValue: true },
   { id: "production-main", areaKey: "production", label: "Production", className: "area-production zone-production-main", showLabel: true, showValue: true },
   { id: "production-secondary", areaKey: "production", label: "", className: "area-production zone-production-secondary zone-muted-fill", showLabel: false, showValue: false },
+  { id: "engineering", areaKey: "engineering", label: "Engineering", className: "area-engineering zone-engineering", showLabel: true, showValue: true },
   { id: "logisticsqa", areaKey: "logisticsqa", label: "Logistics / QA", className: "area-logisticsqa zone-logisticsqa", showLabel: true, showValue: true },
   { id: "rd-main", areaKey: "rd", label: "R&D", className: "area-rd zone-rd-main", showLabel: true, showValue: true },
   { id: "rd-lab", areaKey: "rd", label: "", className: "area-rd zone-rd-lab zone-muted-fill", showLabel: false, showValue: false },
-  { id: "admin", areaKey: "admin", label: "Admin", className: "area-admin zone-admin", showLabel: true, showValue: true },
 ];
 
 function formatLatestScan(value) {
@@ -86,23 +86,14 @@ export default function WorkforceMapPage() {
   );
 
   return (
-    <AppShell
-      title="Workforce Map Overview"
-      subtitle=""
-      summaryControls={controls}
-      summaryStats={[]}
-    >
+    <AppShell title="Workforce Map Overview" subtitle="" summaryControls={controls} summaryStats={[]}>
       <section className="panel center-panel workforce-full-span workforce-map-page workforce-map-mockup-page">
         {error && <div className="error-box page-error">{error}</div>}
-
-        <div className="map-section-header">
-          <h2>Workforce Map Overview</h2>
-          <span className="map-section-accent" />
-        </div>
 
         <div className="map-mockup-shell">
           <aside className="map-floating-legend">
             <div className="map-side-title">Legend</div>
+
             <div className="map-legend-list">
               {AREA_META.map((area) => {
                 const data = areaLookup.get(area.dataKey) || {};
@@ -128,6 +119,7 @@ export default function WorkforceMapPage() {
                 const meta = AREA_META.find((item) => item.key === zone.areaKey);
                 const data = areaLookup.get(meta?.dataKey || zone.areaKey) || {};
                 const activeCount = Number(data.activeCount) || 0;
+
                 return (
                   <button
                     type="button"
