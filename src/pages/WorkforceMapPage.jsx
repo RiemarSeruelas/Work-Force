@@ -25,18 +25,6 @@ function formatLatestScan(value) {
   });
 }
 
-function formatTime(value) {
-  if (!value) return "No OUT";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
-  return date.toLocaleTimeString("en-PH", {
-    timeZone: "Asia/Manila",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-}
-
 export default function WorkforceMapPage() {
   const workforceDate = useWorkforceStore((s) => s.workforceDate);
   const setWorkforceDate = useWorkforceStore((s) => s.setWorkforceDate);
@@ -44,7 +32,6 @@ export default function WorkforceMapPage() {
   const setGroup = useWorkforceStore((s) => s.setGroup);
   const mapSummary = useWorkforceStore((s) => s.mapSummary);
   const mapAreas = useWorkforceStore((s) => s.mapAreas);
-  const mapPeople = useWorkforceStore((s) => s.mapPeople);
   const loading = useWorkforceStore((s) => s.loading);
   const error = useWorkforceStore((s) => s.error);
   const fetchMap = useWorkforceStore((s) => s.fetchMap);
@@ -56,10 +43,6 @@ export default function WorkforceMapPage() {
   const areaLookup = useMemo(() => {
     return new Map((mapAreas || []).map((area) => [area.key, area]));
   }, [mapAreas]);
-
-  const activePeople = useMemo(() => {
-    return (mapPeople || []).filter((person) => person.isActiveInside).slice(0, 18);
-  }, [mapPeople]);
 
   const controls = (
     <>
@@ -97,12 +80,7 @@ export default function WorkforceMapPage() {
       title="Workforce Map Overview"
       subtitle=""
       summaryControls={controls}
-      summaryStats={[
-        { value: mapSummary?.activeInside ?? 0, label: "INSIDE NOW" },
-        { value: mapSummary?.totalToday ?? 0, label: "TOTAL TODAY", variant: "green" },
-        { value: mapSummary?.occupiedAreas ?? 0, label: "ACTIVE AREAS", variant: "amber" },
-        { value: mapSummary?.alarmCount ?? 0, label: "24H ALARMS", variant: "red" },
-      ]}
+      summaryStats={[]}
     >
       <section className="panel center-panel workforce-full-span workforce-map-page">
         {error && <div className="error-box page-error">{error}</div>}
@@ -127,22 +105,6 @@ export default function WorkforceMapPage() {
               <span>Latest Scan</span>
               <b>{formatLatestScan(mapSummary?.latestScan)}</b>
             </div>
-
-            <div className="map-people-card">
-              <div className="map-side-title small">Inside now</div>
-              <div className="map-people-list">
-                {activePeople.map((person, index) => (
-                  <div className="map-person-row" key={`${person.person}-${index}`}>
-                    <div>
-                      <strong>{person.person || "Unknown"}</strong>
-                      <span>{person.areaLabel} · {formatTime(person.scanIn)} - {formatTime(person.scanOut)}</span>
-                    </div>
-                    {person.has24HourAlarm ? <em>⚠</em> : null}
-                  </div>
-                ))}
-                {activePeople.length === 0 && <div className="empty-cell compact-empty">No active inside records.</div>}
-              </div>
-            </div>
           </aside>
 
           <div className="map-stage-card">
@@ -151,18 +113,16 @@ export default function WorkforceMapPage() {
                 {AREA_META.map((area) => {
                   const data = areaLookup.get(area.key) || {};
                   const activeCount = Number(data.activeCount) || 0;
-                  const alarmCount = Number(data.alarmCount) || 0;
 
                   return (
                     <button
                       type="button"
                       className={`map-zone ${area.className} zone-${area.key}`}
                       key={area.key}
-                      title={`${area.label}: ${activeCount} inside now${alarmCount ? `, ${alarmCount} alarm` : ""}`}
+                      title={`${area.label}: ${activeCount} people`}
                     >
                       <span className="map-zone-label">{area.label}</span>
                       <strong>{activeCount}</strong>
-                      {alarmCount ? <small>⚠ {alarmCount}</small> : null}
                     </button>
                   );
                 })}

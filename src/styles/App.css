@@ -3700,8 +3700,10 @@ body:has(.loading-aware-btn:disabled) * {
 
 /* =========================================================
    Workforce Map page
-   - fitted to the uploaded site-map aspect ratio
-   - lighter transparent overlays so the map stays visible
+   - uses real map assets:
+     /public/workforce-map-light.jpg
+     /public/workforce-map-dark.jpg
+   - side "Inside now" list removed; legend + latest scan only
 ========================================================= */
 .workforce-map-page {
   min-height: calc(100vh - 190px);
@@ -3720,7 +3722,7 @@ body:has(.loading-aware-btn:disabled) * {
 
 .map-side-card,
 .map-stage-card {
-  background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,251,255,0.92));
+  background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(248,251,255,0.92));
   border: 1px solid var(--line);
   border-radius: 24px;
   box-shadow: var(--shadow);
@@ -3745,10 +3747,6 @@ body:has(.loading-aware-btn:disabled) * {
   font-weight: 950;
   color: var(--text);
   letter-spacing: -0.01em;
-}
-
-.map-side-title.small {
-  font-size: 13px;
 }
 
 .map-legend-list {
@@ -3817,66 +3815,6 @@ body:has(.loading-aware-btn:disabled) * {
   line-height: 1.25;
 }
 
-.map-people-card {
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.map-people-list {
-  min-height: 0;
-  max-height: 230px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-right: 4px;
-}
-
-.map-person-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--surface-soft);
-}
-
-.map-person-row strong,
-.map-person-row span {
-  display: block;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.map-person-row strong {
-  color: var(--text);
-  font-size: 11px;
-  font-weight: 950;
-}
-
-.map-person-row span {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 800;
-  margin-top: 3px;
-}
-
-.map-person-row em {
-  font-style: normal;
-  color: var(--amber-500);
-}
-
-.compact-empty {
-  padding: 12px !important;
-  text-align: left !important;
-}
-
 .map-stage-card {
   position: relative;
   overflow: hidden;
@@ -3907,44 +3845,40 @@ body:has(.loading-aware-btn:disabled) * {
 
 .map-image-frame {
   position: relative;
-  height: calc(100% - 12px);
-  max-height: 100%;
-  aspect-ratio: 724 / 1024;
-  width: auto;
+  width: min(100%, calc((100vh - 275px) * 1.414));
   max-width: 100%;
+  aspect-ratio: 1024 / 724;
   border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.10);
 }
 
 .map-image-frame::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: url("/workforce-map-base.jpg");
+  background-image: url("/workforce-map-light.jpg");
   background-position: center;
   background-repeat: no-repeat;
   background-size: cover;
-  opacity: 0.98;
   z-index: 0;
+}
+
+.app-shell[data-theme="dark"] .map-image-frame::before {
+  background-image: url("/workforce-map-dark.jpg");
 }
 
 .map-image-frame::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12));
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.08));
   z-index: 1;
   pointer-events: none;
 }
 
-.app-shell[data-theme="dark"] .map-image-frame::before {
-  opacity: 0.74;
-  filter: brightness(1.02) contrast(1.02);
-}
-
 .app-shell[data-theme="dark"] .map-image-frame::after {
-  background: linear-gradient(180deg, rgba(11,17,29,0.18), rgba(11,17,29,0.10));
+  background: linear-gradient(180deg, rgba(11,17,29,0.06), rgba(11,17,29,0.10));
 }
 
 .map-zone {
@@ -3957,10 +3891,10 @@ body:has(.loading-aware-btn:disabled) * {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   cursor: default;
   text-align: center;
-  padding: 10px 8px;
+  padding: 8px;
   box-shadow:
     0 10px 24px rgba(15, 23, 42, 0.10),
     inset 0 1px 0 rgba(255,255,255,0.40);
@@ -3980,7 +3914,7 @@ body:has(.loading-aware-btn:disabled) * {
 }
 
 .map-zone-label {
-  font-size: clamp(10px, 0.85vw, 13px);
+  font-size: clamp(9px, 0.8vw, 12px);
   font-weight: 950;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -3988,83 +3922,77 @@ body:has(.loading-aware-btn:disabled) * {
 }
 
 .map-zone strong {
-  font-size: clamp(22px, 2.8vw, 46px);
+  font-size: clamp(20px, 2.65vw, 42px);
   font-weight: 950;
   line-height: 1;
 }
 
-.map-zone small {
-  font-size: clamp(9px, 0.75vw, 11px);
-  font-weight: 900;
-  line-height: 1;
-}
-
 .area-engineering {
-  background: rgba(124, 58, 237, 0.18);
+  background: rgba(124, 58, 237, 0.20);
   color: #5b21b6;
-  border-color: rgba(124, 58, 237, 0.46);
+  border-color: rgba(124, 58, 237, 0.48);
 }
 
 .area-production {
-  background: rgba(37, 99, 235, 0.16);
+  background: rgba(37, 99, 235, 0.18);
   color: #1d4ed8;
-  border-color: rgba(37, 99, 235, 0.42);
+  border-color: rgba(37, 99, 235, 0.44);
 }
 
 .area-warehouse {
-  background: rgba(20, 184, 166, 0.18);
+  background: rgba(20, 184, 166, 0.20);
   color: #0f766e;
-  border-color: rgba(13, 148, 136, 0.44);
+  border-color: rgba(13, 148, 136, 0.46);
 }
 
 .area-utilities {
-  background: rgba(249, 115, 22, 0.18);
+  background: rgba(249, 115, 22, 0.20);
   color: #c2410c;
-  border-color: rgba(249, 115, 22, 0.44);
+  border-color: rgba(249, 115, 22, 0.46);
 }
 
 .area-admin {
-  background: rgba(236, 72, 153, 0.18);
+  background: rgba(236, 72, 153, 0.20);
   color: #be185d;
-  border-color: rgba(236, 72, 153, 0.42);
+  border-color: rgba(236, 72, 153, 0.44);
 }
 
 .app-shell[data-theme="dark"] .area-engineering {
-  background: rgba(124, 58, 237, 0.26);
-  color: #ddd6fe;
-  border-color: rgba(196, 181, 253, 0.55);
+  background: rgba(124, 58, 237, 0.34);
+  color: #f3e8ff;
+  border-color: rgba(216, 180, 254, 0.70);
 }
 
 .app-shell[data-theme="dark"] .area-production {
-  background: rgba(37, 99, 235, 0.24);
-  color: #dbeafe;
-  border-color: rgba(147, 197, 253, 0.52);
+  background: rgba(37, 99, 235, 0.32);
+  color: #eff6ff;
+  border-color: rgba(147, 197, 253, 0.68);
 }
 
 .app-shell[data-theme="dark"] .area-warehouse {
-  background: rgba(20, 184, 166, 0.26);
-  color: #ccfbf1;
-  border-color: rgba(153, 246, 228, 0.52);
+  background: rgba(20, 184, 166, 0.34);
+  color: #f0fdfa;
+  border-color: rgba(153, 246, 228, 0.68);
 }
 
 .app-shell[data-theme="dark"] .area-utilities {
-  background: rgba(249, 115, 22, 0.26);
-  color: #ffedd5;
-  border-color: rgba(253, 186, 116, 0.55);
+  background: rgba(249, 115, 22, 0.34);
+  color: #fff7ed;
+  border-color: rgba(253, 186, 116, 0.70);
 }
 
 .app-shell[data-theme="dark"] .area-admin {
-  background: rgba(236, 72, 153, 0.26);
-  color: #fce7f3;
-  border-color: rgba(251, 182, 206, 0.52);
+  background: rgba(236, 72, 153, 0.34);
+  color: #fdf2f8;
+  border-color: rgba(251, 182, 206, 0.68);
 }
 
-/* Relative to the real map image frame, not the entire wide canvas. */
-.zone-engineering { left: 41%; top: 34%; width: 16%; height: 12%; }
-.zone-production { left: 47%; top: 43%; width: 39%; height: 15%; }
-.zone-warehouse { left: 49%; top: 60%; width: 36%; height: 16%; }
-.zone-utilities { left: 31%; top: 63%; width: 16%; height: 8%; }
-.zone-admin { left: 30%; top: 72%; width: 16%; height: 9%; }
+/* Positions are relative to the real 1024x724 map image. */
+.zone-engineering { left: 46%; top: 4%; width: 22%; height: 25%; }
+.zone-production { left: 44%; top: 16%; width: 38%; height: 27%; }
+.zone-warehouse { left: 50%; top: 46%; width: 33%; height: 22%; }
+.zone-utilities { left: 28%; top: 59%; width: 14%; height: 13%; }
+.zone-admin { left: 42%; top: 45%; width: 16%; height: 18%; }
 
 @media (min-width: 1181px) {
   .workforce-map-page {
@@ -4107,10 +4035,6 @@ body:has(.loading-aware-btn:disabled) * {
 @media (max-width: 720px) {
   .map-blueprint-canvas {
     min-width: 760px;
-  }
-
-  .map-stage-card {
-    overflow-x: auto;
   }
 
   .map-stage-card {
