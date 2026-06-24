@@ -44,6 +44,7 @@ const MAP_ZONES = [
     id: "admin",
     areaKey: "admin",
     label: "Admin",
+    mapLabel: "Admin",
     className: "area-admin",
     points: "38,5.5 49,5.5 49,5.9 53,5.9 53,12.5 49.4,12.5 49.4,19.9 42.2,19.9 42.2,16.5 38 16.5",
     labelX: 44.6,
@@ -55,6 +56,7 @@ const MAP_ZONES = [
     id: "savoury-production",
     areaKey: "savouryProduction",
     label: "Savoury Production",
+    mapLabel: "Savoury Prod",
     className: "area-production",
     points: "53.3,12 75.6,12 75.6,31.5 75.6,32.8 53.2,32.8 53.2,30.8 49.7,30.8 49.7,12.8 53.3,12.8",
     labelX: 63.5,
@@ -66,6 +68,7 @@ const MAP_ZONES = [
     id: "dressings-production",
     areaKey: "dressingsProduction",
     label: "Dressings Production",
+    mapLabel: "Dressings Prod",
     className: "area-production",
     points: "47.3,36 75,36 75,53.2 47.3,53.2",
     labelX: 62,
@@ -77,6 +80,7 @@ const MAP_ZONES = [
     id: "logisticsqa-savoury",
     areaKey: "logisticsqaSavoury",
     label: "QA Savoury",
+    mapLabel: "QA Savoury",
     className: "area-logisticsqa",
     points: "75.9,12 84,12 84,31.7 75.9,31.7",
     labelX: 80,
@@ -88,6 +92,7 @@ const MAP_ZONES = [
     id: "logisticsqa-dressings",
     areaKey: "logisticsqaDressings",
     label: "QA Dressings",
+    mapLabel: "QA Dressings",
     className: "area-logisticsqa",
     points: "75,36 80.5,36 80.5,53.2 75,53.2",
     labelX: 78,
@@ -99,6 +104,7 @@ const MAP_ZONES = [
     id: "rd-main",
     areaKey: "rd",
     label: "R&D",
+    mapLabel: "R&D",
     className: "area-rd",
     points: "33.8,23.2 38.2,23.2 38.2,33 33.8,33 33.8,28.3 33,28.3 33,25.8 33.8,25.8",
     labelX: 36,
@@ -110,6 +116,7 @@ const MAP_ZONES = [
     id: "engineering",
     areaKey: "engineering",
     label: "Engineering",
+    mapLabel: "Engineering",
     className: "area-engineering",
     points: "28.6,44 40.7,44 40.7,51.6 28.6,51.6",
     labelX: 34.5,
@@ -229,11 +236,23 @@ export default function WorkforceMapPage() {
                         <title>{`${zone.label || zone.areaKey}: ${activeCount} people`}</title>
                       </polygon>
 
+                      {zone.showLabel ? (
+                        <text
+                          className="map-zone-area-label"
+                          x={zone.labelX}
+                          y={(zone.labelY || 0) - 3.2}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
+                          {zone.mapLabel || zone.label}
+                        </text>
+                      ) : null}
+
                       {zone.showValue ? (
                         <text
                           className="map-zone-number"
                           x={zone.labelX}
-                          y={zone.labelY}
+                          y={(zone.labelY || 0) + 1.3}
                           textAnchor="middle"
                           dominantBaseline="middle"
                         >

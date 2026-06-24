@@ -4519,3 +4519,64 @@ body:has(.loading-aware-btn:disabled) * {
 .days-chart-card .powerbi-legend span:last-child:has(.line-legend) {
   display: none !important;
 }
+
+
+/* =========================================================
+   Workforce Map - small area labels
+   Adds tiny labels back inside each map polygon without overpowering numbers.
+========================================================= */
+.map-zone-area-label {
+  fill: #111827 !important;
+  stroke: rgba(255, 255, 255, 0.96) !important;
+  stroke-width: 0.22px !important;
+  paint-order: stroke fill !important;
+  font-size: 1.55px !important;
+  font-weight: 950 !important;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.75))
+    drop-shadow(0 1px 2px rgba(15, 23, 42, 0.20)) !important;
+}
+
+.app-shell[data-theme="dark"] .map-zone-area-label {
+  fill: #f8fafc !important;
+  stroke: rgba(2, 6, 23, 0.96) !important;
+  stroke-width: 0.25px !important;
+  filter:
+    drop-shadow(0 0 2px rgba(2, 6, 23, 0.85))
+    drop-shadow(0 0 4px rgba(248, 250, 252, 0.22)) !important;
+}
+
+/* Keep the number readable and a bit below the small label. */
+.map-zone-number {
+  fill: #0f172a !important;
+  stroke: rgba(255, 255, 255, 0.96) !important;
+  stroke-width: 0.55px !important;
+  paint-order: stroke fill !important;
+  font-size: 4.0px !important;
+  font-weight: 950 !important;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 2px 4px rgba(15, 23, 42, 0.34)) !important;
+}
+
+.app-shell[data-theme="dark"] .map-zone-number {
+  fill: #f8fafc !important;
+  stroke: rgba(2, 6, 23, 0.96) !important;
+  stroke-width: 0.6px !important;
+  filter:
+    drop-shadow(0 0 2px rgba(2, 6, 23, 0.92))
+    drop-shadow(0 0 6px rgba(248, 250, 252, 0.38)) !important;
+}
+
+/* Narrow QA strips need slightly smaller labels. */
+.map-zone-group.area-logisticsqa .map-zone-area-label {
+  font-size: 1.25px !important;
+}
+
+/* R&D is small, keep it compact. */
+.map-zone-group.area-rd .map-zone-area-label {
+  font-size: 1.35px !important;
+}
