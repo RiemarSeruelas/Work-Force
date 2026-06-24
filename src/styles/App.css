@@ -3699,24 +3699,29 @@ body:has(.loading-aware-btn:disabled) * {
 }
 
 /* =========================================================
-   Workforce Map page - clean generated map version
-   Fine-tuned placement update based on the latest feedback:
-   - Engineering moved more to the right
-   - R&D moved more to the right
-   - Admin moved more to the right
-   - Production blocks nudged and expanded so they sit over the building lines better
+   Workforce Map page - SVG polygon manual editing version
 
-   QUICK TUNE GUIDE:
-   If you want to tweak later, edit only these selectors near the bottom:
-   .zone-admin
-   .zone-production-main
-   .zone-production-secondary
-   .zone-logisticsqa
-   .zone-rd-main
-   .zone-rd-lab
-   .zone-engineering
+   MANUAL POSITIONING:
+   Open src/pages/WorkforceMapPage.jsx and edit MAP_ZONES.
+
+   Coordinate system:
+   - viewBox = 0 0 100 75
+   - x = left/right, 0 to 100
+   - y = up/down, 0 to 75
+
+   Example:
+   points: "10,10 40,10 40,20 10,20"
+
+   Move right:
+   - add +1 or +2 to every x value
+
+   Move down:
+   - add +1 or +2 to every y value
+
+   Add an edge:
+   - add another x,y point in the points string
 ========================================================= */
-.workforce-map-page.workforce-map-mockup-page {
+.workforce-map-page.workforce-map-svg-page {
   height: calc(100vh - 210px);
   min-height: 0;
   padding: 10px 14px 14px;
@@ -3865,147 +3870,122 @@ body:has(.loading-aware-btn:disabled) * {
   border-color: rgba(148, 163, 184, 0.16);
 }
 
-.map-zone-card {
+.map-zone-svg {
   position: absolute;
+  inset: 0;
   z-index: 3;
-  border-radius: 8px;
-  border: 3px solid currentColor;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  padding: 6px 8px;
-  text-align: center;
+  width: 100%;
+  height: 100%;
+}
+
+.map-zone-group {
   cursor: default;
-  box-shadow:
-    0 14px 26px rgba(15, 23, 42, 0.10),
-    inset 0 1px 0 rgba(255,255,255,0.20);
-  backdrop-filter: blur(1px);
-  transition: transform 0.16s ease, filter 0.16s ease;
 }
 
-.map-zone-card:hover,
-.map-zone-card:focus-visible {
-  transform: translateY(-2px);
-  filter: brightness(1.04);
-  outline: none;
+.map-zone-polygon {
+  vector-effect: non-scaling-stroke;
+  stroke-width: 3;
+  filter: drop-shadow(0 10px 18px rgba(15, 23, 42, 0.14));
+  transition: filter 0.16s ease, opacity 0.16s ease;
 }
 
-.map-zone-card-label {
-  font-size: clamp(9px, 0.75vw, 13px);
-  font-weight: 950;
-  letter-spacing: 0.02em;
+.map-zone-group:hover .map-zone-polygon {
+  filter: drop-shadow(0 14px 22px rgba(15, 23, 42, 0.22));
+  opacity: 0.95;
+}
+
+.map-zone-label-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.map-zone-text {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  min-width: 80px;
   color: #fff;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.24);
+}
+
+.map-zone-text span {
+  font-size: clamp(9px, 0.75vw, 13px);
+  line-height: 1.08;
+  font-weight: 950;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 
-.map-zone-card strong {
+.map-zone-text strong {
   font-size: clamp(22px, 2.35vw, 42px);
   line-height: 1;
   font-weight: 950;
-  color: #fff;
-  text-shadow: 0 2px 8px rgba(0,0,0,0.20);
 }
 
-.zone-muted-fill {
-  box-shadow: none;
+/* Color tokens for both legend and SVG polygons */
+.area-admin { color: #ef4444; }
+.area-production { color: #0ea5e9; }
+.area-engineering { color: #f97316; }
+.area-logisticsqa { color: #22c55e; }
+.area-rd { color: #a855f7; }
+
+.map-legend-icon.area-admin { background: #ef4444; }
+.map-legend-icon.area-production { background: #0ea5e9; }
+.map-legend-icon.area-engineering { background: #f97316; }
+.map-legend-icon.area-logisticsqa { background: #22c55e; }
+.map-legend-icon.area-rd { background: #a855f7; }
+
+.area-admin .map-zone-polygon {
+  fill: rgba(239, 68, 68, 0.23);
+  stroke: rgba(239, 68, 68, 0.95);
 }
 
-.zone-muted-fill .map-zone-card-label,
-.zone-muted-fill strong {
-  display: none;
+.area-production .map-zone-polygon {
+  fill: rgba(14, 165, 233, 0.22);
+  stroke: rgba(14, 165, 233, 0.95);
 }
 
-/* Colors based on the latest placement image */
-.area-admin {
-  background: rgba(239, 68, 68, 0.18);
-  border-color: rgba(239, 68, 68, 0.92);
-  color: #ef4444;
+.area-engineering .map-zone-polygon {
+  fill: rgba(249, 115, 22, 0.25);
+  stroke: rgba(249, 115, 22, 0.95);
 }
 
-.area-production {
-  background: rgba(14, 165, 233, 0.18);
-  border-color: rgba(14, 165, 233, 0.92);
-  color: #0ea5e9;
+.area-logisticsqa .map-zone-polygon {
+  fill: rgba(34, 197, 94, 0.24);
+  stroke: rgba(34, 197, 94, 0.95);
 }
 
-.area-engineering {
-  background: rgba(249, 115, 22, 0.20);
-  border-color: rgba(249, 115, 22, 0.92);
-  color: #f97316;
+.area-rd .map-zone-polygon {
+  fill: rgba(168, 85, 247, 0.25);
+  stroke: rgba(168, 85, 247, 0.95);
 }
 
-.area-logisticsqa {
-  background: rgba(34, 197, 94, 0.18);
-  border-color: rgba(34, 197, 94, 0.92);
-  color: #22c55e;
+.app-shell[data-theme="dark"] .area-admin .map-zone-polygon {
+  fill: rgba(239, 68, 68, 0.31);
 }
 
-.area-rd {
-  background: rgba(168, 85, 247, 0.20);
-  border-color: rgba(168, 85, 247, 0.92);
-  color: #a855f7;
+.app-shell[data-theme="dark"] .area-production .map-zone-polygon {
+  fill: rgba(14, 165, 233, 0.29);
 }
 
-.app-shell[data-theme="dark"] .area-admin { background: rgba(239, 68, 68, 0.28); }
-.app-shell[data-theme="dark"] .area-production { background: rgba(14, 165, 233, 0.26); }
-.app-shell[data-theme="dark"] .area-engineering { background: rgba(249, 115, 22, 0.30); }
-.app-shell[data-theme="dark"] .area-logisticsqa { background: rgba(34, 197, 94, 0.28); }
-.app-shell[data-theme="dark"] .area-rd { background: rgba(168, 85, 247, 0.30); }
-
-/* Final tuning based on the latest screenshot */
-.zone-admin {
-  left: 27.0%;
-  top: 4.0%;
-  width: 15.2%;
-  height: 22.2%;
+.app-shell[data-theme="dark"] .area-engineering .map-zone-polygon {
+  fill: rgba(249, 115, 22, 0.32);
 }
 
-.zone-production-main {
-  left: 46.0%;
-  top: 13.8%;
-  width: 41.8%;
-  height: 28.6%;
+.app-shell[data-theme="dark"] .area-logisticsqa .map-zone-polygon {
+  fill: rgba(34, 197, 94, 0.30);
 }
 
-.zone-production-secondary {
-  left: 43.2%;
-  top: 47.2%;
-  width: 42.0%;
-  height: 28.0%;
-}
-
-.zone-logisticsqa {
-  left: 76.0%;
-  top: 42.6%;
-  width: 11.2%;
-  height: 6.9%;
-}
-
-.zone-rd-main {
-  left: 22.0%;
-  top: 31.2%;
-  width: 8.0%;
-  height: 16.2%;
-}
-
-.zone-rd-lab {
-  left: 22.0%;
-  top: 31.2%;
-  width: 8.0%;
-  height: 16.2%;
-}
-
-.zone-engineering {
-  left: 16.2%;
-  top: 58.0%;
-  width: 16.3%;
-  height: 12.6%;
+.app-shell[data-theme="dark"] .area-rd .map-zone-polygon {
+  fill: rgba(168, 85, 247, 0.32);
 }
 
 @media (max-width: 1180px) {
-  .workforce-map-page.workforce-map-mockup-page {
+  .workforce-map-page.workforce-map-svg-page {
     height: auto;
     min-height: 100vh;
     overflow: visible;

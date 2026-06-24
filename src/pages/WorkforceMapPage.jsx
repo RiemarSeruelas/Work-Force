@@ -10,14 +10,99 @@ const AREA_META = [
   { key: "rd", dataKey: "engineering", label: "R&D", icon: "🔬", className: "area-rd" },
 ];
 
+/*
+  SVG MANUAL EDIT GUIDE
+
+  The map uses this coordinate system:
+  - viewBox = "0 0 100 75"
+  - x goes left to right: 0 to 100
+  - y goes top to bottom: 0 to 75
+
+  To move a shape:
+  - Increase every x number = move right
+  - Decrease every x number = move left
+  - Increase every y number = move down
+  - Decrease every y number = move up
+
+  To make a shape with more corners:
+  - Add more "x,y" points in the points string.
+
+  Example rectangle:
+  points: "10,10 30,10 30,20 10,20"
+
+  Example L-shape:
+  points: "10,10 30,10 30,17 24,17 24,20 10,20"
+
+  labelX / labelY controls where the text number appears.
+*/
+
 const MAP_ZONES = [
-  { id: "admin", areaKey: "admin", label: "Admin", className: "area-admin zone-admin", showLabel: true, showValue: true },
-  { id: "production-main", areaKey: "production", label: "Production", className: "area-production zone-production-main", showLabel: true, showValue: true },
-  { id: "production-secondary", areaKey: "production", label: "", className: "area-production zone-production-secondary zone-muted-fill", showLabel: false, showValue: false },
-  { id: "engineering", areaKey: "engineering", label: "Engineering", className: "area-engineering zone-engineering", showLabel: true, showValue: true },
-  { id: "logisticsqa", areaKey: "logisticsqa", label: "Logistics / QA", className: "area-logisticsqa zone-logisticsqa", showLabel: true, showValue: true },
-  { id: "rd-main", areaKey: "rd", label: "R&D", className: "area-rd zone-rd-main", showLabel: true, showValue: true },
-  { id: "rd-lab", areaKey: "rd", label: "", className: "area-rd zone-rd-lab zone-muted-fill", showLabel: false, showValue: false },
+  {
+    id: "admin",
+    areaKey: "admin",
+    label: "Admin",
+    className: "area-admin",
+    points: "27,4 42,4 42,26 33,26 33,21 27,21",
+    labelX: 34.5,
+    labelY: 14.5,
+    showLabel: true,
+    showValue: true,
+  },
+  {
+    id: "production-main",
+    areaKey: "production",
+    label: "Production",
+    className: "area-production",
+    points: "46,14 88,14 88,42 80,42 80,39 46,39",
+    labelX: 67,
+    labelY: 27.5,
+    showLabel: true,
+    showValue: true,
+  },
+  {
+    id: "production-secondary",
+    areaKey: "production",
+    label: "",
+    className: "area-production",
+    points: "43,47 85,47 85,75 43,75",
+    labelX: 64,
+    labelY: 61,
+    showLabel: false,
+    showValue: false,
+  },
+  {
+    id: "logisticsqa",
+    areaKey: "logisticsqa",
+    label: "Logistics / QA",
+    className: "area-logisticsqa",
+    points: "76,42.5 87,42.5 87,49.5 76,49.5",
+    labelX: 81.5,
+    labelY: 46,
+    showLabel: true,
+    showValue: true,
+  },
+  {
+    id: "rd-main",
+    areaKey: "rd",
+    label: "R&D",
+    className: "area-rd",
+    points: "22,31 30,31 30,47 22,47",
+    labelX: 26,
+    labelY: 39,
+    showLabel: true,
+    showValue: true,
+  },
+  {
+    id: "engineering",
+    areaKey: "engineering",
+    label: "Engineering",
+    className: "area-engineering",
+    points: "16,58 32,58 32,70.5 16,70.5",
+    labelX: 24,
+    labelY: 64,
+    showLabel: true,
+    showValue: true,
+  },
 ];
 
 function formatLatestScan(value) {
@@ -33,6 +118,11 @@ function formatLatestScan(value) {
     minute: "2-digit",
     hour12: false,
   });
+}
+
+function getAreaData(areaLookup, areaKey) {
+  const meta = AREA_META.find((item) => item.key === areaKey);
+  return areaLookup.get(meta?.dataKey || areaKey) || {};
 }
 
 export default function WorkforceMapPage() {
@@ -87,7 +177,7 @@ export default function WorkforceMapPage() {
 
   return (
     <AppShell title="Workforce Map Overview" subtitle="" summaryControls={controls} summaryStats={[]}>
-      <section className="panel center-panel workforce-full-span workforce-map-page workforce-map-mockup-page">
+      <section className="panel center-panel workforce-full-span workforce-map-page workforce-map-svg-page">
         {error && <div className="error-box page-error">{error}</div>}
 
         <div className="map-mockup-shell">
@@ -115,23 +205,39 @@ export default function WorkforceMapPage() {
 
           <div className="map-clean-stage">
             <div className="map-clean-frame" aria-label="Workforce map">
-              {MAP_ZONES.map((zone) => {
-                const meta = AREA_META.find((item) => item.key === zone.areaKey);
-                const data = areaLookup.get(meta?.dataKey || zone.areaKey) || {};
-                const activeCount = Number(data.activeCount) || 0;
+              <svg className="map-zone-svg" viewBox="0 0 100 75" preserveAspectRatio="none">
+                {MAP_ZONES.map((zone) => {
+                  const data = getAreaData(areaLookup, zone.areaKey);
+                  const activeCount = Number(data.activeCount) || 0;
+                  return (
+                    <g className={`map-zone-group ${zone.className}`} key={zone.id}>
+                      <polygon className="map-zone-polygon" points={zone.points}>
+                        <title>{`${zone.label || zone.areaKey}: ${activeCount} people`}</title>
+                      </polygon>
+                    </g>
+                  );
+                })}
+              </svg>
 
-                return (
-                  <button
-                    type="button"
-                    className={`map-zone-card ${zone.className}`}
-                    key={zone.id}
-                    title={`${meta?.label || zone.label}: ${activeCount} people`}
-                  >
-                    {zone.showLabel ? <span className="map-zone-card-label">{zone.label}</span> : null}
-                    {zone.showValue ? <strong>{activeCount}</strong> : null}
-                  </button>
-                );
-              })}
+              <div className="map-zone-label-layer" aria-hidden="true">
+                {MAP_ZONES.filter((zone) => zone.showLabel || zone.showValue).map((zone) => {
+                  const data = getAreaData(areaLookup, zone.areaKey);
+                  const activeCount = Number(data.activeCount) || 0;
+                  return (
+                    <div
+                      className={`map-zone-text ${zone.className}`}
+                      key={`${zone.id}-label`}
+                      style={{
+                        left: `${zone.labelX}%`,
+                        top: `${(zone.labelY / 75) * 100}%`,
+                      }}
+                    >
+                      {zone.showLabel ? <span>{zone.label}</span> : null}
+                      {zone.showValue ? <strong>{activeCount}</strong> : null}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
