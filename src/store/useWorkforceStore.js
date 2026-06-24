@@ -186,7 +186,7 @@ export const useWorkforceStore = create((set, get) => ({
     }
   },
 
-  fetchDailyRecord: async ({ reset = true } = {}) => {
+  fetchDailyRecord: async ({ reset = true, mode, from, to, search: searchOverride } = {}) => {
     const { dailyLoadingMore, dailyHasMore, dailyRows } = get();
     if (!reset && dailyLoadingMore) return;
     if (!reset && !dailyHasMore && dailyRows.length > 0) return;
@@ -194,13 +194,17 @@ export const useWorkforceStore = create((set, get) => ({
     set({ loading: reset, dailyLoadingMore: !reset, error: "" });
     try {
       const { workforceDate, dailyDateMode, dailyDateFrom, dailyDateTo, search, group, dailyLimit, dailyOffset } = get();
+      const effectiveMode = mode || dailyDateMode || "DAY";
+      const effectiveSearch = searchOverride !== undefined ? searchOverride : search;
+      const effectiveFrom = from !== undefined ? from : dailyDateFrom;
+      const effectiveTo = to !== undefined ? to : (dailyDateTo || workforceDate);
       const nextOffset = reset ? 0 : dailyOffset;
       const params = new URLSearchParams({
         date: workforceDate,
-        mode: dailyDateMode || "DAY",
-        from: dailyDateFrom || "",
-        to: dailyDateTo || workforceDate,
-        search,
+        mode: effectiveMode,
+        from: effectiveFrom || "",
+        to: effectiveTo || workforceDate,
+        search: effectiveSearch || "",
         group,
         limit: String(dailyLimit || PAGE_SIZE),
         offset: String(nextOffset),

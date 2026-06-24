@@ -6,6 +6,7 @@ const navItems = [
   { label: "Daily Record", path: "/workforce/daily-record" },
   { label: "Compliance", path: "/workforce/compliance" },
   { label: "Population", path: "/workforce/population" },
+  { label: "Map", path: "/workforce/map" },
 ];
 
 export default function AppShell({

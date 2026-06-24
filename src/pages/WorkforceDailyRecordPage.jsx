@@ -41,11 +41,9 @@ function countLoadedRows(rows, bucketName) {
 export default function WorkforceDailyRecordPage() {
   const workforceDate = useWorkforceStore((s) => s.workforceDate);
   const setWorkforceDate = useWorkforceStore((s) => s.setWorkforceDate);
-  const dailyDateMode = useWorkforceStore((s) => s.dailyDateMode);
-  const setDailyDateMode = useWorkforceStore((s) => s.setDailyDateMode);
-  const dailyDateFrom = useWorkforceStore((s) => s.dailyDateFrom);
-  const setDailyDateFrom = useWorkforceStore((s) => s.setDailyDateFrom);
   const dailyDateTo = useWorkforceStore((s) => s.dailyDateTo);
+  const setDailyDateMode = useWorkforceStore((s) => s.setDailyDateMode);
+  const setDailyDateFrom = useWorkforceStore((s) => s.setDailyDateFrom);
   const setDailyDateTo = useWorkforceStore((s) => s.setDailyDateTo);
   const group = useWorkforceStore((s) => s.group);
   const setGroup = useWorkforceStore((s) => s.setGroup);
@@ -61,19 +59,55 @@ export default function WorkforceDailyRecordPage() {
   const fetchDailyRecord = useWorkforceStore((s) => s.fetchDailyRecord);
   const fetchDailyRecordNextPage = useWorkforceStore((s) => s.fetchDailyRecordNextPage);
   const [searchDraft, setSearchDraft] = useState(search);
+  const [isHistorySearch, setIsHistorySearch] = useState(false);
 
   useEffect(() => {
     setSearchDraft(search);
   }, [search]);
 
   useEffect(() => {
-    fetchDailyRecord?.({ reset: true });
-  }, [fetchDailyRecord, workforceDate, dailyDateMode, dailyDateFrom, dailyDateTo, group]);
+    setDailyDateMode?.("DAY");
+    setDailyDateFrom?.("");
+    setDailyDateTo?.(workforceDate);
+    fetchDailyRecord?.({ reset: true, mode: "DAY", from: "", to: workforceDate });
+  }, [fetchDailyRecord, workforceDate, group, setDailyDateFrom, setDailyDateMode, setDailyDateTo]);
 
   function handleSearchSubmit(event) {
     event?.preventDefault?.();
-    setSearch(searchDraft.trim());
-    fetchDailyRecord?.({ reset: true });
+    const cleanSearch = searchDraft.trim();
+
+    setIsHistorySearch(false);
+    setSearch(cleanSearch);
+    setDailyDateMode?.("DAY");
+    setDailyDateFrom?.("");
+    setDailyDateTo?.(workforceDate);
+
+    fetchDailyRecord?.({
+      reset: true,
+      mode: "DAY",
+      from: "",
+      to: workforceDate,
+      search: cleanSearch,
+    });
+  }
+
+  function handleAllSearchedData() {
+    const cleanSearch = searchDraft.trim();
+    if (!cleanSearch) return;
+
+    setIsHistorySearch(true);
+    setSearch(cleanSearch);
+    setDailyDateMode?.("HISTORY");
+    setDailyDateFrom?.("");
+    setDailyDateTo?.(dailyDateTo || workforceDate);
+
+    fetchDailyRecord?.({
+      reset: true,
+      mode: "HISTORY",
+      from: "",
+      to: dailyDateTo || workforceDate,
+      search: cleanSearch,
+    });
   }
 
   function handleTableScroll(event) {
@@ -97,7 +131,7 @@ export default function WorkforceDailyRecordPage() {
       title="Details of Daily Working Hours"
       subtitle=""
       summaryStats={[
-        { value: total, label: "TOTAL WORKFORCE" },
+        { value: total, label: isHistorySearch ? "MATCHING RECORDS" : "TOTAL WORKFORCE" },
         { value: under8, label: "< 8 HOURS", variant: "green" },
         { value: over8, label: "> 8 HOURS", variant: "amber" },
         { value: over10, label: "> 10 HOURS", variant: "orange" },
@@ -108,48 +142,16 @@ export default function WorkforceDailyRecordPage() {
       <aside className="panel left-panel">
         <div className="panel-title">Filters</div>
 
-        <label className="field-label">Date Scope</label>
-        <select
+        <label className="field-label">Workforce Date</label>
+        <input
           className="styled-input"
-          value={dailyDateMode}
-          onChange={(e) => setDailyDateMode(e.target.value)}
-        >
-          <option value="DAY">Single workforce date</option>
-          <option value="HISTORY">Search history / date range</option>
-        </select>
-
-        {dailyDateMode === "HISTORY" ? (
-          <div className="daily-history-date-grid">
-            <label>
-              <span className="field-label">From</span>
-              <input
-                className="styled-input"
-                type="date"
-                value={dailyDateFrom}
-                onChange={(e) => setDailyDateFrom(e.target.value)}
-              />
-            </label>
-            <label>
-              <span className="field-label">To</span>
-              <input
-                className="styled-input"
-                type="date"
-                value={dailyDateTo || workforceDate}
-                onChange={(e) => setDailyDateTo(e.target.value)}
-              />
-            </label>
-          </div>
-        ) : (
-          <>
-            <label className="field-label">Workforce Date</label>
-            <input
-              className="styled-input"
-              type="date"
-              value={workforceDate}
-              onChange={(e) => setWorkforceDate(e.target.value)}
-            />
-          </>
-        )}
+          type="date"
+          value={workforceDate}
+          onChange={(e) => {
+            setIsHistorySearch(false);
+            setWorkforceDate(e.target.value);
+          }}
+        />
 
         <label className="field-label">Name / Department / ID</label>
         <input
@@ -162,6 +164,16 @@ export default function WorkforceDailyRecordPage() {
           placeholder="Search person..."
         />
 
+        <button
+          className="secondary-action-btn all-history-btn"
+          type="button"
+          onClick={handleAllSearchedData}
+          disabled={loading || !searchDraft.trim()}
+          title={!searchDraft.trim() ? "Type a name, department, or ID first." : "Show all records for this search from the start of the database."}
+        >
+          All of this searched item's data
+        </button>
+
         <label className="field-label">Group</label>
         <select className="styled-input" value={group} onChange={(e) => setGroup(e.target.value)}>
           <option value="ALL">All Workforce</option>
@@ -173,12 +185,21 @@ export default function WorkforceDailyRecordPage() {
           {loading ? "Loading..." : "Search"}
         </button>
 
+        {isHistorySearch && (
+          <div className="history-mode-note">
+            Showing all matching records up to {dailyDateTo || workforceDate}.
+          </div>
+        )}
+
         {error && <div className="error-box">{error}</div>}
       </aside>
 
       <section className="panel center-panel workforce-center-span daily-record-panel-fit">
         <div className="table-card">
-          <div className="table-title">Daily Working Hours · Loaded {rows.length} of {total}</div>
+          <div className="table-title">
+            Daily Working Hours · Loaded {rows.length} of {total}
+            {isHistorySearch ? " · History search" : ""}
+          </div>
 
           <div className="data-table-wrap" onScroll={handleTableScroll}>
             <table className="data-table daily-record-table">

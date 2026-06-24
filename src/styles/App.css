@@ -4212,3 +4212,145 @@ body:has(.loading-aware-btn:disabled) * {
 .daily-record-table {
   min-width: 980px !important;
 }
+
+
+/* =========================================================
+   Follow-up polish
+   - remove duplicate custom passcode eye; brighten browser reveal icon
+   - Map nav restored through AppShell
+   - chart line black in light mode and white in dark mode
+   - chart top-dot is colored, not black
+   - Daily Record uses calendar + "All searched data" button
+========================================================= */
+
+/* No custom passcode eye anymore. Keep old/browser reveal visible. */
+.passcode-input-wrap,
+.passcode-eye-btn {
+  display: none !important;
+}
+
+.passcode-input::-ms-reveal,
+.passcode-input::-ms-clear {
+  filter: invert(1) brightness(1.6);
+  opacity: 1;
+}
+
+.passcode-input::-webkit-credentials-auto-fill-button,
+.passcode-input::-webkit-caps-lock-indicator,
+.passcode-input::-webkit-contacts-auto-fill-button {
+  filter: invert(1) brightness(1.6);
+  opacity: 1;
+}
+
+/* Chart connector line: black in light mode, white in dark mode. */
+.powerbi-local-connector line,
+.powerbi-connected-topline {
+  stroke: #0f172a !important;
+  opacity: 0.82 !important;
+  filter: none !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-local-connector line,
+.app-shell[data-theme="dark"] .powerbi-connected-topline {
+  stroke: #f8fafc !important;
+  opacity: 0.92 !important;
+  filter: none !important;
+}
+
+/* Chart top circle marker: colored instead of the weird black/dark circle. */
+.powerbi-bar-dot {
+  background: #38bdf8 !important;
+  border: 2px solid #e0f2fe !important;
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.18),
+    0 0 10px rgba(56, 189, 248, 0.55) !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-bar-dot {
+  background: #38bdf8 !important;
+  border-color: #dff8ff !important;
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.22),
+    0 0 12px rgba(56, 189, 248, 0.72) !important;
+}
+
+/* Keep legend/bucket text simple and readable. */
+.powerbi-legend,
+.powerbi-legend span,
+.chart-legend,
+.chart-legend span {
+  color: #0f172a !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-legend,
+.app-shell[data-theme="dark"] .powerbi-legend span,
+.app-shell[data-theme="dark"] .chart-legend,
+.app-shell[data-theme="dark"] .chart-legend span {
+  color: #f8fafc !important;
+}
+
+.line-legend {
+  background: #0f172a !important;
+}
+
+.app-shell[data-theme="dark"] .line-legend {
+  background: #f8fafc !important;
+  box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.24);
+}
+
+/* Daily Record all-history search button. */
+.secondary-action-btn {
+  min-height: 38px;
+  border: 1px solid rgba(37, 99, 235, 0.24);
+  border-radius: 13px;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--text);
+  font-weight: 900;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.secondary-action-btn:hover:not(:disabled),
+.secondary-action-btn:focus-visible:not(:disabled) {
+  background: rgba(37, 99, 235, 0.14);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10);
+  outline: none;
+}
+
+.secondary-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.app-shell[data-theme="dark"] .secondary-action-btn {
+  border-color: rgba(96, 165, 250, 0.26);
+  background: rgba(96, 165, 250, 0.10);
+  color: #eaf2ff;
+}
+
+.app-shell[data-theme="dark"] .secondary-action-btn:hover:not(:disabled),
+.app-shell[data-theme="dark"] .secondary-action-btn:focus-visible:not(:disabled) {
+  background: rgba(96, 165, 250, 0.16);
+}
+
+.all-history-btn {
+  text-align: center;
+  line-height: 1.15;
+  padding: 8px 10px;
+}
+
+.history-mode-note {
+  border-radius: 12px;
+  padding: 9px 10px;
+  font-size: 11px;
+  line-height: 1.3;
+  font-weight: 800;
+  color: var(--muted);
+  background: rgba(148, 163, 184, 0.10);
+  border: 1px solid var(--line);
+}
+
+/* Remove old Date Scope/history dropdown layout if any old CSS remains. */
+.daily-history-date-grid {
+  display: none !important;
+}

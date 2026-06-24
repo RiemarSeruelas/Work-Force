@@ -744,7 +744,7 @@ app.get("/api/workforce/daily-record", async (req, res) => {
     const { limit, offset } = parsePaging(req);
 
     const isHistoryMode = mode === "HISTORY";
-    const fromDate = isHistoryMode && requestedFrom ? requestedFrom : workforceDate;
+    const fromDate = isHistoryMode ? (requestedFrom || "1970-01-01") : workforceDate;
     const toDate = isHistoryMode ? (requestedTo || workforceDate) : workforceDate;
 
     const scans = await queryScans(fromDate, toDate, group, search, { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
