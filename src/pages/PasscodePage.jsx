@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 export default function PasscodePage() {
   const navigate = useNavigate();
   const [passcode, setPasscode] = useState("");
+  const [showPasscode, setShowPasscode] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -51,15 +52,29 @@ export default function PasscodePage() {
         <div className="passcode-icon">👷</div>
         <h1>Workforce Dashboard</h1>
         <p>Enter passcode to continue</p>
+
         {error && <div className="passcode-error">{error}</div>}
-        <input
-          className="passcode-input"
-          type="password"
-          value={passcode}
-          onChange={(e) => setPasscode(e.target.value)}
-          placeholder="Enter passcode"
-          autoFocus
-        />
+
+        <div className="passcode-input-wrap">
+          <input
+            className="passcode-input"
+            type={showPasscode ? "text" : "password"}
+            value={passcode}
+            onChange={(e) => setPasscode(e.target.value)}
+            placeholder="Enter passcode"
+            autoFocus
+          />
+
+          <button
+            className="passcode-eye-btn"
+            type="button"
+            onClick={() => setShowPasscode((value) => !value)}
+            aria-label={showPasscode ? "Hide passcode" : "Show passcode"}
+          >
+            {showPasscode ? "🙈" : "👁"}
+          </button>
+        </div>
+
         <button className="passcode-btn loading-aware-btn" disabled={loading}>
           {loading ? "Checking..." : "Continue"}
         </button>

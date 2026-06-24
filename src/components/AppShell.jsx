@@ -1,13 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
-
 const navItems = [
   { label: "Overview", path: "/workforce" },
   { label: "Daily Record", path: "/workforce/daily-record" },
   { label: "Compliance", path: "/workforce/compliance" },
   { label: "Population", path: "/workforce/population" },
-  { label: "Map", path: "/workforce/map" },
 ];
 
 export default function AppShell({

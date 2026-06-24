@@ -58,6 +58,9 @@ const currentWeek = getCurrentIsoWeekManilaClient();
 export const useWorkforceStore = create((set, get) => ({
   theme: localStorage.getItem("workforce-theme") || "light",
   workforceDate: getWorkforceDateManilaClient(),
+  dailyDateMode: "DAY",
+  dailyDateFrom: "",
+  dailyDateTo: getWorkforceDateManilaClient(),
   selectedYear: currentWeek.year,
   selectedWeek: currentWeek.week,
   group: "ALL",
@@ -85,9 +88,6 @@ export const useWorkforceStore = create((set, get) => ({
   compliancePeopleGroup: "",
 
   populationRows: [],
-  mapSummary: null,
-  mapAreas: [],
-  mapPeople: [],
   loading: false,
   error: "",
 
@@ -101,6 +101,31 @@ export const useWorkforceStore = create((set, get) => ({
   setWorkforceDate: (value) =>
     set({
       workforceDate: value,
+      dailyDateTo: value || get().dailyDateTo,
+      dailyRows: [],
+      dailyOffset: 0,
+      dailyHasMore: false,
+      dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
+    }),
+  setDailyDateMode: (value) =>
+    set({
+      dailyDateMode: value === "HISTORY" ? "HISTORY" : "DAY",
+      dailyRows: [],
+      dailyOffset: 0,
+      dailyHasMore: false,
+      dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
+    }),
+  setDailyDateFrom: (value) =>
+    set({
+      dailyDateFrom: value || "",
+      dailyRows: [],
+      dailyOffset: 0,
+      dailyHasMore: false,
+      dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
+    }),
+  setDailyDateTo: (value) =>
+    set({
+      dailyDateTo: value || getWorkforceDateManilaClient(),
       dailyRows: [],
       dailyOffset: 0,
       dailyHasMore: false,
@@ -168,10 +193,13 @@ export const useWorkforceStore = create((set, get) => ({
 
     set({ loading: reset, dailyLoadingMore: !reset, error: "" });
     try {
-      const { workforceDate, search, group, dailyLimit, dailyOffset } = get();
+      const { workforceDate, dailyDateMode, dailyDateFrom, dailyDateTo, search, group, dailyLimit, dailyOffset } = get();
       const nextOffset = reset ? 0 : dailyOffset;
       const params = new URLSearchParams({
         date: workforceDate,
+        mode: dailyDateMode || "DAY",
+        from: dailyDateFrom || "",
+        to: dailyDateTo || workforceDate,
         search,
         group,
         limit: String(dailyLimit || PAGE_SIZE),
@@ -346,36 +374,6 @@ export const useWorkforceStore = create((set, get) => ({
       set({ populationRows: data.rows || [], loading: false });
     } catch (err) {
       set({ error: err.message, populationRows: [], loading: false });
-    }
-  },
-
-  fetchMap: async () => {
-    set({ loading: true, error: "" });
-    try {
-      const { workforceDate, group } = get();
-      const params = new URLSearchParams({
-        date: workforceDate,
-        group,
-        _t: String(Date.now()),
-      });
-      const res = await fetch(`/api/workforce/map?${params.toString()}`, {
-        cache: "no-store",
-      });
-      const data = await parseJsonResponse(res);
-      set({
-        mapSummary: data.summary || null,
-        mapAreas: data.areas || [],
-        mapPeople: data.people || [],
-        loading: false,
-      });
-    } catch (err) {
-      set({
-        error: err.message,
-        mapSummary: null,
-        mapAreas: [],
-        mapPeople: [],
-        loading: false,
-      });
     }
   },
 }));

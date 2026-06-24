@@ -605,7 +605,6 @@ function summarizeDailyForTrend(daily, period) {
     }));
 }
 
-
 const WORKFORCE_MAP_AREAS = [
   {
     key: "engineering",
@@ -675,6 +674,7 @@ function compactAreaGroups(groups) {
     .slice(0, 5);
 }
 
+
 app.get("/api/health", async (_req, res) => {
   try {
     await testDb();
@@ -735,13 +735,20 @@ app.get("/api/workforce/summary", async (req, res) => {
 
 app.get("/api/workforce/daily-record", async (req, res) => {
   try {
+    const mode = String(req.query.mode || "DAY").toUpperCase();
     const workforceDate = String(req.query.date || getWorkforceDateManila());
+    const requestedFrom = String(req.query.from || "").trim();
+    const requestedTo = String(req.query.to || "").trim();
     const search = String(req.query.search || "").trim().toLowerCase();
     const group = String(req.query.group || "ALL");
     const { limit, offset } = parsePaging(req);
 
-    const scans = await queryScans(workforceDate, workforceDate, group, search, { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
-    let rows = computeDailyRecords(scans, workforceDate, workforceDate);
+    const isHistoryMode = mode === "HISTORY";
+    const fromDate = isHistoryMode && requestedFrom ? requestedFrom : workforceDate;
+    const toDate = isHistoryMode ? (requestedTo || workforceDate) : workforceDate;
+
+    const scans = await queryScans(fromDate, toDate, group, search, { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
+    let rows = computeDailyRecords(scans, fromDate, toDate);
 
     // Safety filter after interval computation. The DB query already narrows the scan rows,
     // but this keeps the response correct if more searchable fields are added later.
@@ -753,7 +760,12 @@ app.get("/api/workforce/daily-record", async (req, res) => {
       );
     }
 
-    rows.sort((a, b) => String(a.person || "").localeCompare(String(b.person || "")));
+    rows.sort((a, b) => {
+      const dateDiff = String(b.workforce_date || "").localeCompare(String(a.workforce_date || ""));
+      if (dateDiff !== 0) return dateDiff;
+      return String(a.person || "").localeCompare(String(b.person || ""));
+    });
+
     const total = rows.length;
     const bucketTotals = rows.reduce(
       (acc, row) => {
@@ -774,6 +786,9 @@ app.get("/api/workforce/daily-record", async (req, res) => {
 
     res.json({
       workforceDate,
+      fromDate,
+      toDate,
+      mode: isHistoryMode ? "HISTORY" : "DAY",
       group,
       search,
       rows: pagedRows,
@@ -965,7 +980,6 @@ app.get("/api/workforce/compliance", async (req, res) => {
   }
 });
 
-
 app.get("/api/workforce/map", async (req, res) => {
   try {
     const workforceDate = String(req.query.date || getWorkforceDateManila());
@@ -1029,6 +1043,7 @@ app.get("/api/workforce/map", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 app.get("/api/workforce/population", async (req, res) => {
   try {

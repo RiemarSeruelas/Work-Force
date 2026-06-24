@@ -41,6 +41,12 @@ function countLoadedRows(rows, bucketName) {
 export default function WorkforceDailyRecordPage() {
   const workforceDate = useWorkforceStore((s) => s.workforceDate);
   const setWorkforceDate = useWorkforceStore((s) => s.setWorkforceDate);
+  const dailyDateMode = useWorkforceStore((s) => s.dailyDateMode);
+  const setDailyDateMode = useWorkforceStore((s) => s.setDailyDateMode);
+  const dailyDateFrom = useWorkforceStore((s) => s.dailyDateFrom);
+  const setDailyDateFrom = useWorkforceStore((s) => s.setDailyDateFrom);
+  const dailyDateTo = useWorkforceStore((s) => s.dailyDateTo);
+  const setDailyDateTo = useWorkforceStore((s) => s.setDailyDateTo);
   const group = useWorkforceStore((s) => s.group);
   const setGroup = useWorkforceStore((s) => s.setGroup);
   const search = useWorkforceStore((s) => s.search);
@@ -62,7 +68,7 @@ export default function WorkforceDailyRecordPage() {
 
   useEffect(() => {
     fetchDailyRecord?.({ reset: true });
-  }, [fetchDailyRecord, workforceDate, group]);
+  }, [fetchDailyRecord, workforceDate, dailyDateMode, dailyDateFrom, dailyDateTo, group]);
 
   function handleSearchSubmit(event) {
     event?.preventDefault?.();
@@ -102,13 +108,48 @@ export default function WorkforceDailyRecordPage() {
       <aside className="panel left-panel">
         <div className="panel-title">Filters</div>
 
-        <label className="field-label">Workforce Date</label>
-        <input
+        <label className="field-label">Date Scope</label>
+        <select
           className="styled-input"
-          type="date"
-          value={workforceDate}
-          onChange={(e) => setWorkforceDate(e.target.value)}
-        />
+          value={dailyDateMode}
+          onChange={(e) => setDailyDateMode(e.target.value)}
+        >
+          <option value="DAY">Single workforce date</option>
+          <option value="HISTORY">Search history / date range</option>
+        </select>
+
+        {dailyDateMode === "HISTORY" ? (
+          <div className="daily-history-date-grid">
+            <label>
+              <span className="field-label">From</span>
+              <input
+                className="styled-input"
+                type="date"
+                value={dailyDateFrom}
+                onChange={(e) => setDailyDateFrom(e.target.value)}
+              />
+            </label>
+            <label>
+              <span className="field-label">To</span>
+              <input
+                className="styled-input"
+                type="date"
+                value={dailyDateTo || workforceDate}
+                onChange={(e) => setDailyDateTo(e.target.value)}
+              />
+            </label>
+          </div>
+        ) : (
+          <>
+            <label className="field-label">Workforce Date</label>
+            <input
+              className="styled-input"
+              type="date"
+              value={workforceDate}
+              onChange={(e) => setWorkforceDate(e.target.value)}
+            />
+          </>
+        )}
 
         <label className="field-label">Name / Department / ID</label>
         <input
@@ -143,6 +184,7 @@ export default function WorkforceDailyRecordPage() {
             <table className="data-table daily-record-table">
               <thead>
                 <tr>
+                  <th>Date</th>
                   <th>Subgroup</th>
                   <th>Person</th>
                   <th>Scan In</th>
@@ -155,7 +197,8 @@ export default function WorkforceDailyRecordPage() {
               </thead>
               <tbody>
                 {rows.map((row) => (
-                  <tr key={`${row.person_key}-${row.workforce_date || workforceDate}`}>
+                  <tr key={`${row.person_key}-${row.workforce_date || workforceDate}-${row.entry_time || ""}`}>
+                    <td>{row.workforce_date || workforceDate}</td>
                     <td>{row.persongroup || "Unknown"}</td>
                     <td>
                       <span className="person-name-with-alarm">
@@ -181,25 +224,25 @@ export default function WorkforceDailyRecordPage() {
 
                 {loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="empty-cell">Loading workforce records...</td>
+                    <td colSpan="9" className="empty-cell">Loading workforce records...</td>
                   </tr>
                 )}
 
                 {!loading && rows.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="empty-cell">No workforce records found.</td>
+                    <td colSpan="9" className="empty-cell">No workforce records found.</td>
                   </tr>
                 )}
 
                 {loadingMore && (
                   <tr>
-                    <td colSpan="8" className="empty-cell loading-row">Loading 20 more records...</td>
+                    <td colSpan="9" className="empty-cell loading-row">Loading 20 more records...</td>
                   </tr>
                 )}
 
                 {!loading && !loadingMore && rows.length > 0 && !hasMore && (
                   <tr>
-                    <td colSpan="8" className="empty-cell">End of results · {rows.length} of {total}</td>
+                    <td colSpan="9" className="empty-cell">End of results · {rows.length} of {total}</td>
                   </tr>
                 )}
               </tbody>
