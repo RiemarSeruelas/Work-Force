@@ -3722,10 +3722,10 @@ body:has(.loading-aware-btn:disabled) * {
    - add another x,y coordinate pair
 
    This version:
-   - map labels are hidden; numbers only
-   - numbers are color-coded and glow
-   - polygon + number lift together on hover
-   - whole legend row is color coded
+   - smaller color-coded numbers
+   - much lighter glow
+   - faster hover animation with less lag
+   - whole legend row remains color coded
 ========================================================= */
 .workforce-map-page.workforce-map-svg-page {
   height: calc(100vh - 210px);
@@ -3800,7 +3800,7 @@ body:has(.loading-aware-btn:disabled) * {
   background: color-mix(in srgb, currentColor 14%, rgba(255,255,255,0.82));
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.32),
-    0 0 12px color-mix(in srgb, currentColor 18%, transparent);
+    0 0 8px color-mix(in srgb, currentColor 14%, transparent);
 }
 
 .app-shell[data-theme="dark"] .map-legend-row {
@@ -3816,7 +3816,7 @@ body:has(.loading-aware-btn:disabled) * {
   background: currentColor;
   box-shadow:
     0 0 0 3px color-mix(in srgb, currentColor 18%, transparent),
-    0 0 16px color-mix(in srgb, currentColor 72%, transparent);
+    0 0 10px color-mix(in srgb, currentColor 55%, transparent);
 }
 
 .map-legend-name {
@@ -3902,47 +3902,42 @@ body:has(.loading-aware-btn:disabled) * {
 
 .map-zone-group {
   cursor: pointer;
-  transition: transform 0.18s ease, filter 0.18s ease, opacity 0.18s ease;
+  transition: transform 0.14s ease, opacity 0.14s ease;
   transform-box: fill-box;
   transform-origin: center;
+  will-change: transform;
 }
 
 .map-zone-group:hover {
-  transform: translateY(-1.35px) scale(1.012);
-  filter:
-    drop-shadow(0 14px 22px rgba(15, 23, 42, 0.28))
-    drop-shadow(0 0 15px color-mix(in srgb, currentColor 70%, transparent));
+  transform: translateY(-0.8px) scale(1.006);
+  opacity: 0.98;
 }
 
 .map-zone-polygon {
   vector-effect: non-scaling-stroke;
   stroke-width: 3;
-  filter:
-    drop-shadow(0 8px 16px rgba(15, 23, 42, 0.16))
-    drop-shadow(0 0 8px color-mix(in srgb, currentColor 35%, transparent));
-  transition: filter 0.18s ease, opacity 0.18s ease;
+  transition: opacity 0.14s ease;
 }
 
-.map-zone-group:hover .map-zone-polygon {
-  opacity: 0.98;
-}
-
+/* Smaller and lighter number style. 
+   This is SVG user-unit based, not normal px text. */
 .map-zone-number {
   fill: currentColor;
-  stroke: rgba(255,255,255,0.94);
-  stroke-width: 0.8px;
+  stroke: rgba(255,255,255,0.88);
+  stroke-width: 0.32px;
   paint-order: stroke fill;
-  font-size: clamp(5px, 4.8vw, 8px);
+  font-size: 4.25px;
   font-weight: 950;
   line-height: 1;
-  text-shadow:
-    0 0 5px currentColor,
-    0 0 13px currentColor,
-    0 0 25px currentColor,
-    0 2px 8px rgba(0,0,0,0.32);
   filter:
-    drop-shadow(0 0 4px color-mix(in srgb, currentColor 100%, transparent))
-    drop-shadow(0 0 10px color-mix(in srgb, currentColor 80%, transparent));
+    drop-shadow(0 0 2px color-mix(in srgb, currentColor 80%, transparent))
+    drop-shadow(0 0 5px color-mix(in srgb, currentColor 58%, transparent));
+}
+
+.map-zone-group:hover .map-zone-number {
+  filter:
+    drop-shadow(0 0 3px color-mix(in srgb, currentColor 90%, transparent))
+    drop-shadow(0 0 7px color-mix(in srgb, currentColor 65%, transparent));
 }
 
 /* Color tokens for legend, SVG polygons, and number glow */
