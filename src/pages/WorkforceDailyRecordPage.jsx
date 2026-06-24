@@ -153,7 +153,14 @@ export default function WorkforceDailyRecordPage() {
           }}
         />
 
-        <label className="field-label">Name / Department / ID</label>
+        <label className="field-label">Group</label>
+        <select className="styled-input" value={group} onChange={(e) => setGroup(e.target.value)}>
+          <option value="ALL">All Workforce</option>
+          <option value="FTE">FTE</option>
+          <option value="CONTRACTOR">Contractor</option>
+        </select>
+
+        <label className="field-label">Person / Department / ID</label>
         <input
           className="styled-input"
           value={searchDraft}
@@ -164,25 +171,18 @@ export default function WorkforceDailyRecordPage() {
           placeholder="Search person..."
         />
 
+        <button className="primary-action-btn loading-aware-btn" onClick={handleSearchSubmit} disabled={loading}>
+          {loading ? "Loading..." : "Search"}
+        </button>
+
         <button
-          className="secondary-action-btn all-history-btn"
+          className="primary-action-btn person-history-btn"
           type="button"
           onClick={handleAllSearchedData}
           disabled={loading || !searchDraft.trim()}
           title={!searchDraft.trim() ? "Type a name, department, or ID first." : "Show all records for this search from the start of the database."}
         >
-          All of this searched item's data
-        </button>
-
-        <label className="field-label">Group</label>
-        <select className="styled-input" value={group} onChange={(e) => setGroup(e.target.value)}>
-          <option value="ALL">All Workforce</option>
-          <option value="FTE">FTE</option>
-          <option value="CONTRACTOR">Contractor</option>
-        </select>
-
-        <button className="primary-action-btn loading-aware-btn" onClick={handleSearchSubmit} disabled={loading}>
-          {loading ? "Loading..." : "Search"}
+          Person&apos;s History
         </button>
 
         {isHistorySearch && (
