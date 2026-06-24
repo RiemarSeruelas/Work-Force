@@ -38,6 +38,7 @@ const AREA_META = [
   labelX / labelY controls where the text number appears.
 */
 
+// Map zone labels are hidden on the map. The legend is the color key; the map only shows glowing numbers.
 const MAP_ZONES = [
   {
     id: "admin",
@@ -245,7 +246,6 @@ export default function WorkforceMapPage() {
                         top: `${(zone.labelY / 75) * 100}%`,
                       }}
                     >
-                      {zone.showLabel ? <span>{zone.label}</span> : null}
                       {zone.showValue ? <strong>{activeCount}</strong> : null}
                     </div>
                   );
