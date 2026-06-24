@@ -10,6 +10,17 @@ const AREA_META = [
   { key: "rd", dataKey: "engineering", label: "R&D", icon: "🔬", className: "area-rd" },
 ];
 
+const MAP_ZONES = [
+  { id: "admin", areaKey: "admin", label: "Admin", className: "area-admin zone-admin" },
+  { id: "production-savoury", areaKey: "production", label: "Production", className: "area-production zone-production-savoury" },
+  { id: "production-dressings", areaKey: "production", label: "Production", className: "area-production zone-production-dressings" },
+  { id: "engineering", areaKey: "engineering", label: "Engineering", className: "area-engineering zone-engineering" },
+  { id: "logistics", areaKey: "logisticsqa", label: "Logistics", className: "area-logisticsqa zone-logistics" },
+  { id: "qa", areaKey: "logisticsqa", label: "QA", className: "area-logisticsqa zone-qa" },
+  { id: "rd-office", areaKey: "rd", label: "R&D", className: "area-rd zone-rd-office" },
+  { id: "rd-lab", areaKey: "rd", label: "R&D", className: "area-rd zone-rd-lab" },
+];
+
 function formatLatestScan(value) {
   if (!value) return "No scan yet";
   const date = new Date(value);
@@ -110,17 +121,18 @@ export default function WorkforceMapPage() {
           <div className="map-stage-card">
             <div className="map-blueprint-canvas" aria-label="Workforce map">
               <div className="map-image-frame">
-                {AREA_META.map((area) => {
-                  const data = areaLookup.get(area.dataKey) || {};
+                {MAP_ZONES.map((zone) => {
+                  const meta = AREA_META.find((item) => item.key === zone.areaKey);
+                  const data = areaLookup.get(meta?.dataKey || zone.areaKey) || {};
                   const activeCount = Number(data.activeCount) || 0;
                   return (
                     <button
                       type="button"
-                      className={`map-zone ${area.className} zone-${area.key}`}
-                      key={area.key}
-                      title={`${area.label}: ${activeCount} people`}
+                      className={`map-zone ${zone.className}`}
+                      key={zone.id}
+                      title={`${zone.label}: ${activeCount} people`}
                     >
-                      <span className="map-zone-label">{area.label}</span>
+                      <span className="map-zone-label">{zone.label}</span>
                       <strong>{activeCount}</strong>
                     </button>
                   );

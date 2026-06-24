@@ -3700,9 +3700,8 @@ body:has(.loading-aware-btn:disabled) * {
 
 /* =========================================================
    Workforce Map page
-   - updated legends: Admin, Production, Engineering,
-     Logistics/QA, and R&D
-   - map is zoomed and sharpened for better readability
+   - placements expanded to occupy the full highlighted areas
+   - split map zones for production, logistics, QA, and R&D
 ========================================================= */
 .workforce-map-page {
   min-height: calc(100vh - 190px);
@@ -3884,7 +3883,7 @@ body:has(.loading-aware-btn:disabled) * {
   position: absolute;
   z-index: 5;
   border: 2px solid currentColor;
-  border-radius: 16px;
+  border-radius: 14px;
   color: #1f2937;
   display: flex;
   flex-direction: column;
@@ -3893,11 +3892,11 @@ body:has(.loading-aware-btn:disabled) * {
   gap: 3px;
   cursor: default;
   text-align: center;
-  padding: 8px;
+  padding: 6px;
   box-shadow:
     0 10px 24px rgba(15, 23, 42, 0.10),
     inset 0 1px 0 rgba(255,255,255,0.40);
-  backdrop-filter: blur(1.5px);
+  backdrop-filter: blur(1.2px);
   transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
 }
 
@@ -3913,7 +3912,7 @@ body:has(.loading-aware-btn:disabled) * {
 }
 
 .map-zone-label {
-  font-size: clamp(9px, 0.8vw, 12px);
+  font-size: clamp(8px, 0.76vw, 11px);
   font-weight: 950;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -3921,69 +3920,81 @@ body:has(.loading-aware-btn:disabled) * {
 }
 
 .map-zone strong {
-  font-size: clamp(20px, 2.65vw, 42px);
+  font-size: clamp(18px, 2.25vw, 34px);
   font-weight: 950;
   line-height: 1;
 }
 
 .area-admin {
-  background: rgba(236, 72, 153, 0.20);
+  background: rgba(236, 72, 153, 0.18);
   color: #be185d;
-  border-color: rgba(236, 72, 153, 0.44);
+  border-color: rgba(236, 72, 153, 0.46);
 }
+
 .area-production {
-  background: rgba(37, 99, 235, 0.18);
+  background: rgba(37, 99, 235, 0.16);
   color: #1d4ed8;
   border-color: rgba(37, 99, 235, 0.44);
 }
+
 .area-engineering {
-  background: rgba(249, 115, 22, 0.20);
+  background: rgba(249, 115, 22, 0.18);
   color: #c2410c;
   border-color: rgba(249, 115, 22, 0.46);
 }
+
 .area-logisticsqa {
-  background: rgba(20, 184, 166, 0.20);
-  color: #0f766e;
-  border-color: rgba(13, 148, 136, 0.46);
+  background: rgba(34, 197, 94, 0.18);
+  color: #15803d;
+  border-color: rgba(34, 197, 94, 0.46);
 }
+
 .area-rd {
-  background: rgba(124, 58, 237, 0.20);
-  color: #5b21b6;
+  background: rgba(124, 58, 237, 0.18);
+  color: #6d28d9;
   border-color: rgba(124, 58, 237, 0.48);
 }
 
 .app-shell[data-theme="dark"] .area-admin {
-  background: rgba(236, 72, 153, 0.34);
+  background: rgba(236, 72, 153, 0.32);
   color: #fdf2f8;
   border-color: rgba(251, 182, 206, 0.68);
 }
+
 .app-shell[data-theme="dark"] .area-production {
-  background: rgba(37, 99, 235, 0.30);
+  background: rgba(37, 99, 235, 0.28);
   color: #eff6ff;
   border-color: rgba(147, 197, 253, 0.68);
 }
+
 .app-shell[data-theme="dark"] .area-engineering {
-  background: rgba(249, 115, 22, 0.34);
+  background: rgba(249, 115, 22, 0.32);
   color: #fff7ed;
   border-color: rgba(253, 186, 116, 0.70);
 }
+
 .app-shell[data-theme="dark"] .area-logisticsqa {
-  background: rgba(20, 184, 166, 0.34);
-  color: #f0fdfa;
-  border-color: rgba(153, 246, 228, 0.68);
+  background: rgba(34, 197, 94, 0.30);
+  color: #f0fdf4;
+  border-color: rgba(134, 239, 172, 0.70);
 }
+
 .app-shell[data-theme="dark"] .area-rd {
-  background: rgba(124, 58, 237, 0.34);
+  background: rgba(124, 58, 237, 0.32);
   color: #f3e8ff;
   border-color: rgba(216, 180, 254, 0.70);
 }
 
-/* Positions relative to the cropped 780x560 map asset. */
-.zone-rd { left: 9%; top: 26%; width: 13%; height: 15%; }
-.zone-engineering { left: 7%; top: 60%; width: 16%; height: 15%; }
-.zone-production { left: 29%; top: 11%; width: 52%; height: 42%; }
-.zone-logisticsqa { left: 39%; top: 45%; width: 17%; height: 10%; }
-.zone-admin { left: 32%; top: 50%; width: 16%; height: 15%; }
+/* Positions aligned to the user's marked-up placement image.
+   Coordinates are relative to the cropped 780x560 map asset. */
+.zone-admin { left: 29.5%; top: 0%; width: 15%; height: 17%; }
+.zone-logistics { left: 29.5%; top: 16.8%; width: 9%; height: 13.2%; }
+.zone-production-savoury { left: 38.5%; top: 17%; width: 34%; height: 26.8%; }
+.zone-qa { left: 60.6%; top: 44.5%; width: 14%; height: 6.8%; }
+.zone-production-dressings { left: 35.2%; top: 51.1%; width: 37.8%; height: 30.2%; }
+.zone-rd-office { left: 12%; top: 30.2%; width: 11.5%; height: 7%; }
+.zone-rd-lab { left: 17.2%; top: 37.5%; width: 6%; height: 9.3%; }
+.zone-engineering { left: 9.2%; top: 68.3%; width: 14%; height: 12%; }
 
 @media (min-width: 1181px) {
   .workforce-map-page {
