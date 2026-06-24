@@ -3,22 +3,21 @@ import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
 const AREA_META = [
-  { key: "admin", dataKey: "admin", label: "Admin", icon: "👤", className: "area-admin" },
-  { key: "production", dataKey: "production", label: "Production", icon: "🏭", className: "area-production" },
   { key: "engineering", dataKey: "utilities", label: "Engineering", icon: "⚙", className: "area-engineering" },
+  { key: "production", dataKey: "production", label: "Production", icon: "🏭", className: "area-production" },
   { key: "logisticsqa", dataKey: "warehouse", label: "Logistics / QA", icon: "🧪", className: "area-logisticsqa" },
   { key: "rd", dataKey: "engineering", label: "R&D", icon: "🔬", className: "area-rd" },
+  { key: "admin", dataKey: "admin", label: "Admin", icon: "👤", className: "area-admin" },
 ];
 
 const MAP_ZONES = [
-  { id: "admin", areaKey: "admin", label: "Admin", className: "area-admin zone-admin" },
-  { id: "production-savoury", areaKey: "production", label: "Production", className: "area-production zone-production-savoury" },
-  { id: "production-dressings", areaKey: "production", label: "Production", className: "area-production zone-production-dressings" },
-  { id: "engineering", areaKey: "engineering", label: "Engineering", className: "area-engineering zone-engineering" },
-  { id: "logistics", areaKey: "logisticsqa", label: "Logistics", className: "area-logisticsqa zone-logistics" },
-  { id: "qa", areaKey: "logisticsqa", label: "QA", className: "area-logisticsqa zone-qa" },
-  { id: "rd-office", areaKey: "rd", label: "R&D", className: "area-rd zone-rd-office" },
-  { id: "rd-lab", areaKey: "rd", label: "R&D", className: "area-rd zone-rd-lab" },
+  { id: "engineering", areaKey: "engineering", label: "Engineering", className: "area-engineering zone-engineering", showLabel: true, showValue: true },
+  { id: "production-main", areaKey: "production", label: "Production", className: "area-production zone-production-main", showLabel: true, showValue: true },
+  { id: "production-secondary", areaKey: "production", label: "", className: "area-production zone-production-secondary zone-muted-fill", showLabel: false, showValue: false },
+  { id: "logisticsqa", areaKey: "logisticsqa", label: "Logistics / QA", className: "area-logisticsqa zone-logisticsqa", showLabel: true, showValue: true },
+  { id: "rd-main", areaKey: "rd", label: "R&D", className: "area-rd zone-rd-main", showLabel: true, showValue: true },
+  { id: "rd-lab", areaKey: "rd", label: "", className: "area-rd zone-rd-lab zone-muted-fill", showLabel: false, showValue: false },
+  { id: "admin", areaKey: "admin", label: "Admin", className: "area-admin zone-admin", showLabel: true, showValue: true },
 ];
 
 function formatLatestScan(value) {
@@ -93,11 +92,16 @@ export default function WorkforceMapPage() {
       summaryControls={controls}
       summaryStats={[]}
     >
-      <section className="panel center-panel workforce-full-span workforce-map-page">
+      <section className="panel center-panel workforce-full-span workforce-map-page workforce-map-mockup-page">
         {error && <div className="error-box page-error">{error}</div>}
 
-        <div className="map-layout-grid">
-          <aside className="map-side-card">
+        <div className="map-section-header">
+          <h2>Workforce Map Overview</h2>
+          <span className="map-section-accent" />
+        </div>
+
+        <div className="map-mockup-shell">
+          <aside className="map-floating-legend">
             <div className="map-side-title">Legend</div>
             <div className="map-legend-list">
               {AREA_META.map((area) => {
@@ -118,26 +122,24 @@ export default function WorkforceMapPage() {
             </div>
           </aside>
 
-          <div className="map-stage-card">
-            <div className="map-blueprint-canvas" aria-label="Workforce map">
-              <div className="map-image-frame">
-                {MAP_ZONES.map((zone) => {
-                  const meta = AREA_META.find((item) => item.key === zone.areaKey);
-                  const data = areaLookup.get(meta?.dataKey || zone.areaKey) || {};
-                  const activeCount = Number(data.activeCount) || 0;
-                  return (
-                    <button
-                      type="button"
-                      className={`map-zone ${zone.className}`}
-                      key={zone.id}
-                      title={`${zone.label}: ${activeCount} people`}
-                    >
-                      <span className="map-zone-label">{zone.label}</span>
-                      <strong>{activeCount}</strong>
-                    </button>
-                  );
-                })}
-              </div>
+          <div className="map-clean-stage">
+            <div className="map-clean-frame" aria-label="Workforce map">
+              {MAP_ZONES.map((zone) => {
+                const meta = AREA_META.find((item) => item.key === zone.areaKey);
+                const data = areaLookup.get(meta?.dataKey || zone.areaKey) || {};
+                const activeCount = Number(data.activeCount) || 0;
+                return (
+                  <button
+                    type="button"
+                    className={`map-zone-card ${zone.className}`}
+                    key={zone.id}
+                    title={`${meta?.label || zone.label}: ${activeCount} people`}
+                  >
+                    {zone.showLabel ? <span className="map-zone-card-label">{zone.label}</span> : null}
+                    {zone.showValue ? <strong>{activeCount}</strong> : null}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </div>
