@@ -4464,3 +4464,48 @@ body:has(.loading-aware-btn:disabled) * {
   background: #f8fafc !important;
   box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.24);
 }
+
+
+/* =========================================================
+   Map number visibility fix
+   The map numbers no longer use the same color as the area.
+   Light mode: dark navy numbers with white outline.
+   Dark mode: white numbers with dark outline.
+========================================================= */
+.map-zone-number {
+  fill: #0f172a !important;
+  stroke: rgba(255, 255, 255, 0.96) !important;
+  stroke-width: 0.55px !important;
+  paint-order: stroke fill !important;
+  font-size: 4.25px !important;
+  font-weight: 950 !important;
+  filter:
+    drop-shadow(0 0 2px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 2px 4px rgba(15, 23, 42, 0.34)) !important;
+}
+
+.app-shell[data-theme="dark"] .map-zone-number {
+  fill: #f8fafc !important;
+  stroke: rgba(2, 6, 23, 0.96) !important;
+  stroke-width: 0.6px !important;
+  filter:
+    drop-shadow(0 0 2px rgba(2, 6, 23, 0.92))
+    drop-shadow(0 0 6px rgba(248, 250, 252, 0.38)) !important;
+}
+
+.map-zone-group:hover .map-zone-number {
+  filter:
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.95))
+    drop-shadow(0 3px 5px rgba(15, 23, 42, 0.38)) !important;
+}
+
+.app-shell[data-theme="dark"] .map-zone-group:hover .map-zone-number {
+  filter:
+    drop-shadow(0 0 3px rgba(2, 6, 23, 0.95))
+    drop-shadow(0 0 8px rgba(248, 250, 252, 0.42)) !important;
+}
+
+
+/* Daily search persistence note:
+   Search text is now stored in Zustand + sessionStorage, so leaving Daily Record
+   and returning keeps the searched person/department/id instead of clearing it. */
