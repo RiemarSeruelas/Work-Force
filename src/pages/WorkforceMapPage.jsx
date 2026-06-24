@@ -147,35 +147,26 @@ export default function WorkforceMapPage() {
 
           <div className="map-stage-card">
             <div className="map-blueprint-canvas" aria-label="Workforce map">
-              <div className="map-road road-left">Linares Extension</div>
-              <div className="map-road road-right">Linares Street</div>
-              <div className="map-faint-building building-top" />
-              <div className="map-faint-building building-mid" />
-              <div className="map-faint-building building-bottom" />
-              <div className="map-dock-row dock-right-one" />
-              <div className="map-dock-row dock-right-two" />
-              <div className="map-tree-row tree-bottom" />
-              <div className="map-tree-row tree-right" />
+              <div className="map-image-frame">
+                {AREA_META.map((area) => {
+                  const data = areaLookup.get(area.key) || {};
+                  const activeCount = Number(data.activeCount) || 0;
+                  const alarmCount = Number(data.alarmCount) || 0;
 
-              {AREA_META.map((area) => {
-                const data = areaLookup.get(area.key) || {};
-                const activeCount = Number(data.activeCount) || 0;
-                const totalToday = Number(data.totalToday) || 0;
-                const alarmCount = Number(data.alarmCount) || 0;
-
-                return (
-                  <button
-                    type="button"
-                    className={`map-zone ${area.className} zone-${area.key}`}
-                    key={area.key}
-                    title={`${area.label}: ${activeCount} inside now, ${totalToday} total today`}
-                  >
-                    <span className="map-zone-label">{area.label}</span>
-                    <strong>{activeCount}</strong>
-                    <small>{totalToday} today{alarmCount ? ` · ⚠ ${alarmCount}` : ""}</small>
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      type="button"
+                      className={`map-zone ${area.className} zone-${area.key}`}
+                      key={area.key}
+                      title={`${area.label}: ${activeCount} inside now${alarmCount ? `, ${alarmCount} alarm` : ""}`}
+                    >
+                      <span className="map-zone-label">{area.label}</span>
+                      <strong>{activeCount}</strong>
+                      {alarmCount ? <small>⚠ {alarmCount}</small> : null}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
