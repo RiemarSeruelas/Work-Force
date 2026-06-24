@@ -4354,3 +4354,113 @@ body:has(.loading-aware-btn:disabled) * {
 .daily-history-date-grid {
   display: none !important;
 }
+
+
+/* =========================================================
+   Follow-up requested polish
+   - Person's History button uses Search button style
+   - Native password reveal only
+   - Map refresh works via fetchMap in store
+   - Chart line/dot override at the very end
+========================================================= */
+
+/* Person's History button: same family as Search button, compact and blue. */
+.person-history-btn {
+  width: 100%;
+  min-height: 42px;
+  border: none !important;
+  border-radius: 13px !important;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+  color: #ffffff !important;
+  font-weight: 950 !important;
+  font-size: 13px !important;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18) !important;
+}
+
+.person-history-btn:hover:not(:disabled),
+.person-history-btn:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.24) !important;
+  outline: none;
+}
+
+.person-history-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.left-panel .primary-action-btn + .person-history-btn {
+  margin-top: -2px;
+}
+
+/* Make the native old eye easier to see; no extra/custom eye button. */
+.passcode-input-wrap,
+.passcode-eye-btn {
+  display: none !important;
+}
+
+.passcode-input {
+  color-scheme: dark;
+}
+
+.passcode-input::-ms-reveal,
+.passcode-input::-ms-clear {
+  filter: invert(1) brightness(2.2) contrast(1.35);
+  opacity: 1;
+}
+
+/* Final chart overrides: these are intentionally at the end of the CSS. */
+.powerbi-local-connector line,
+.powerbi-connected-topline {
+  stroke: #0f172a !important;
+  opacity: 0.9 !important;
+  filter: none !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-local-connector line,
+.app-shell[data-theme="dark"] .powerbi-connected-topline {
+  stroke: #f8fafc !important;
+  opacity: 0.95 !important;
+  filter: none !important;
+}
+
+.powerbi-bar-dot {
+  background: #38bdf8 !important;
+  border: 2px solid #e0f2fe !important;
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.18),
+    0 0 10px rgba(56, 189, 248, 0.55) !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-bar-dot {
+  background: #38bdf8 !important;
+  border-color: #dff8ff !important;
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.26),
+    0 0 12px rgba(56, 189, 248, 0.78) !important;
+}
+
+.powerbi-legend,
+.powerbi-legend span,
+.chart-legend,
+.chart-legend span {
+  color: #0f172a !important;
+}
+
+.app-shell[data-theme="dark"] .powerbi-legend,
+.app-shell[data-theme="dark"] .powerbi-legend span,
+.app-shell[data-theme="dark"] .chart-legend,
+.app-shell[data-theme="dark"] .chart-legend span {
+  color: #f8fafc !important;
+}
+
+.line-legend {
+  background: #0f172a !important;
+}
+
+.app-shell[data-theme="dark"] .line-legend {
+  background: #f8fafc !important;
+  box-shadow: 0 0 0 1px rgba(248, 250, 252, 0.24);
+}
