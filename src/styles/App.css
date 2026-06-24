@@ -3700,12 +3700,21 @@ body:has(.loading-aware-btn:disabled) * {
 
 /* =========================================================
    Workforce Map page - clean generated map version
-   Exact placement update based on user's marked map:
-   - Admin top-left = red
-   - Production two big blocks = blue
-   - Engineering lower-left = orange
-   - Logistics / QA small right middle = green
-   - R&D mid-left = purple
+   Fine-tuned placement update based on the latest feedback:
+   - Engineering moved more to the right
+   - R&D moved more to the right
+   - Admin moved more to the right
+   - Production blocks nudged and expanded so they sit over the building lines better
+
+   QUICK TUNE GUIDE:
+   If you want to tweak later, edit only these selectors near the bottom:
+   .zone-admin
+   .zone-production-main
+   .zone-production-secondary
+   .zone-logisticsqa
+   .zone-rd-main
+   .zone-rd-lab
+   .zone-engineering
 ========================================================= */
 .workforce-map-page.workforce-map-mockup-page {
   height: calc(100vh - 210px);
@@ -3908,7 +3917,7 @@ body:has(.loading-aware-btn:disabled) * {
   display: none;
 }
 
-/* Correct colors based on latest placement image */
+/* Colors based on the latest placement image */
 .area-admin {
   background: rgba(239, 68, 68, 0.18);
   border-color: rgba(239, 68, 68, 0.92);
@@ -3945,20 +3954,55 @@ body:has(.loading-aware-btn:disabled) * {
 .app-shell[data-theme="dark"] .area-logisticsqa { background: rgba(34, 197, 94, 0.28); }
 .app-shell[data-theme="dark"] .area-rd { background: rgba(168, 85, 247, 0.30); }
 
-/* Exact-ish placements based on the latest reference:
-   Admin = upper-left vertical block
-   Production = two large blocks, upper-right and lower-right
-   Logistics / QA = small green block between upper and lower production
-   R&D = mid-left slim building
-   Engineering = lower-left utility block
-*/
-.zone-admin { left: 24.4%; top: 4.2%; width: 15.3%; height: 22.0%; }
-.zone-production-main { left: 43.8%; top: 13.9%; width: 42.2%; height: 28.2%; }
-.zone-production-secondary { left: 40.3%; top: 47.1%; width: 41.6%; height: 27.7%; }
-.zone-logisticsqa { left: 74.1%; top: 42.6%; width: 11.2%; height: 6.8%; }
-.zone-rd-main { left: 19.2%; top: 31.2%; width: 8.0%; height: 16.2%; }
-.zone-rd-lab { left: 19.2%; top: 31.2%; width: 8.0%; height: 16.2%; }
-.zone-engineering { left: 13.0%; top: 58.0%; width: 16.2%; height: 12.5%; }
+/* Final tuning based on the latest screenshot */
+.zone-admin {
+  left: 27.0%;
+  top: 4.0%;
+  width: 15.2%;
+  height: 22.2%;
+}
+
+.zone-production-main {
+  left: 46.0%;
+  top: 13.8%;
+  width: 41.8%;
+  height: 28.6%;
+}
+
+.zone-production-secondary {
+  left: 43.2%;
+  top: 47.2%;
+  width: 42.0%;
+  height: 28.0%;
+}
+
+.zone-logisticsqa {
+  left: 76.0%;
+  top: 42.6%;
+  width: 11.2%;
+  height: 6.9%;
+}
+
+.zone-rd-main {
+  left: 22.0%;
+  top: 31.2%;
+  width: 8.0%;
+  height: 16.2%;
+}
+
+.zone-rd-lab {
+  left: 22.0%;
+  top: 31.2%;
+  width: 8.0%;
+  height: 16.2%;
+}
+
+.zone-engineering {
+  left: 16.2%;
+  top: 58.0%;
+  width: 16.3%;
+  height: 12.6%;
+}
 
 @media (max-width: 1180px) {
   .workforce-map-page.workforce-map-mockup-page {
