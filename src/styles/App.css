@@ -4506,6 +4506,16 @@ body:has(.loading-aware-btn:disabled) * {
 }
 
 
-/* Daily search persistence note:
-   Search text is now stored in Zustand + sessionStorage, so leaving Daily Record
-   and returning keeps the searched person/department/id instead of clearing it. */
+/* =========================================================
+   Daily search reset + Working Days label cleanup
+========================================================= */
+
+/* If an older DashboardPage is still running, hide the "Weekly only" line legend
+   only inside the Working Days Compliance chart. The updated JSX also removes it. */
+.days-chart-card .soft-pill {
+  display: none !important;
+}
+
+.days-chart-card .powerbi-legend span:last-child:has(.line-legend) {
+  display: none !important;
+}

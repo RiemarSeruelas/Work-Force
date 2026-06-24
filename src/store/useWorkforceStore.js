@@ -55,47 +55,12 @@ async function parseJsonResponse(res) {
 
 const currentWeek = getCurrentIsoWeekManilaClient();
 
-function getStoredDailySearchDraft() {
-  try {
-    return sessionStorage.getItem("workforce-daily-search") || "";
-  } catch {
-    return "";
-  }
-}
-
-function getStoredDailyHistorySearch() {
-  try {
-    return sessionStorage.getItem("workforce-daily-history") === "true";
-  } catch {
-    return false;
-  }
-}
-
-function storeDailySearchDraft(value) {
-  try {
-    sessionStorage.setItem("workforce-daily-search", value || "");
-  } catch {
-    // sessionStorage can fail in private or restricted contexts.
-  }
-}
-
-function storeDailyHistorySearch(value) {
-  try {
-    sessionStorage.setItem("workforce-daily-history", value ? "true" : "false");
-  } catch {
-    // sessionStorage can fail in private or restricted contexts.
-  }
-}
-
-
 export const useWorkforceStore = create((set, get) => ({
   theme: localStorage.getItem("workforce-theme") || "light",
   workforceDate: getWorkforceDateManilaClient(),
   dailyDateMode: "DAY",
   dailyDateFrom: "",
   dailyDateTo: getWorkforceDateManilaClient(),
-  dailySearchDraft: getStoredDailySearchDraft(),
-  dailyHistorySearch: getStoredDailyHistorySearch(),
   selectedYear: currentWeek.year,
   selectedWeek: currentWeek.week,
   group: "ALL",
@@ -169,16 +134,6 @@ export const useWorkforceStore = create((set, get) => ({
       dailyHasMore: false,
       dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
     }),
-  setDailySearchDraft: (value) => {
-    const nextValue = value || "";
-    storeDailySearchDraft(nextValue);
-    set({ dailySearchDraft: nextValue });
-  },
-  setDailyHistorySearch: (value) => {
-    const nextValue = Boolean(value);
-    storeDailyHistorySearch(nextValue);
-    set({ dailyHistorySearch: nextValue });
-  },
   setSelectedYear: (value) =>
     set({
       selectedYear: Number(value) || getCurrentIsoWeekManilaClient().year,
@@ -205,18 +160,14 @@ export const useWorkforceStore = create((set, get) => ({
       compliancePeopleHasMore: false,
     }),
   setTrendPeriod: (value) => set({ trendPeriod: value || "DAILY" }),
-  setSearch: (value) => {
-    const nextValue = value || "";
-    storeDailySearchDraft(nextValue);
+  setSearch: (value) =>
     set({
-      search: nextValue,
-      dailySearchDraft: nextValue,
+      search: value || "",
       dailyRows: [],
       dailyOffset: 0,
       dailyHasMore: false,
       dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
-    });
-  },
+    }),
 
   fetchSummary: async () => {
     set({ loading: true, error: "" });

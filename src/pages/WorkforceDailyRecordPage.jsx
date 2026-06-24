@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
@@ -45,13 +45,8 @@ export default function WorkforceDailyRecordPage() {
   const setDailyDateMode = useWorkforceStore((s) => s.setDailyDateMode);
   const setDailyDateFrom = useWorkforceStore((s) => s.setDailyDateFrom);
   const setDailyDateTo = useWorkforceStore((s) => s.setDailyDateTo);
-  const dailySearchDraft = useWorkforceStore((s) => s.dailySearchDraft);
-  const setDailySearchDraft = useWorkforceStore((s) => s.setDailySearchDraft);
-  const isHistorySearch = useWorkforceStore((s) => s.dailyHistorySearch);
-  const setDailyHistorySearch = useWorkforceStore((s) => s.setDailyHistorySearch);
   const group = useWorkforceStore((s) => s.group);
   const setGroup = useWorkforceStore((s) => s.setGroup);
-  const search = useWorkforceStore((s) => s.search);
   const setSearch = useWorkforceStore((s) => s.setSearch);
   const rows = useWorkforceStore((s) => s.dailyRows);
   const total = useWorkforceStore((s) => s.dailyTotal);
@@ -62,27 +57,36 @@ export default function WorkforceDailyRecordPage() {
   const error = useWorkforceStore((s) => s.error);
   const fetchDailyRecord = useWorkforceStore((s) => s.fetchDailyRecord);
   const fetchDailyRecordNextPage = useWorkforceStore((s) => s.fetchDailyRecordNextPage);
+  const [searchDraft, setSearchDraft] = useState("");
+  const [isHistorySearch, setIsHistorySearch] = useState(false);
 
-  const searchDraft = dailySearchDraft ?? search ?? "";
-
+  // Reset Daily Record search whenever the page is opened.
+  // Also clear it when leaving Daily Record, so coming back starts fresh.
   useEffect(() => {
-    const cleanSearch = String(searchDraft || "").trim();
-    const historyMode = Boolean(isHistorySearch && cleanSearch);
+    setSearch("");
+    setSearchDraft("");
+    setIsHistorySearch(false);
+    setDailyDateMode?.("DAY");
+    setDailyDateFrom?.("");
+    setDailyDateTo?.(workforceDate);
 
-    if (historyMode) {
-      setDailyDateMode?.("HISTORY");
-      setDailyDateFrom?.("");
-      setDailyDateTo?.(dailyDateTo || workforceDate);
-      fetchDailyRecord?.({
-        reset: true,
-        mode: "HISTORY",
-        from: "",
-        to: dailyDateTo || workforceDate,
-        search: cleanSearch,
-      });
-      return;
+    try {
+      sessionStorage.removeItem("workforce-daily-search");
+      sessionStorage.removeItem("workforce-daily-history");
+    } catch {
+      // sessionStorage may be unavailable in some browser modes.
     }
 
+    return () => {
+      setSearch("");
+      setDailyDateMode?.("DAY");
+      setDailyDateFrom?.("");
+    };
+    // This should only run on enter/leave of the Daily Record page.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     setDailyDateMode?.("DAY");
     setDailyDateFrom?.("");
     setDailyDateTo?.(workforceDate);
@@ -91,25 +95,15 @@ export default function WorkforceDailyRecordPage() {
       mode: "DAY",
       from: "",
       to: workforceDate,
-      search: cleanSearch,
+      search: "",
     });
-  }, [
-    fetchDailyRecord,
-    workforceDate,
-    dailyDateTo,
-    group,
-    isHistorySearch,
-    searchDraft,
-    setDailyDateFrom,
-    setDailyDateMode,
-    setDailyDateTo,
-  ]);
+  }, [fetchDailyRecord, workforceDate, group, setDailyDateFrom, setDailyDateMode, setDailyDateTo]);
 
   function handleSearchSubmit(event) {
     event?.preventDefault?.();
-    const cleanSearch = String(searchDraft || "").trim();
+    const cleanSearch = searchDraft.trim();
 
-    setDailyHistorySearch?.(false);
+    setIsHistorySearch(false);
     setSearch(cleanSearch);
     setDailyDateMode?.("DAY");
     setDailyDateFrom?.("");
@@ -125,10 +119,10 @@ export default function WorkforceDailyRecordPage() {
   }
 
   function handleAllSearchedData() {
-    const cleanSearch = String(searchDraft || "").trim();
+    const cleanSearch = searchDraft.trim();
     if (!cleanSearch) return;
 
-    setDailyHistorySearch?.(true);
+    setIsHistorySearch(true);
     setSearch(cleanSearch);
     setDailyDateMode?.("HISTORY");
     setDailyDateFrom?.("");
@@ -181,7 +175,7 @@ export default function WorkforceDailyRecordPage() {
           type="date"
           value={workforceDate}
           onChange={(e) => {
-            setDailyHistorySearch?.(false);
+            setIsHistorySearch(false);
             setWorkforceDate(e.target.value);
           }}
         />
@@ -197,7 +191,7 @@ export default function WorkforceDailyRecordPage() {
         <input
           className="styled-input"
           value={searchDraft}
-          onChange={(e) => setDailySearchDraft?.(e.target.value)}
+          onChange={(e) => setSearchDraft(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") handleSearchSubmit(e);
           }}
@@ -212,8 +206,8 @@ export default function WorkforceDailyRecordPage() {
           className="primary-action-btn person-history-btn"
           type="button"
           onClick={handleAllSearchedData}
-          disabled={loading || !String(searchDraft || "").trim()}
-          title={!String(searchDraft || "").trim() ? "Type a name, department, or ID first." : "Show all records for this search from the start of the database."}
+          disabled={loading || !searchDraft.trim()}
+          title={!searchDraft.trim() ? "Type a name, department, or ID first." : "Show all records for this search from the start of the database."}
         >
           Person&apos;s History
         </button>

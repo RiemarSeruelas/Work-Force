@@ -379,7 +379,7 @@ export default function WorkforceDashboardPage() {
             description=""
             rows={workingDaysSeries}
             period={workingDaysPeriod}
-            lineLabel={workingDaysPeriod === "WEEKLY" ? "Weekly only" : "Monthly only"}
+            lineLabel=""
             chartClassName="days-chart-card"
             showAverageDays={false}
             segments={[
