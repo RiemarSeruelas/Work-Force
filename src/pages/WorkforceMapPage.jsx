@@ -202,7 +202,7 @@ export default function WorkforceMapPage() {
               {AREA_META.map((area) => {
                 const data = areaLookup.get(area.dataKey) || {};
                 return (
-                  <div className="map-legend-row" key={area.key}>
+                  <div className={`map-legend-row ${area.className}`} key={area.key}>
                     <span className={`map-legend-icon ${area.className}`}>{area.icon}</span>
                     <span className="map-legend-name">{area.label}</span>
                     <b>{Number(data.activeCount) || 0}</b>
@@ -228,29 +228,22 @@ export default function WorkforceMapPage() {
                       <polygon className="map-zone-polygon" points={zone.points}>
                         <title>{`${zone.label || zone.areaKey}: ${activeCount} people`}</title>
                       </polygon>
+
+                      {zone.showValue ? (
+                        <text
+                          className="map-zone-number"
+                          x={zone.labelX}
+                          y={zone.labelY}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                        >
+                          {activeCount}
+                        </text>
+                      ) : null}
                     </g>
                   );
                 })}
               </svg>
-
-              <div className="map-zone-label-layer" aria-hidden="true">
-                {MAP_ZONES.filter((zone) => zone.showLabel || zone.showValue).map((zone) => {
-                  const data = getAreaData(areaLookup, zone.areaKey);
-                  const activeCount = Number(data.activeCount) || 0;
-                  return (
-                    <div
-                      className={`map-zone-text ${zone.className}`}
-                      key={`${zone.id}-label`}
-                      style={{
-                        left: `${zone.labelX}%`,
-                        top: `${(zone.labelY / 75) * 100}%`,
-                      }}
-                    >
-                      {zone.showValue ? <strong>{activeCount}</strong> : null}
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           </div>
         </div>
