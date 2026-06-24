@@ -3700,10 +3700,12 @@ body:has(.loading-aware-btn:disabled) * {
 
 /* =========================================================
    Workforce Map page - clean generated map version
-   Fixes:
-   - reduced wasted whitespace
-   - bigger map on desktop
-   - tuned zone placement closer to requested areas
+   Exact placement update based on user's marked map:
+   - Admin top-left = red
+   - Production two big blocks = blue
+   - Engineering lower-left = orange
+   - Logistics / QA small right middle = green
+   - R&D mid-left = purple
 ========================================================= */
 .workforce-map-page.workforce-map-mockup-page {
   height: calc(100vh - 210px);
@@ -3857,20 +3859,20 @@ body:has(.loading-aware-btn:disabled) * {
 .map-zone-card {
   position: absolute;
   z-index: 3;
-  border-radius: 18px;
-  border: 2px solid currentColor;
+  border-radius: 8px;
+  border: 3px solid currentColor;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 5px;
-  padding: 8px 10px;
+  padding: 6px 8px;
   text-align: center;
   cursor: default;
   box-shadow:
-    0 14px 26px rgba(15, 23, 42, 0.14),
-    inset 0 1px 0 rgba(255,255,255,0.24);
-  backdrop-filter: blur(1.5px);
+    0 14px 26px rgba(15, 23, 42, 0.10),
+    inset 0 1px 0 rgba(255,255,255,0.20);
+  backdrop-filter: blur(1px);
   transition: transform 0.16s ease, filter 0.16s ease;
 }
 
@@ -3882,7 +3884,7 @@ body:has(.loading-aware-btn:disabled) * {
 }
 
 .map-zone-card-label {
-  font-size: clamp(9px, 0.85vw, 14px);
+  font-size: clamp(9px, 0.75vw, 13px);
   font-weight: 950;
   letter-spacing: 0.02em;
   color: #fff;
@@ -3890,7 +3892,7 @@ body:has(.loading-aware-btn:disabled) * {
 }
 
 .map-zone-card strong {
-  font-size: clamp(24px, 2.7vw, 48px);
+  font-size: clamp(22px, 2.35vw, 42px);
   line-height: 1;
   font-weight: 950;
   color: #fff;
@@ -3906,51 +3908,57 @@ body:has(.loading-aware-btn:disabled) * {
   display: none;
 }
 
-/* Colors aligned to the requested legend */
+/* Correct colors based on latest placement image */
 .area-admin {
-  background: rgba(236, 72, 153, 0.58);
-  border-color: rgba(236, 72, 153, 0.88);
-  color: #ec4899;
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.92);
+  color: #ef4444;
 }
 
 .area-production {
-  background: rgba(37, 99, 235, 0.52);
-  border-color: rgba(37, 99, 235, 0.88);
-  color: #2563eb;
+  background: rgba(14, 165, 233, 0.18);
+  border-color: rgba(14, 165, 233, 0.92);
+  color: #0ea5e9;
 }
 
 .area-engineering {
-  background: rgba(249, 115, 22, 0.58);
-  border-color: rgba(249, 115, 22, 0.88);
+  background: rgba(249, 115, 22, 0.20);
+  border-color: rgba(249, 115, 22, 0.92);
   color: #f97316;
 }
 
 .area-logisticsqa {
-  background: rgba(34, 197, 94, 0.54);
-  border-color: rgba(34, 197, 94, 0.88);
+  background: rgba(34, 197, 94, 0.18);
+  border-color: rgba(34, 197, 94, 0.92);
   color: #22c55e;
 }
 
 .area-rd {
-  background: rgba(139, 92, 246, 0.55);
-  border-color: rgba(139, 92, 246, 0.88);
-  color: #8b5cf6;
+  background: rgba(168, 85, 247, 0.20);
+  border-color: rgba(168, 85, 247, 0.92);
+  color: #a855f7;
 }
 
-.app-shell[data-theme="dark"] .area-admin { background: rgba(236, 72, 153, 0.54); }
-.app-shell[data-theme="dark"] .area-production { background: rgba(37, 99, 235, 0.50); }
-.app-shell[data-theme="dark"] .area-engineering { background: rgba(249, 115, 22, 0.54); }
-.app-shell[data-theme="dark"] .area-logisticsqa { background: rgba(34, 197, 94, 0.50); }
-.app-shell[data-theme="dark"] .area-rd { background: rgba(139, 92, 246, 0.52); }
+.app-shell[data-theme="dark"] .area-admin { background: rgba(239, 68, 68, 0.28); }
+.app-shell[data-theme="dark"] .area-production { background: rgba(14, 165, 233, 0.26); }
+.app-shell[data-theme="dark"] .area-engineering { background: rgba(249, 115, 22, 0.30); }
+.app-shell[data-theme="dark"] .area-logisticsqa { background: rgba(34, 197, 94, 0.28); }
+.app-shell[data-theme="dark"] .area-rd { background: rgba(168, 85, 247, 0.30); }
 
-/* Placement tuned closer to the requested marked areas */
-.zone-admin { left: 24.2%; top: 2.2%; width: 16.8%; height: 28.7%; }
-.zone-production-main { left: 42.0%; top: 15.0%; width: 42.4%; height: 33.0%; }
-.zone-production-secondary { left: 40.8%; top: 49.8%; width: 40.6%; height: 27.2%; }
-.zone-logisticsqa { left: 47.5%; top: 43.0%; width: 15.0%; height: 11.0%; }
-.zone-rd-main { left: 18.3%; top: 31.0%; width: 11.0%; height: 14.5%; }
-.zone-rd-lab { left: 18.4%; top: 40.0%; width: 10.8%; height: 9.8%; }
-.zone-engineering { left: 18.0%; top: 70.2%; width: 17.2%; height: 16.3%; }
+/* Exact-ish placements based on the latest reference:
+   Admin = upper-left vertical block
+   Production = two large blocks, upper-right and lower-right
+   Logistics / QA = small green block between upper and lower production
+   R&D = mid-left slim building
+   Engineering = lower-left utility block
+*/
+.zone-admin { left: 24.4%; top: 4.2%; width: 15.3%; height: 22.0%; }
+.zone-production-main { left: 43.8%; top: 13.9%; width: 42.2%; height: 28.2%; }
+.zone-production-secondary { left: 40.3%; top: 47.1%; width: 41.6%; height: 27.7%; }
+.zone-logisticsqa { left: 74.1%; top: 42.6%; width: 11.2%; height: 6.8%; }
+.zone-rd-main { left: 19.2%; top: 31.2%; width: 8.0%; height: 16.2%; }
+.zone-rd-lab { left: 19.2%; top: 31.2%; width: 8.0%; height: 16.2%; }
+.zone-engineering { left: 13.0%; top: 58.0%; width: 16.2%; height: 12.5%; }
 
 @media (max-width: 1180px) {
   .workforce-map-page.workforce-map-mockup-page {
