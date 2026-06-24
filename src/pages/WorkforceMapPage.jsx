@@ -3,11 +3,11 @@ import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
 const AREA_META = [
-  { key: "engineering", label: "Engineering", icon: "⚙", className: "area-engineering" },
-  { key: "production", label: "Production", icon: "🏭", className: "area-production" },
-  { key: "warehouse", label: "Warehouse", icon: "▣", className: "area-warehouse" },
-  { key: "utilities", label: "Utilities", icon: "⚡", className: "area-utilities" },
-  { key: "admin", label: "Admin", icon: "👤", className: "area-admin" },
+  { key: "admin", dataKey: "admin", label: "Admin", icon: "👤", className: "area-admin" },
+  { key: "production", dataKey: "production", label: "Production", icon: "🏭", className: "area-production" },
+  { key: "engineering", dataKey: "utilities", label: "Engineering", icon: "⚙", className: "area-engineering" },
+  { key: "logisticsqa", dataKey: "warehouse", label: "Logistics / QA", icon: "🧪", className: "area-logisticsqa" },
+  { key: "rd", dataKey: "engineering", label: "R&D", icon: "🔬", className: "area-rd" },
 ];
 
 function formatLatestScan(value) {
@@ -90,7 +90,7 @@ export default function WorkforceMapPage() {
             <div className="map-side-title">Legend</div>
             <div className="map-legend-list">
               {AREA_META.map((area) => {
-                const data = areaLookup.get(area.key) || {};
+                const data = areaLookup.get(area.dataKey) || {};
                 return (
                   <div className="map-legend-row" key={area.key}>
                     <span className={`map-legend-icon ${area.className}`}>{area.icon}</span>
@@ -111,9 +111,8 @@ export default function WorkforceMapPage() {
             <div className="map-blueprint-canvas" aria-label="Workforce map">
               <div className="map-image-frame">
                 {AREA_META.map((area) => {
-                  const data = areaLookup.get(area.key) || {};
+                  const data = areaLookup.get(area.dataKey) || {};
                   const activeCount = Number(data.activeCount) || 0;
-
                   return (
                     <button
                       type="button"

@@ -3700,10 +3700,9 @@ body:has(.loading-aware-btn:disabled) * {
 
 /* =========================================================
    Workforce Map page
-   - uses real map assets:
-     /public/workforce-map-light.jpg
-     /public/workforce-map-dark.jpg
-   - side "Inside now" list removed; legend + latest scan only
+   - updated legends: Admin, Production, Engineering,
+     Logistics/QA, and R&D
+   - map is zoomed and sharpened for better readability
 ========================================================= */
 .workforce-map-page {
   min-height: calc(100vh - 190px);
@@ -3824,7 +3823,7 @@ body:has(.loading-aware-btn:disabled) * {
 .map-blueprint-canvas {
   position: relative;
   height: 100%;
-  min-height: 570px;
+  min-height: 580px;
   border-radius: 22px;
   overflow: hidden;
   display: flex;
@@ -3845,9 +3844,9 @@ body:has(.loading-aware-btn:disabled) * {
 
 .map-image-frame {
   position: relative;
-  width: min(100%, calc((100vh - 275px) * 1.414));
+  width: min(100%, calc((100vh - 260px) * 1.393));
   max-width: 100%;
-  aspect-ratio: 1024 / 724;
+  aspect-ratio: 780 / 560;
   border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.10);
@@ -3878,7 +3877,7 @@ body:has(.loading-aware-btn:disabled) * {
 }
 
 .app-shell[data-theme="dark"] .map-image-frame::after {
-  background: linear-gradient(180deg, rgba(11,17,29,0.06), rgba(11,17,29,0.10));
+  background: linear-gradient(180deg, rgba(11,17,29,0.05), rgba(11,17,29,0.10));
 }
 
 .map-zone {
@@ -3927,58 +3926,30 @@ body:has(.loading-aware-btn:disabled) * {
   line-height: 1;
 }
 
-.area-engineering {
-  background: rgba(124, 58, 237, 0.20);
-  color: #5b21b6;
-  border-color: rgba(124, 58, 237, 0.48);
-}
-
-.area-production {
-  background: rgba(37, 99, 235, 0.18);
-  color: #1d4ed8;
-  border-color: rgba(37, 99, 235, 0.44);
-}
-
-.area-warehouse {
-  background: rgba(20, 184, 166, 0.20);
-  color: #0f766e;
-  border-color: rgba(13, 148, 136, 0.46);
-}
-
-.area-utilities {
-  background: rgba(249, 115, 22, 0.20);
-  color: #c2410c;
-  border-color: rgba(249, 115, 22, 0.46);
-}
-
 .area-admin {
   background: rgba(236, 72, 153, 0.20);
   color: #be185d;
   border-color: rgba(236, 72, 153, 0.44);
 }
-
-.app-shell[data-theme="dark"] .area-engineering {
-  background: rgba(124, 58, 237, 0.34);
-  color: #f3e8ff;
-  border-color: rgba(216, 180, 254, 0.70);
+.area-production {
+  background: rgba(37, 99, 235, 0.18);
+  color: #1d4ed8;
+  border-color: rgba(37, 99, 235, 0.44);
 }
-
-.app-shell[data-theme="dark"] .area-production {
-  background: rgba(37, 99, 235, 0.32);
-  color: #eff6ff;
-  border-color: rgba(147, 197, 253, 0.68);
+.area-engineering {
+  background: rgba(249, 115, 22, 0.20);
+  color: #c2410c;
+  border-color: rgba(249, 115, 22, 0.46);
 }
-
-.app-shell[data-theme="dark"] .area-warehouse {
-  background: rgba(20, 184, 166, 0.34);
-  color: #f0fdfa;
-  border-color: rgba(153, 246, 228, 0.68);
+.area-logisticsqa {
+  background: rgba(20, 184, 166, 0.20);
+  color: #0f766e;
+  border-color: rgba(13, 148, 136, 0.46);
 }
-
-.app-shell[data-theme="dark"] .area-utilities {
-  background: rgba(249, 115, 22, 0.34);
-  color: #fff7ed;
-  border-color: rgba(253, 186, 116, 0.70);
+.area-rd {
+  background: rgba(124, 58, 237, 0.20);
+  color: #5b21b6;
+  border-color: rgba(124, 58, 237, 0.48);
 }
 
 .app-shell[data-theme="dark"] .area-admin {
@@ -3986,13 +3957,33 @@ body:has(.loading-aware-btn:disabled) * {
   color: #fdf2f8;
   border-color: rgba(251, 182, 206, 0.68);
 }
+.app-shell[data-theme="dark"] .area-production {
+  background: rgba(37, 99, 235, 0.30);
+  color: #eff6ff;
+  border-color: rgba(147, 197, 253, 0.68);
+}
+.app-shell[data-theme="dark"] .area-engineering {
+  background: rgba(249, 115, 22, 0.34);
+  color: #fff7ed;
+  border-color: rgba(253, 186, 116, 0.70);
+}
+.app-shell[data-theme="dark"] .area-logisticsqa {
+  background: rgba(20, 184, 166, 0.34);
+  color: #f0fdfa;
+  border-color: rgba(153, 246, 228, 0.68);
+}
+.app-shell[data-theme="dark"] .area-rd {
+  background: rgba(124, 58, 237, 0.34);
+  color: #f3e8ff;
+  border-color: rgba(216, 180, 254, 0.70);
+}
 
-/* Positions are relative to the real 1024x724 map image. */
-.zone-engineering { left: 46%; top: 4%; width: 22%; height: 25%; }
-.zone-production { left: 44%; top: 16%; width: 38%; height: 27%; }
-.zone-warehouse { left: 50%; top: 46%; width: 33%; height: 22%; }
-.zone-utilities { left: 28%; top: 59%; width: 14%; height: 13%; }
-.zone-admin { left: 42%; top: 45%; width: 16%; height: 18%; }
+/* Positions relative to the cropped 780x560 map asset. */
+.zone-rd { left: 9%; top: 26%; width: 13%; height: 15%; }
+.zone-engineering { left: 7%; top: 60%; width: 16%; height: 15%; }
+.zone-production { left: 29%; top: 11%; width: 52%; height: 42%; }
+.zone-logisticsqa { left: 39%; top: 45%; width: 17%; height: 10%; }
+.zone-admin { left: 32%; top: 50%; width: 16%; height: 15%; }
 
 @media (min-width: 1181px) {
   .workforce-map-page {
