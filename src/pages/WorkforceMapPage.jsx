@@ -252,8 +252,8 @@ export default function WorkforceMapPage() {
       <section className="panel center-panel workforce-full-span workforce-map-page workforce-map-svg-page">
         {error && <div className="error-box page-error">{error}</div>}
 
-        <div className="map-mockup-shell">
-          <aside className="map-floating-legend" onMouseLeave={() => setShowPeoplePopup(false)}>
+        <div className="map-mockup-shell" onMouseLeave={() => setShowPeoplePopup(false)}>
+          <aside className="map-floating-legend">
             <div className="map-side-title">Legend</div>
 
             <div className="map-legend-list">
