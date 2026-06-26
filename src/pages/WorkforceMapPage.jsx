@@ -4,12 +4,12 @@ import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
 const AREA_META = [
   { key: "admin", dataKey: "admin", label: "Admin", icon: "👤", className: "area-admin" },
-  { key: "savouryProduction", dataKey: "production", label: "Savoury Production", icon: "🏭", className: "area-production" },
-  { key: "dressingsProduction", dataKey: "production", label: "Dressings Production", icon: "🏭", className: "area-production" },
-  { key: "engineering", dataKey: "utilities", label: "Engineering", icon: "⚙", className: "area-engineering" },
-  { key: "logisticsqaSavoury", dataKey: "warehouse", label: "Logistics / QA Savoury", icon: "🧪", className: "area-logisticsqa" },
-  { key: "logisticsqaDressings", dataKey: "warehouse", label: "Logistics / QA Dressings", icon: "🧪", className: "area-logisticsqa" },
-  { key: "rd", dataKey: "engineering", label: "R&D", icon: "🔬", className: "area-rd" },
+  { key: "savouryProduction", dataKey: "savouryProduction", label: "Savoury Production", icon: "🏭", className: "area-production" },
+  { key: "dressingsProduction", dataKey: "dressingsProduction", label: "Dressings Production", icon: "🏭", className: "area-production" },
+  { key: "engineering", dataKey: "engineering", label: "Engineering", icon: "⚙", className: "area-engineering" },
+  { key: "logisticsqaSavoury", dataKey: "logisticsqaSavoury", label: "Logistics / QA Savoury", icon: "🧪", className: "area-logisticsqa" },
+  { key: "logisticsqaDressings", dataKey: "logisticsqaDressings", label: "Logistics / QA Dressings", icon: "🧪", className: "area-logisticsqa" },
+  { key: "rd", dataKey: "rd", label: "R&D", icon: "🔬", className: "area-rd" },
 ];
 
 /*
@@ -158,7 +158,9 @@ function formatMapTime(value) {
   }).format(date);
 }
 
-function getPeopleForLegendArea(mapPeople, area) {
+function getPeopleForLegendArea(mapPeople, area, areaData = {}) {
+  if (Array.isArray(areaData.people)) return areaData.people;
+
   const keys = new Set([area.key, area.dataKey].filter(Boolean));
 
   return (Array.isArray(mapPeople) ? mapPeople : [])
@@ -230,7 +232,7 @@ export default function WorkforceMapPage() {
             <div className="map-legend-list">
               {AREA_META.map((area) => {
                 const data = areaLookup.get(area.dataKey) || {};
-                const people = getPeopleForLegendArea(mapPeople, area);
+                const people = getPeopleForLegendArea(mapPeople, area, data);
                 const shownPeople = people.slice(0, 30);
 
                 return (

@@ -624,29 +624,39 @@ function summarizeDailyForTrend(daily, period) {
 
 const WORKFORCE_MAP_AREAS = [
   {
-    key: "engineering",
-    label: "Engineering",
-    keywords: ["engineering", "maintenance", "automation", "electrical", "mechanical", "instrument", "technician", "project"],
-  },
-  {
-    key: "production",
-    label: "Production",
-    keywords: ["production", "process", "packing", "packaging", "dressing", "dressings", "savoury", "condiments", "operator", "line", "filler", "mespack", "volpak", "fd", "cl"],
-  },
-  {
-    key: "warehouse",
-    label: "Warehouse",
-    keywords: ["warehouse", "logistics", "material", "store", "stores", "receiving", "dispatch", "rm", "pm", "fg", "forklift", "inventory"],
-  },
-  {
-    key: "utilities",
-    label: "Utilities",
-    keywords: ["utilities", "utility", "boiler", "compressor", "refrigeration", "wastewater", "waste water", "water", "power", "substation", "wwtp", "chiller", "cooling"],
-  },
-  {
     key: "admin",
     label: "Admin",
-    keywords: ["admin", "office", "hr", "finance", "quality", "qa", "qc", "r&d", "rnd", "lab", "laboratory", "ehs", "hse", "safety", "security"],
+    keywords: ["admin", "office", "hr", "finance", "ehs", "hse", "safety", "security"],
+  },
+  {
+    key: "savouryProduction",
+    label: "Savoury Production",
+    keywords: ["savoury", "cubes", "cube", "fd8", "fd12", "fd8b", "fd8c", "fd8d", "cybertron"],
+  },
+  {
+    key: "dressingsProduction",
+    label: "Dressings Production",
+    keywords: ["dressings", "dressing", "condiments", "cl01", "cl1", "cl02", "cl2", "cl03", "cl3", "cl04", "cl4", "cl05", "cl5", "cl06", "cl6", "cl07", "cl7", "cl08", "cl8", "cl09", "cl9", "cl10", "mespack", "volpak", "filler"],
+  },
+  {
+    key: "engineering",
+    label: "Engineering",
+    keywords: ["engineering", "maintenance", "automation", "electrical", "mechanical", "instrument", "technician", "project", "utilities", "utility", "boiler", "compressor", "refrigeration", "wastewater", "waste water", "water", "power", "substation", "wwtp", "chiller", "cooling"],
+  },
+  {
+    key: "logisticsqaSavoury",
+    label: "Logistics / QA Savoury",
+    keywords: ["qa savoury", "qc savoury", "quality savoury", "logistics savoury", "warehouse savoury", "savoury qa", "savoury qc", "savoury logistics", "savoury warehouse"],
+  },
+  {
+    key: "logisticsqaDressings",
+    label: "Logistics / QA Dressings",
+    keywords: ["qa dressings", "qc dressings", "quality dressings", "logistics dressings", "warehouse dressings", "dressings qa", "dressings qc", "dressings logistics", "dressings warehouse", "qa dressing", "qc dressing", "logistics dressing", "warehouse dressing"],
+  },
+  {
+    key: "rd",
+    label: "R&D",
+    keywords: ["r&d", "rnd", "research", "lab", "laboratory"],
   },
   {
     key: "other",
@@ -667,6 +677,7 @@ function makeMapAreaLookup() {
         exitedCount: 0,
         alarmCount: 0,
         groups: {},
+        people: [],
       },
     ])
   );
@@ -675,12 +686,25 @@ function makeMapAreaLookup() {
 function classifyMapArea(row) {
   const text = `${row?.persongroup || ""} ${row?.person || ""}`.toLowerCase();
 
+  const hasAny = (words) => words.some((word) => text.includes(word));
+  const isQaOrLogistics = hasAny(["qa", "qc", "quality", "logistics", "warehouse", "store", "stores", "material", "receiving", "dispatch", "rm", "pm", "fg", "forklift", "inventory"]);
+  const isSavoury = hasAny(["savoury", "cubes", "cube", "fd8", "fd12", "fd8b", "fd8c", "fd8d", "cybertron"]);
+  const isDressings = hasAny(["dressings", "dressing", "condiments", "cl01", "cl1", "cl02", "cl2", "cl03", "cl3", "cl04", "cl4", "cl05", "cl5", "cl06", "cl6", "cl07", "cl7", "cl08", "cl8", "cl09", "cl9", "cl10", "mespack", "volpak"]);
+
+  if (isQaOrLogistics && isSavoury) return "logisticsqaSavoury";
+  if (isQaOrLogistics && isDressings) return "logisticsqaDressings";
+  if (isSavoury) return "savouryProduction";
+  if (isDressings) return "dressingsProduction";
+
   for (const area of WORKFORCE_MAP_AREAS) {
     if (area.key === "other") continue;
+    if (area.key === "savouryProduction" || area.key === "dressingsProduction") continue;
+    if (area.key === "logisticsqaSavoury" || area.key === "logisticsqaDressings") continue;
     if (area.keywords.some((word) => text.includes(word))) return area.key;
   }
 
-  return "production";
+  // Fallback: keep unknown production people visible somewhere instead of losing them.
+  return "savouryProduction";
 }
 
 function compactAreaGroups(groups) {
@@ -1024,30 +1048,43 @@ app.get("/api/workforce/map", async (req, res) => {
       const areaKey = classifyMapArea(row);
       const area = areasByKey.get(areaKey) || areasByKey.get("other");
       const isActiveInside = Boolean(row.has_open_interval && !row.has_24h_alarm);
+      const has24HourAlarm = Boolean(row.has_24h_alarm);
+      const shouldShowInMapList = isActiveInside || has24HourAlarm;
       const groupName = row.persongroup || "Unknown";
+
+      const personPayload = {
+        person: row.person,
+        persongroup: groupName,
+        areaKey,
+        areaLabel: area.label,
+        isActiveInside,
+        has24HourAlarm,
+        scanIn: row.display_entry_time || row.entry_time,
+        scanOut: row.exit_time,
+        workHours: row.work_hours,
+        alarmReason: row.alarm_reason || "",
+      };
 
       area.totalToday += 1;
       if (isActiveInside) area.activeCount += 1;
       else area.exitedCount += 1;
-      if (row.has_24h_alarm) area.alarmCount += 1;
+      if (has24HourAlarm) area.alarmCount += 1;
+      if (shouldShowInMapList) area.people.push(personPayload);
       area.groups[groupName] = (Number(area.groups[groupName]) || 0) + 1;
 
-      people.push({
-        person: row.person,
-        persongroup: row.persongroup || "Unknown",
-        areaKey,
-        areaLabel: area.label,
-        isActiveInside,
-        has24HourAlarm: Boolean(row.has_24h_alarm),
-        scanIn: row.display_entry_time || row.entry_time,
-        scanOut: row.exit_time,
-        workHours: row.work_hours,
-      });
+      people.push(personPayload);
+    }
+
+    for (const area of areasByKey.values()) {
+      area.people.sort((a, b) => String(a.person || "").localeCompare(String(b.person || "")));
     }
 
     const areas = [...areasByKey.values()]
       .map((area) => ({
         ...area,
+        // The map number means unresolved people: still inside/no valid OUT + 24H No OUT.
+        // This makes the number always match the popover names.
+        activeCount: (Number(area.activeCount) || 0) + (Number(area.alarmCount) || 0),
         groups: compactAreaGroups(area.groups),
       }))
       .filter((area) => area.key !== "other" || area.totalToday > 0);
@@ -1061,12 +1098,13 @@ app.get("/api/workforce/map", async (req, res) => {
         occupiedAreas: areas.filter((area) => (Number(area.activeCount) || 0) > 0).length,
         alarmCount: areas.reduce((sum, area) => sum + (Number(area.alarmCount) || 0), 0),
         latestScan: latestScanMs ? new Date(latestScanMs).toISOString() : null,
-        countMode: "Active inside = people with IN scan and no valid OUT yet, capped at 24 hours.",
+        countMode: "Map number = people still inside/no valid OUT + 24H No OUT. Popover uses the same list.",
       },
       areas,
       people: people
+        .filter((person) => person.isActiveInside || person.has24HourAlarm)
         .sort((a, b) => String(a.areaLabel).localeCompare(String(b.areaLabel)) || String(a.person).localeCompare(String(b.person)))
-        .slice(0, 250),
+        .slice(0, 500),
     });
   } catch (err) {
     console.error("❌ WORKFORCE MAP ERROR:", err.message);
