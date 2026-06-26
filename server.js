@@ -719,8 +719,14 @@ app.get("/api/workforce/summary", async (req, res) => {
     const period = ["DAILY", "WEEKLY", "MONTHLY"].includes(periodRaw) ? periodRaw : "DAILY";
     const startDate = period === "MONTHLY" ? addDays(workforceDate, -185) : period === "WEEKLY" ? addDays(workforceDate, -56) : addDays(workforceDate, -13);
 
-    const scans = await queryScans(startDate, workforceDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
-    const daily = computeDailyRecords(scans, startDate, workforceDate);
+    // Align chart windows to complete periods.
+    // Without this, Weekly/Monthly charts can disagree because Working Hours may
+    // use a partial first week/month while Working Days uses the full week/month.
+    const trendStartDate = period === "DAILY" ? startDate : periodStartForDate(startDate, period);
+    const trendEndDate = period === "DAILY" ? workforceDate : periodEndForDate(workforceDate, period);
+
+    const scans = await queryScans(trendStartDate, trendEndDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
+    const daily = computeDailyRecords(scans, trendStartDate, trendEndDate);
     const selectedDaily = daily.filter((row) => row.workforce_date === workforceDate);
     const latestScanMs = selectedDaily.reduce((max, row) => {
       const rowLastScanMs = row.last_scan ? new Date(row.last_scan).getTime() : 0;
@@ -730,11 +736,9 @@ app.get("/api/workforce/summary", async (req, res) => {
     const daysPeriod = period === "DAILY" ? "WEEKLY" : period;
 
     // Working-days compliance must use complete weekly/monthly windows.
-    // Before this, the Daily view reused the 14-day daily scan window. That made
-    // a week appear as "1 day / 2 days only" when only part of that week was inside
-    // the Daily chart range. Weekly view looked correct because it pulled a wider range.
-    const daysStartDate = periodStartForDate(startDate, daysPeriod);
-    const daysEndDate = periodEndForDate(workforceDate, daysPeriod);
+    // Daily series still shows a weekly working-days chart, so align it to full weeks.
+    const daysStartDate = periodStartForDate(trendStartDate, daysPeriod);
+    const daysEndDate = periodEndForDate(trendEndDate, daysPeriod);
     const daysScans = await queryScans(daysStartDate, daysEndDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
     const daysDaily = computeDailyRecords(daysScans, daysStartDate, daysEndDate);
 
