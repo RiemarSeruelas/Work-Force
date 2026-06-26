@@ -178,6 +178,23 @@ function periodStartForDate(dateString, period) {
   return dateString;
 }
 
+function periodEndForDate(dateString, period) {
+  const date = new Date(`${dateString}T12:00:00+08:00`);
+
+  if (period === "MONTHLY") {
+    // Last calendar day of the selected month.
+    return formatDateOnly(new Date(date.getFullYear(), date.getMonth() + 1, 0));
+  }
+
+  if (period === "WEEKLY") {
+    // Sunday of the selected ISO/Monday-start week.
+    const start = periodStartForDate(dateString, "WEEKLY");
+    return addDays(start, 6);
+  }
+
+  return dateString;
+}
+
 function getModeDirection(row) {
   const mode = String(row?.l_mode ?? "")
     .trim()
@@ -712,6 +729,15 @@ app.get("/api/workforce/summary", async (req, res) => {
 
     const daysPeriod = period === "DAILY" ? "WEEKLY" : period;
 
+    // Working-days compliance must use complete weekly/monthly windows.
+    // Before this, the Daily view reused the 14-day daily scan window. That made
+    // a week appear as "1 day / 2 days only" when only part of that week was inside
+    // the Daily chart range. Weekly view looked correct because it pulled a wider range.
+    const daysStartDate = periodStartForDate(startDate, daysPeriod);
+    const daysEndDate = periodEndForDate(workforceDate, daysPeriod);
+    const daysScans = await queryScans(daysStartDate, daysEndDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
+    const daysDaily = computeDailyRecords(daysScans, daysStartDate, daysEndDate);
+
     res.json({
       workforceDate,
       group,
@@ -724,7 +750,7 @@ app.get("/api/workforce/summary", async (req, res) => {
       latestScan: latestScanMs ? new Date(latestScanMs).toISOString() : null,
       timeSeries: summarizeDailyForTrend(daily, period),
       daysPeriod,
-      daysTimeSeries: summarizeDailyForTrend(daily, daysPeriod),
+      daysTimeSeries: summarizeDailyForTrend(daysDaily, daysPeriod),
       dayRule: "L_TID determines IN and OUT first. L_Mode is only used as fallback. The workforce day is 06:00-05:59. Same-workforce-day duplicate IN scans do not reset the interval. An IN on the next workforce day closes the previous open interval at the 06:00 boundary and starts a new visit. Cross-midnight work with a valid OUT still counts back to the original IN workforce date. A person is capped at 24 hours if no valid OUT scan is found within 24 hours. More than 4 hours counts as 1 working day.",
     });
   } catch (err) {
