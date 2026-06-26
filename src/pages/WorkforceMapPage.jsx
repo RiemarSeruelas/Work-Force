@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AppShell from "../components/AppShell.jsx";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
@@ -180,6 +180,7 @@ export default function WorkforceMapPage() {
   const loading = useWorkforceStore((s) => s.loading);
   const error = useWorkforceStore((s) => s.error);
   const fetchMap = useWorkforceStore((s) => s.fetchMap);
+  const [selectedAreaKey, setSelectedAreaKey] = useState("");
 
   useEffect(() => {
     fetchMap?.();
@@ -188,6 +189,26 @@ export default function WorkforceMapPage() {
   const areaLookup = useMemo(() => {
     return new Map((mapAreas || []).map((area) => [area.key, area]));
   }, [mapAreas]);
+
+  const selectedArea = useMemo(() => {
+    if (selectedAreaKey) {
+      return AREA_META.find((area) => area.key === selectedAreaKey) || AREA_META[0];
+    }
+
+    return (
+      AREA_META.find((area) => {
+        const data = areaLookup.get(area.dataKey) || {};
+        const people = getPeopleForLegendArea(mapPeople, area, data);
+        return people.length > 0;
+      }) || AREA_META[0]
+    );
+  }, [areaLookup, mapPeople, selectedAreaKey]);
+
+  const selectedAreaData = selectedArea ? areaLookup.get(selectedArea.dataKey) || {} : {};
+  const selectedAreaPeople = selectedArea
+    ? getPeopleForLegendArea(mapPeople, selectedArea, selectedAreaData)
+    : [];
+  const selectedShownPeople = selectedAreaPeople.slice(0, 80);
 
   const controls = (
     <>
@@ -324,6 +345,45 @@ export default function WorkforceMapPage() {
               </svg>
             </div>
           </div>
+
+          <aside className="map-people-panel">
+            <div className="map-people-panel-header">
+              <span>Selected Area</span>
+              <h3>{selectedArea?.label || "Area"}</h3>
+              <p>
+                {selectedAreaPeople.length
+                  ? `${selectedAreaPeople.length} person${selectedAreaPeople.length === 1 ? "" : "s"} still inside / no valid OUT`
+                  : "No people with open/no-OUT status in this area."}
+              </p>
+            </div>
+
+            <div className="map-people-panel-list">
+              {selectedShownPeople.map((person, index) => (
+                <div className="map-people-row" key={`${selectedArea?.key}-${person.person}-${index}`}>
+                  <div>
+                    <b>{person.person || "Unknown"}</b>
+                    <span>{person.persongroup || "Unknown group"}</span>
+                  </div>
+                  <em>
+                    {person.has24HourAlarm ? "24H No OUT" : "Inside"}
+                    {person.scanIn ? ` · IN ${formatMapTime(person.scanIn)}` : ""}
+                  </em>
+                </div>
+              ))}
+
+              {!selectedAreaPeople.length ? (
+                <div className="map-people-empty">
+                  Hover or click another legend row to check that area.
+                </div>
+              ) : null}
+
+              {selectedAreaPeople.length > selectedShownPeople.length ? (
+                <div className="map-people-more">
+                  +{selectedAreaPeople.length - selectedShownPeople.length} more people
+                </div>
+              ) : null}
+            </div>
+          </aside>
         </div>
       </section>
     </AppShell>
