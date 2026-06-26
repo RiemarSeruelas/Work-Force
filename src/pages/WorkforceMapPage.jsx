@@ -146,6 +146,27 @@ function getAreaData(areaLookup, areaKey) {
   return areaLookup.get(meta?.dataKey || areaKey) || {};
 }
 
+function formatMapTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Manila",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+}
+
+function getPeopleForLegendArea(mapPeople, area) {
+  const keys = new Set([area.key, area.dataKey].filter(Boolean));
+
+  return (Array.isArray(mapPeople) ? mapPeople : [])
+    .filter((person) => keys.has(person.areaKey))
+    .filter((person) => person.isActiveInside || person.has24HourAlarm)
+    .sort((a, b) => String(a.person || "").localeCompare(String(b.person || "")));
+}
+
 export default function WorkforceMapPage() {
   const workforceDate = useWorkforceStore((s) => s.workforceDate);
   const setWorkforceDate = useWorkforceStore((s) => s.setWorkforceDate);
@@ -153,6 +174,7 @@ export default function WorkforceMapPage() {
   const setGroup = useWorkforceStore((s) => s.setGroup);
   const mapSummary = useWorkforceStore((s) => s.mapSummary);
   const mapAreas = useWorkforceStore((s) => s.mapAreas);
+  const mapPeople = useWorkforceStore((s) => s.mapPeople);
   const loading = useWorkforceStore((s) => s.loading);
   const error = useWorkforceStore((s) => s.error);
   const fetchMap = useWorkforceStore((s) => s.fetchMap);
@@ -208,11 +230,46 @@ export default function WorkforceMapPage() {
             <div className="map-legend-list">
               {AREA_META.map((area) => {
                 const data = areaLookup.get(area.dataKey) || {};
+                const people = getPeopleForLegendArea(mapPeople, area);
+                const shownPeople = people.slice(0, 30);
+
                 return (
-                  <div className={`map-legend-row ${area.className}`} key={area.key}>
+                  <div className={`map-legend-row ${area.className}`} key={area.key} tabIndex={0}>
                     <span className={`map-legend-icon ${area.className}`}>{area.icon}</span>
                     <span className="map-legend-name">{area.label}</span>
                     <b>{Number(data.activeCount) || 0}</b>
+
+                    <div className="map-legend-popover" role="tooltip">
+                      <div className="map-popover-title">{area.label}</div>
+                      <div className="map-popover-subtitle">
+                        {people.length
+                          ? `${people.length} person${people.length === 1 ? "" : "s"} with no valid OUT / still inside`
+                          : "No people with open/no-OUT status in this area."}
+                      </div>
+
+                      {shownPeople.length ? (
+                        <div className="map-popover-list">
+                          {shownPeople.map((person, index) => (
+                            <div className="map-popover-person" key={`${area.key}-${person.person}-${index}`}>
+                              <span>
+                                <b>{person.person || "Unknown"}</b>
+                                <small>{person.persongroup || "Unknown group"}</small>
+                              </span>
+                              <em>
+                                {person.has24HourAlarm ? "24H No OUT" : "Inside"}
+                                {person.scanIn ? ` · IN ${formatMapTime(person.scanIn)}` : ""}
+                              </em>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
+
+                      {people.length > shownPeople.length ? (
+                        <div className="map-popover-more">
+                          +{people.length - shownPeople.length} more
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 );
               })}
