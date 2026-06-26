@@ -182,6 +182,7 @@ export default function WorkforceMapPage() {
   const fetchMap = useWorkforceStore((s) => s.fetchMap);
   const [selectedAreaKey, setSelectedAreaKey] = useState("");
   const [showPeoplePopup, setShowPeoplePopup] = useState(false);
+  const [visiblePeopleLimit, setVisiblePeopleLimit] = useState(20);
 
   useEffect(() => {
     fetchMap?.();
@@ -209,11 +210,25 @@ export default function WorkforceMapPage() {
   const selectedAreaPeople = selectedArea
     ? getPeopleForLegendArea(mapPeople, selectedArea, selectedAreaData)
     : [];
-  const selectedShownPeople = selectedAreaPeople.slice(0, 80);
+  const selectedShownPeople = selectedAreaPeople.slice(0, visiblePeopleLimit);
 
   function selectLegendArea(areaKey) {
-    setSelectedAreaKey(areaKey);
+    setSelectedAreaKey((currentAreaKey) => {
+      if (currentAreaKey !== areaKey) setVisiblePeopleLimit(20);
+      return areaKey;
+    });
     setShowPeoplePopup(true);
+  }
+
+  function handlePeoplePanelScroll(event) {
+    const el = event.currentTarget;
+    const nearBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 70;
+
+    if (nearBottom && visiblePeopleLimit < selectedAreaPeople.length) {
+      setVisiblePeopleLimit((currentLimit) =>
+        Math.min(currentLimit + 20, selectedAreaPeople.length)
+      );
+    }
   }
 
   const controls = (
@@ -341,7 +356,7 @@ export default function WorkforceMapPage() {
               </p>
             </div>
 
-            <div className="map-people-panel-list">
+            <div className="map-people-panel-list" onScroll={handlePeoplePanelScroll}>
               {selectedShownPeople.map((person, index) => (
                 <div className="map-people-row" key={`${selectedArea?.key}-${person.person}-${index}`}>
                   <div>
@@ -363,7 +378,7 @@ export default function WorkforceMapPage() {
 
               {selectedAreaPeople.length > selectedShownPeople.length ? (
                 <div className="map-people-more">
-                  +{selectedAreaPeople.length - selectedShownPeople.length} more people
+                  Scroll for {selectedAreaPeople.length - selectedShownPeople.length} more people
                 </div>
               ) : null}
             </div>

@@ -5390,3 +5390,147 @@ body:has(.loading-aware-btn:disabled) * {
     grid-column: auto !important;
   }
 }
+
+
+/* =========================================================
+   Workforce Map popup polish
+   - React lazy list: 20 people first, scroll loads 20 more
+   - Map centered in its own column
+   - Popup smaller
+   - Blue custom scrollbars for light and dark mode
+========================================================= */
+.map-mockup-shell {
+  grid-template-columns: 220px minmax(0, 1fr) 285px !important;
+  align-items: stretch !important;
+  overflow: hidden !important;
+}
+
+.map-clean-stage {
+  display: grid !important;
+  place-items: center !important;
+  justify-items: center !important;
+  align-items: center !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+
+.map-clean-frame {
+  margin-inline: auto !important;
+  width: min(100%, calc((100vh - 245px) * 1.24)) !important;
+  max-width: 100% !important;
+}
+
+.map-people-floating-panel {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 285px !important;
+  border-radius: 15px !important;
+}
+
+.map-people-floating-panel .map-people-panel-header {
+  padding: 11px 12px 10px !important;
+}
+
+.map-people-floating-panel .map-people-panel-header h3 {
+  font-size: 13px !important;
+}
+
+.map-people-floating-panel .map-people-panel-header p {
+  font-size: 10px !important;
+}
+
+.map-people-floating-panel .map-people-panel-list {
+  padding: 7px !important;
+  gap: 6px !important;
+  scrollbar-width: thin;
+  scrollbar-color: #2563eb rgba(37, 99, 235, 0.12);
+}
+
+.app-shell[data-theme="dark"] .map-people-floating-panel .map-people-panel-list {
+  scrollbar-color: #38bdf8 rgba(56, 189, 248, 0.12);
+}
+
+.map-people-floating-panel .map-people-panel-list::-webkit-scrollbar {
+  width: 9px;
+}
+
+.map-people-floating-panel .map-people-panel-list::-webkit-scrollbar-track {
+  background: rgba(37, 99, 235, 0.10);
+  border-radius: 999px;
+}
+
+.map-people-floating-panel .map-people-panel-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #60a5fa, #2563eb);
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.70);
+}
+
+.map-people-floating-panel .map-people-panel-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #93c5fd, #1d4ed8);
+}
+
+.app-shell[data-theme="dark"] .map-people-floating-panel .map-people-panel-list::-webkit-scrollbar-track {
+  background: rgba(56, 189, 248, 0.12);
+}
+
+.app-shell[data-theme="dark"] .map-people-floating-panel .map-people-panel-list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #7dd3fc, #0284c7);
+  border-color: rgba(15, 23, 42, 0.88);
+}
+
+.app-shell[data-theme="dark"] .map-people-floating-panel .map-people-panel-list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #bae6fd, #0369a1);
+}
+
+.map-people-floating-panel .map-people-row {
+  padding: 8px !important;
+  gap: 6px !important;
+  border-radius: 12px !important;
+}
+
+.map-people-floating-panel .map-people-row b {
+  font-size: 11px !important;
+}
+
+.map-people-floating-panel .map-people-row span {
+  font-size: 9px !important;
+}
+
+.map-people-floating-panel .map-people-row em {
+  font-size: 8.5px !important;
+  padding: 4px 7px !important;
+}
+
+.map-people-floating-panel .map-people-empty,
+.map-people-floating-panel .map-people-more {
+  padding: 10px 9px !important;
+  font-size: 10px !important;
+}
+
+@media (max-width: 1500px) {
+  .map-mockup-shell {
+    grid-template-columns: 210px minmax(0, 1fr) 270px !important;
+  }
+
+  .map-people-floating-panel {
+    max-width: 270px !important;
+  }
+
+  .map-clean-frame {
+    width: min(100%, calc((100vh - 250px) * 1.18)) !important;
+  }
+}
+
+@media (max-width: 1280px) {
+  .map-mockup-shell {
+    grid-template-columns: 200px minmax(0, 1fr) 250px !important;
+  }
+
+  .map-people-floating-panel {
+    max-width: 250px !important;
+  }
+
+  .map-clean-frame {
+    width: min(100%, calc((100vh - 255px) * 1.10)) !important;
+  }
+}
