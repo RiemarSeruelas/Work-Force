@@ -181,6 +181,7 @@ export default function WorkforceMapPage() {
   const error = useWorkforceStore((s) => s.error);
   const fetchMap = useWorkforceStore((s) => s.fetchMap);
   const [selectedAreaKey, setSelectedAreaKey] = useState("");
+  const [showPeoplePopup, setShowPeoplePopup] = useState(false);
 
   useEffect(() => {
     fetchMap?.();
@@ -209,6 +210,11 @@ export default function WorkforceMapPage() {
     ? getPeopleForLegendArea(mapPeople, selectedArea, selectedAreaData)
     : [];
   const selectedShownPeople = selectedAreaPeople.slice(0, 80);
+
+  function selectLegendArea(areaKey) {
+    setSelectedAreaKey(areaKey);
+    setShowPeoplePopup(true);
+  }
 
   const controls = (
     <>
@@ -247,53 +253,27 @@ export default function WorkforceMapPage() {
         {error && <div className="error-box page-error">{error}</div>}
 
         <div className="map-mockup-shell">
-          <aside className="map-floating-legend">
+          <aside className="map-floating-legend" onMouseLeave={() => setShowPeoplePopup(false)}>
             <div className="map-side-title">Legend</div>
 
             <div className="map-legend-list">
               {AREA_META.map((area) => {
                 const data = areaLookup.get(area.dataKey) || {};
-                const people = getPeopleForLegendArea(mapPeople, area, data);
-                const shownPeople = people.slice(0, 30);
-
                 return (
-                  <div className={`map-legend-row ${area.className}`} key={area.key} tabIndex={0}>
+                  <button
+                    type="button"
+                    className={`map-legend-row map-legend-button ${area.className} ${
+                      selectedArea?.key === area.key && showPeoplePopup ? "active" : ""
+                    }`}
+                    key={area.key}
+                    onMouseEnter={() => selectLegendArea(area.key)}
+                    onFocus={() => selectLegendArea(area.key)}
+                    onClick={() => selectLegendArea(area.key)}
+                  >
                     <span className={`map-legend-icon ${area.className}`}>{area.icon}</span>
                     <span className="map-legend-name">{area.label}</span>
                     <b>{Number(data.activeCount) || 0}</b>
-
-                    <div className="map-legend-popover" role="tooltip">
-                      <div className="map-popover-title">{area.label}</div>
-                      <div className="map-popover-subtitle">
-                        {people.length
-                          ? `${people.length} person${people.length === 1 ? "" : "s"} with no valid OUT / still inside`
-                          : "No people with open/no-OUT status in this area."}
-                      </div>
-
-                      {shownPeople.length ? (
-                        <div className="map-popover-list">
-                          {shownPeople.map((person, index) => (
-                            <div className="map-popover-person" key={`${area.key}-${person.person}-${index}`}>
-                              <span>
-                                <b>{person.person || "Unknown"}</b>
-                                <small>{person.persongroup || "Unknown group"}</small>
-                              </span>
-                              <em>
-                                {person.has24HourAlarm ? "24H No OUT" : "Inside"}
-                                {person.scanIn ? ` · IN ${formatMapTime(person.scanIn)}` : ""}
-                              </em>
-                            </div>
-                          ))}
-                        </div>
-                      ) : null}
-
-                      {people.length > shownPeople.length ? (
-                        <div className="map-popover-more">
-                          +{people.length - shownPeople.length} more
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -346,7 +326,11 @@ export default function WorkforceMapPage() {
             </div>
           </div>
 
-          <aside className="map-people-panel">
+          <aside
+            className={`map-people-floating-panel ${showPeoplePopup ? "is-open" : ""}`}
+            onMouseEnter={() => setShowPeoplePopup(true)}
+            onMouseLeave={() => setShowPeoplePopup(false)}
+          >
             <div className="map-people-panel-header">
               <span>Selected Area</span>
               <h3>{selectedArea?.label || "Area"}</h3>
@@ -373,7 +357,7 @@ export default function WorkforceMapPage() {
 
               {!selectedAreaPeople.length ? (
                 <div className="map-people-empty">
-                  Hover or click another legend row to check that area.
+                  Hover another legend row to check that area.
                 </div>
               ) : null}
 
