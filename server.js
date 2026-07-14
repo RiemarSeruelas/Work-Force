@@ -30,6 +30,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const OUT_SCAN_LOOKAHEAD_DAYS = 1;
 const MAX_WORK_HOURS_PER_PERSON = 24;
 const MAX_WORK_INTERVAL_MS = MAX_WORK_HOURS_PER_PERSON * 60 * 60 * 1000;
+const RECENT_SYNC_DAYS = Number(process.env.WORKFORCE_RECENT_SYNC_DAYS || 14);
 
 function getManilaDateParts(date = new Date()) {
   return new Date(date.toLocaleString("en-US", { timeZone: MANILA_TZ }));
@@ -716,10 +717,523 @@ function compactAreaGroups(groups) {
 }
 
 
+let workforceUpdateReadyPromise = null;
+
+async function ensureWorkforceUpdateTable() {
+  if (!workforceUpdateReadyPromise) {
+    workforceUpdateReadyPromise = pool.query(`
+      CREATE SCHEMA IF NOT EXISTS app;
+
+      CREATE TABLE IF NOT EXISTS app.workforceupdate (
+        id BIGSERIAL PRIMARY KEY,
+        record_type TEXT NOT NULL DEFAULT 'person',
+        workforce_date DATE NOT NULL,
+        person_key TEXT NOT NULL,
+        l_uid TEXT,
+        person TEXT,
+        persongroup TEXT,
+        workforce_group TEXT,
+        entry_time TIMESTAMPTZ,
+        display_entry_time TIMESTAMPTZ,
+        last_scan TIMESTAMPTZ,
+        exit_time TIMESTAMPTZ,
+        scan_count INTEGER DEFAULT 0,
+        has_out_scan BOOLEAN DEFAULT FALSE,
+        has_open_interval BOOLEAN DEFAULT FALSE,
+        has_24h_alarm BOOLEAN DEFAULT FALSE,
+        alarm_reason TEXT,
+        work_hours_raw NUMERIC(10, 4) DEFAULT 0,
+        work_hours NUMERIC(10, 2) DEFAULT 0,
+        hours_bucket TEXT,
+        counted_day BOOLEAN DEFAULT FALSE,
+        area_key TEXT,
+        source_scan_count INTEGER DEFAULT 0,
+        source_latest_scan TIMESTAMPTZ,
+        calculated_at TIMESTAMPTZ DEFAULT NOW(),
+        updated_at TIMESTAMPTZ DEFAULT NOW(),
+        UNIQUE (workforce_date, record_type, person_key)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_workforceupdate_date
+        ON app.workforceupdate (workforce_date);
+
+      CREATE INDEX IF NOT EXISTS idx_workforceupdate_type_date
+        ON app.workforceupdate (record_type, workforce_date);
+
+      CREATE INDEX IF NOT EXISTS idx_workforceupdate_group_date
+        ON app.workforceupdate (persongroup, workforce_date);
+
+      CREATE INDEX IF NOT EXISTS idx_workforceupdate_area_date
+        ON app.workforceupdate (area_key, workforce_date);
+
+      CREATE INDEX IF NOT EXISTS idx_workforceupdate_source_latest
+        ON app.workforceupdate (source_latest_scan);
+    `);
+  }
+
+  return workforceUpdateReadyPromise;
+}
+
+function toDateOnly(value) {
+  if (!value) return null;
+  const text = String(value);
+  const match = text.match(/\d{4}-\d{2}-\d{2}/);
+  if (match) return match[0];
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : formatDateOnly(date);
+}
+
+function toIsoOrNull(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function daysBetweenInclusive(fromDate, toDate) {
+  const fromMs = new Date(`${fromDate}T12:00:00+08:00`).getTime();
+  const toMs = new Date(`${toDate}T12:00:00+08:00`).getTime();
+  if (Number.isNaN(fromMs) || Number.isNaN(toMs) || toMs < fromMs) return 0;
+  return Math.floor((toMs - fromMs) / DAY_MS) + 1;
+}
+
+function listDatesInclusive(fromDate, toDate) {
+  const days = daysBetweenInclusive(fromDate, toDate);
+  return Array.from({ length: days }, (_, index) => addDays(fromDate, index));
+}
+
+function isRecentWorkforceDate(dateString) {
+  const today = getWorkforceDateManila();
+  const recentStart = addDays(today, -RECENT_SYNC_DAYS);
+  return String(dateString) >= recentStart;
+}
+
+function normalizeCachedDailyRow(row) {
+  const workHoursRaw = Number(row.work_hours_raw) || 0;
+  const workHours = Number(row.work_hours) || Number(workHoursRaw.toFixed(2));
+
+  return {
+    workforce_date: toDateOnly(row.workforce_date),
+    person_key: row.person_key,
+    l_uid: row.l_uid,
+    person: row.person,
+    persongroup: row.persongroup || "Unknown",
+    workforce_group: row.workforce_group || (isContractor(row.persongroup) ? "CONTRACTOR" : "FTE"),
+    entry_time: toIsoOrNull(row.entry_time),
+    display_entry_time: toIsoOrNull(row.display_entry_time) || toIsoOrNull(row.entry_time),
+    last_scan: toIsoOrNull(row.last_scan),
+    exit_time: toIsoOrNull(row.exit_time),
+    scan_count: Number(row.scan_count) || 0,
+    has_out_scan: Boolean(row.has_out_scan),
+    has_open_interval: Boolean(row.has_open_interval),
+    has_24h_alarm: Boolean(row.has_24h_alarm),
+    alarm_reason: row.alarm_reason || null,
+    work_hours_raw: workHoursRaw,
+    work_hours: Number(workHours.toFixed(2)),
+    hours_bucket:
+      row.hours_bucket ||
+      (workHoursRaw >= 12 ? "hours_12_plus" : workHoursRaw > 10 ? "hours_10_12" : workHoursRaw > 8 ? "hours_8_10" : "hours_8_or_less"),
+    counted_day: Boolean(row.counted_day),
+    area_key: row.area_key || classifyMapArea(row),
+  };
+}
+
+async function querySourceFingerprint(workforceDate) {
+  const fromMs = startOfManilaDayMs(workforceDate);
+  const toMs = windowEndMs(workforceDate) + OUT_SCAN_LOOKAHEAD_DAYS * DAY_MS;
+  const fromText = new Date(fromMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
+  const toText = new Date(toMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
+
+  const result = await pool.query(
+    `
+    SELECT
+      COUNT(*)::int AS source_scan_count,
+      TO_CHAR(MAX(("C_Date"::date + "C_Time"::time)), 'YYYY-MM-DD HH24:MI:SS') AS source_latest_scan_text
+    FROM "hkvision"."tbhikvision"
+    WHERE ("C_Date"::date + "C_Time"::time) >= $1::timestamp
+      AND ("C_Date"::date + "C_Time"::time) <= $2::timestamp
+      AND COALESCE(TRIM("Person"), '') <> ''
+    `,
+    [fromText, toText]
+  );
+
+  const row = result.rows[0] || {};
+  const latestDate = parseScanTs(row.source_latest_scan_text);
+
+  return {
+    source_scan_count: Number(row.source_scan_count) || 0,
+    source_latest_scan_iso: latestDate ? latestDate.toISOString() : null,
+  };
+}
+
+async function getCachedFingerprint(workforceDate) {
+  await ensureWorkforceUpdateTable();
+
+  const result = await pool.query(
+    `
+    SELECT source_scan_count, source_latest_scan
+    FROM app.workforceupdate
+    WHERE workforce_date = $1::date
+      AND record_type = 'meta'
+      AND person_key = '__meta__'
+    LIMIT 1
+    `,
+    [workforceDate]
+  );
+
+  if (!result.rows.length) return null;
+
+  const row = result.rows[0];
+  return {
+    source_scan_count: Number(row.source_scan_count) || 0,
+    source_latest_scan_iso: toIsoOrNull(row.source_latest_scan),
+  };
+}
+
+function fingerprintMatches(source, cached) {
+  if (!cached) return false;
+  const sourceLatestMs = source?.source_latest_scan_iso ? new Date(source.source_latest_scan_iso).getTime() : 0;
+  const cachedLatestMs = cached?.source_latest_scan_iso ? new Date(cached.source_latest_scan_iso).getTime() : 0;
+
+  return (
+    Number(source?.source_scan_count || 0) === Number(cached?.source_scan_count || 0) &&
+    sourceLatestMs === cachedLatestMs
+  );
+}
+
+async function refreshWorkforceDateCache(workforceDate, options = {}) {
+  await ensureWorkforceUpdateTable();
+
+  const force = Boolean(options.force);
+  const cached = await getCachedFingerprint(workforceDate);
+  const isRecent = isRecentWorkforceDate(workforceDate);
+
+  // Optimization:
+  // - Last 14 workforce days: compare source Hikvision fingerprint, then recalculate only if changed.
+  // - Older than 14 days: trust app.workforceupdate if cache already exists, no source compare.
+  // - If an old date is missing from cache, calculate it once and store it.
+  if (!force && cached && !isRecent) {
+    return {
+      workforceDate,
+      updated: false,
+      skippedSourceCompare: true,
+      reason: "historical-cache",
+    };
+  }
+
+  const source = await querySourceFingerprint(workforceDate);
+
+  if (!force && fingerprintMatches(source, cached)) {
+    return { workforceDate, updated: false, comparedSource: true };
+  }
+
+  const scans = await queryScans(workforceDate, workforceDate, "ALL", "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
+  const daily = computeDailyRecords(scans, workforceDate, workforceDate).map((row) => ({
+    ...row,
+    area_key: classifyMapArea(row),
+  }));
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+
+    await client.query("DELETE FROM app.workforceupdate WHERE workforce_date = $1::date", [workforceDate]);
+
+    await client.query(
+      `
+      INSERT INTO app.workforceupdate (
+        record_type,
+        workforce_date,
+        person_key,
+        source_scan_count,
+        source_latest_scan,
+        calculated_at,
+        updated_at
+      )
+      VALUES ('meta', $1::date, '__meta__', $2::int, $3::timestamptz, NOW(), NOW())
+      `,
+      [workforceDate, source.source_scan_count, source.source_latest_scan_iso]
+    );
+
+    if (daily.length > 0) {
+      await client.query(
+        `
+        INSERT INTO app.workforceupdate (
+          record_type,
+          workforce_date,
+          person_key,
+          l_uid,
+          person,
+          persongroup,
+          workforce_group,
+          entry_time,
+          display_entry_time,
+          last_scan,
+          exit_time,
+          scan_count,
+          has_out_scan,
+          has_open_interval,
+          has_24h_alarm,
+          alarm_reason,
+          work_hours_raw,
+          work_hours,
+          hours_bucket,
+          counted_day,
+          area_key,
+          source_scan_count,
+          source_latest_scan,
+          calculated_at,
+          updated_at
+        )
+        SELECT
+          'person',
+          x.workforce_date::date,
+          x.person_key,
+          x.l_uid,
+          x.person,
+          COALESCE(x.persongroup, 'Unknown'),
+          x.workforce_group,
+          x.entry_time::timestamptz,
+          x.display_entry_time::timestamptz,
+          x.last_scan::timestamptz,
+          x.exit_time::timestamptz,
+          COALESCE(x.scan_count, 0),
+          COALESCE(x.has_out_scan, false),
+          COALESCE(x.has_open_interval, false),
+          COALESCE(x.has_24h_alarm, false),
+          x.alarm_reason,
+          COALESCE(x.work_hours_raw, 0),
+          COALESCE(x.work_hours, 0),
+          x.hours_bucket,
+          COALESCE(x.counted_day, false),
+          x.area_key,
+          $2::int,
+          $3::timestamptz,
+          NOW(),
+          NOW()
+        FROM jsonb_to_recordset($1::jsonb) AS x(
+          workforce_date text,
+          person_key text,
+          l_uid text,
+          person text,
+          persongroup text,
+          workforce_group text,
+          entry_time text,
+          display_entry_time text,
+          last_scan text,
+          exit_time text,
+          scan_count int,
+          has_out_scan boolean,
+          has_open_interval boolean,
+          has_24h_alarm boolean,
+          alarm_reason text,
+          work_hours_raw numeric,
+          work_hours numeric,
+          hours_bucket text,
+          counted_day boolean,
+          area_key text
+        )
+        `,
+        [JSON.stringify(daily), source.source_scan_count, source.source_latest_scan_iso]
+      );
+    }
+
+    await client.query("COMMIT");
+    return {
+      workforceDate,
+      updated: true,
+      rowCount: daily.length,
+      comparedSource: true,
+      isRecent,
+    };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function syncWorkforceCacheForRange(fromDate, toDate, options = {}) {
+  const dates = listDatesInclusive(fromDate, toDate);
+  const maxDays = Number(options.maxDays || 370);
+
+  if (dates.length > maxDays) {
+    throw new Error(`Cache range too large (${dates.length} days). Narrow the date range or use a person history search.`);
+  }
+
+  for (const date of dates) {
+    await refreshWorkforceDateCache(date, options);
+  }
+}
+
+async function getCachedDailyRecordsForRange(fromDate, toDate, group = "ALL", search = "", options = {}) {
+  if (!options.skipSync) {
+    await syncWorkforceCacheForRange(fromDate, toDate, options);
+  }
+
+  const result = await pool.query(
+    `
+    SELECT *
+    FROM app.workforceupdate
+    WHERE record_type = 'person'
+      AND workforce_date >= $1::date
+      AND workforce_date <= $2::date
+    ORDER BY workforce_date ASC, persongroup ASC, person ASC
+    `,
+    [fromDate, toDate]
+  );
+
+  const searchText = String(search || "").trim().toLowerCase();
+
+  return result.rows
+    .map(normalizeCachedDailyRow)
+    .filter((row) => groupAllowed(row.persongroup, group))
+    .filter((row) => {
+      if (!searchText) return true;
+      return (
+        String(row.person || "").toLowerCase().includes(searchText) ||
+        String(row.persongroup || "").toLowerCase().includes(searchText) ||
+        String(row.l_uid || "").toLowerCase().includes(searchText)
+      );
+    });
+}
+
+async function getDailyRecordsWithFallback({ fromDate, toDate, group = "ALL", search = "", allowLargeHistory = false, skipSync = false }) {
+  const dayCount = daysBetweenInclusive(fromDate, toDate);
+
+  if (allowLargeHistory || dayCount > 370) {
+    const scans = await queryScans(fromDate, toDate, group, search, { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
+    let rows = computeDailyRecords(scans, fromDate, toDate);
+
+    const searchText = String(search || "").trim().toLowerCase();
+    if (searchText) {
+      rows = rows.filter((row) =>
+        String(row.person || "").toLowerCase().includes(searchText) ||
+        String(row.persongroup || "").toLowerCase().includes(searchText) ||
+        String(row.l_uid || "").toLowerCase().includes(searchText)
+      );
+    }
+
+    return rows;
+  }
+
+  return getCachedDailyRecordsForRange(fromDate, toDate, group, search, { skipSync });
+}
+
+
+
+function resolveCheckUpdateRange(query) {
+  const currentWeek = getCurrentIsoWeekManila();
+
+  if (query.year || query.week) {
+    return getWeekDateRangeManila(
+      Number(query.year || currentWeek.year),
+      Number(query.week || currentWeek.week)
+    );
+  }
+
+  const rawDate = String(query.date || getWorkforceDateManila());
+  const fromDate = String(query.from || rawDate);
+  const toDate = String(query.to || rawDate);
+
+  return { fromDate, toDate };
+}
+
+app.get("/api/workforce/check-update", async (req, res) => {
+  try {
+    await ensureWorkforceUpdateTable();
+
+    const { fromDate, toDate } = resolveCheckUpdateRange(req.query);
+    const dates = listDatesInclusive(fromDate, toDate);
+    const changes = [];
+    const checked = [];
+
+    if (dates.length > 370) {
+      return res.json({
+        hasUpdate: false,
+        skipped: true,
+        reason: "Range too large for auto polling.",
+        fromDate,
+        toDate,
+        recentSyncDays: RECENT_SYNC_DAYS,
+      });
+    }
+
+    for (const date of dates) {
+      const cached = await getCachedFingerprint(date);
+
+      if (!cached) {
+        changes.push({
+          date,
+          reason: "cache-missing",
+          isRecent: isRecentWorkforceDate(date),
+        });
+        continue;
+      }
+
+      if (!isRecentWorkforceDate(date)) {
+        checked.push({
+          date,
+          changed: false,
+          skippedSourceCompare: true,
+          reason: "historical-cache",
+        });
+        continue;
+      }
+
+      const source = await querySourceFingerprint(date);
+      const changed = !fingerprintMatches(source, cached);
+
+      checked.push({
+        date,
+        changed,
+        sourceScanCount: source.source_scan_count,
+        cachedScanCount: cached.source_scan_count,
+        sourceLatestScan: source.source_latest_scan_iso,
+        cachedLatestScan: cached.source_latest_scan_iso,
+      });
+
+      if (changed) {
+        changes.push({
+          date,
+          reason: "source-changed",
+          sourceScanCount: source.source_scan_count,
+          cachedScanCount: cached.source_scan_count,
+          sourceLatestScan: source.source_latest_scan_iso,
+          cachedLatestScan: cached.source_latest_scan_iso,
+        });
+      }
+    }
+
+    const synced = [];
+
+    for (const change of changes) {
+      const syncResult = await refreshWorkforceDateCache(change.date, { force: true });
+      synced.push(syncResult);
+    }
+
+    res.json({
+      hasUpdate: changes.length > 0,
+      changes,
+      synced,
+      checked,
+      fromDate,
+      toDate,
+      recentSyncDays: RECENT_SYNC_DAYS,
+      message: "Auto polling compares only the recent sync window. If a change is found, the changed date is synced before React reloads from cache.",
+    });
+  } catch (err) {
+    console.error("❌ WORKFORCE CHECK UPDATE ERROR:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/health", async (_req, res) => {
   try {
     await testDb();
-    res.json({ ok: true, db: "connected" });
+    await ensureWorkforceUpdateTable();
+    res.json({ ok: true, db: "connected", workforceupdate: "ready" });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
@@ -741,30 +1255,34 @@ app.get("/api/workforce/summary", async (req, res) => {
     const group = String(req.query.group || "ALL");
     const periodRaw = String(req.query.period || "DAILY").toUpperCase();
     const period = ["DAILY", "WEEKLY", "MONTHLY"].includes(periodRaw) ? periodRaw : "DAILY";
+    const skipSync = String(req.query.skipSync || "") === "1";
     const startDate = period === "MONTHLY" ? addDays(workforceDate, -185) : period === "WEEKLY" ? addDays(workforceDate, -56) : addDays(workforceDate, -13);
 
     // Align chart windows to complete periods.
-    // Without this, Weekly/Monthly charts can disagree because Working Hours may
-    // use a partial first week/month while Working Days uses the full week/month.
     const trendStartDate = period === "DAILY" ? startDate : periodStartForDate(startDate, period);
     const trendEndDate = period === "DAILY" ? workforceDate : periodEndForDate(workforceDate, period);
 
-    const scans = await queryScans(trendStartDate, trendEndDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
-    const daily = computeDailyRecords(scans, trendStartDate, trendEndDate);
+    // Read from app.workforceupdate. The helper checks the original Hikvision
+    // table first and only recalculates dates whose source scan count/latest
+    // timestamp changed.
+    const daily = await getCachedDailyRecordsForRange(trendStartDate, trendEndDate, group, "", { skipSync });
     const selectedDaily = daily.filter((row) => row.workforce_date === workforceDate);
-    const latestScanMs = selectedDaily.reduce((max, row) => {
+
+    const selectedFingerprint = await getCachedFingerprint(workforceDate);
+    const sourceLatestScanIso = selectedFingerprint?.source_latest_scan_iso || null;
+    const sourceLatestScanMs = sourceLatestScanIso ? new Date(sourceLatestScanIso).getTime() : 0;
+    const rowLatestScanMs = selectedDaily.reduce((max, row) => {
       const rowLastScanMs = row.last_scan ? new Date(row.last_scan).getTime() : 0;
       return Math.max(max, Number.isNaN(rowLastScanMs) ? 0 : rowLastScanMs);
     }, 0);
+    const latestScanMs = Number.isNaN(sourceLatestScanMs) ? rowLatestScanMs : Math.max(sourceLatestScanMs, rowLatestScanMs);
 
     const daysPeriod = period === "DAILY" ? "WEEKLY" : period;
 
     // Working-days compliance must use complete weekly/monthly windows.
-    // Daily series still shows a weekly working-days chart, so align it to full weeks.
     const daysStartDate = periodStartForDate(trendStartDate, daysPeriod);
     const daysEndDate = periodEndForDate(trendEndDate, daysPeriod);
-    const daysScans = await queryScans(daysStartDate, daysEndDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
-    const daysDaily = computeDailyRecords(daysScans, daysStartDate, daysEndDate);
+    const daysDaily = await getCachedDailyRecordsForRange(daysStartDate, daysEndDate, group, "", { skipSync });
 
     res.json({
       workforceDate,
@@ -776,9 +1294,12 @@ app.get("/api/workforce/summary", async (req, res) => {
       greaterThan10Hours: selectedDaily.filter((row) => row.work_hours_raw > 10 && row.work_hours_raw < 12).length,
       greaterThan12Hours: selectedDaily.filter((row) => row.work_hours_raw >= 12).length,
       latestScan: latestScanMs ? new Date(latestScanMs).toISOString() : null,
+      latestScanSource: sourceLatestScanIso ? "app.workforceupdate.meta.source_latest_scan" : "app.workforceupdate.person.last_scan",
       timeSeries: summarizeDailyForTrend(daily, period),
       daysPeriod,
       daysTimeSeries: summarizeDailyForTrend(daysDaily, daysPeriod),
+      cacheTable: "app.workforceupdate",
+      skipSync,
       dayRule: "L_TID determines IN and OUT first. L_Mode is only used as fallback. The workforce day is 06:00-05:59. Same-workforce-day duplicate IN scans do not reset the interval. An IN on the next workforce day closes the previous open interval at the 06:00 boundary and starts a new visit. Cross-midnight work with a valid OUT still counts back to the original IN workforce date. A person is capped at 24 hours if no valid OUT scan is found within 24 hours. More than 4 hours counts as 1 working day.",
     });
   } catch (err) {
@@ -795,24 +1316,23 @@ app.get("/api/workforce/daily-record", async (req, res) => {
     const requestedTo = String(req.query.to || "").trim();
     const search = String(req.query.search || "").trim().toLowerCase();
     const group = String(req.query.group || "ALL");
+    const skipSync = String(req.query.skipSync || "") === "1";
     const { limit, offset } = parsePaging(req);
 
     const isHistoryMode = mode === "HISTORY";
     const fromDate = isHistoryMode ? (requestedFrom || "1970-01-01") : workforceDate;
     const toDate = isHistoryMode ? (requestedTo || workforceDate) : workforceDate;
 
-    const scans = await queryScans(fromDate, toDate, group, search, { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
-    let rows = computeDailyRecords(scans, fromDate, toDate);
-
-    // Safety filter after interval computation. The DB query already narrows the scan rows,
-    // but this keeps the response correct if more searchable fields are added later.
-    if (search) {
-      rows = rows.filter((row) =>
-        String(row.person || "").toLowerCase().includes(search) ||
-        String(row.persongroup || "").toLowerCase().includes(search) ||
-        String(row.l_uid || "").toLowerCase().includes(search)
-      );
-    }
+    // Person history can intentionally span years, so keep that path on the
+    // original raw query. Normal day/range views use app.workforceupdate.
+    let rows = await getDailyRecordsWithFallback({
+      fromDate,
+      toDate,
+      group,
+      search,
+      allowLargeHistory: isHistoryMode && (!requestedFrom || requestedFrom === "1970-01-01"),
+      skipSync: skipSync && !isHistoryMode,
+    });
 
     rows.sort((a, b) => {
       const dateDiff = String(b.workforce_date || "").localeCompare(String(a.workforce_date || ""));
@@ -851,6 +1371,7 @@ app.get("/api/workforce/daily-record", async (req, res) => {
       limit,
       offset,
       hasMore: offset + pagedRows.length < total,
+      cacheTable: isHistoryMode && (!requestedFrom || requestedFrom === "1970-01-01") ? "raw-history-query" : "app.workforceupdate",
     });
   } catch (err) {
     console.error("❌ WORKFORCE DAILY RECORD ERROR:", err.message);
@@ -867,10 +1388,10 @@ app.get("/api/workforce/compliance", async (req, res) => {
     const selectedCategory = String(req.query.category || "").trim();
     const selectedPersongroup = String(req.query.persongroup || "").trim();
     const { peopleLimit, peopleOffset } = parseCompliancePeoplePaging(req);
+    const skipSync = String(req.query.skipSync || "") === "1";
     const { startDate, endDate } = getWeekDateRangeManila(year, week);
 
-    const scans = await queryScans(startDate, endDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
-    const dailyRaw = computeDailyRecords(scans, startDate, endDate);
+    const dailyRaw = await getCachedDailyRecordsForRange(startDate, endDate, group, "", { skipSync });
     const daily = dailyRaw.filter((row) => row.work_hours_raw > 4);
 
     const personMap = new Map();
@@ -1015,6 +1536,7 @@ app.get("/api/workforce/compliance", async (req, res) => {
       year,
       week,
       group,
+      cacheTable: "app.workforceupdate",
       startDate,
       endDate,
       dayRule: "L_TID determines IN and OUT first. L_Mode is only used as fallback. Same-workforce-day duplicate IN scans do not reset the interval. An IN on the next workforce day closes the previous open interval at the 06:00 boundary and starts a new visit. Cross-midnight work with a valid OUT still counts back to the original IN workforce date. A person is capped at 24 hours if no valid OUT scan is found within 24 hours. > 4 hours counts as 1 working day.",
@@ -1038,14 +1560,18 @@ app.get("/api/workforce/map", async (req, res) => {
   try {
     const workforceDate = String(req.query.date || getWorkforceDateManila());
     const group = String(req.query.group || "ALL");
-    const scans = await queryScans(workforceDate, workforceDate, group, "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
-    const daily = computeDailyRecords(scans, workforceDate, workforceDate);
+    const skipSync = String(req.query.skipSync || "") === "1";
+    const daily = await getCachedDailyRecordsForRange(workforceDate, workforceDate, group, "", { skipSync });
     const areasByKey = makeMapAreaLookup();
-    const latestScanMs = scans.reduce((max, scan) => Math.max(max, Number(scan.scan_ms) || 0), 0);
+    const cachedFingerprint = await getCachedFingerprint(workforceDate);
+    const latestScanMs = daily.reduce((max, row) => {
+      const rowLastScanMs = row.last_scan ? new Date(row.last_scan).getTime() : 0;
+      return Math.max(max, Number.isNaN(rowLastScanMs) ? 0 : rowLastScanMs);
+    }, 0);
     const people = [];
 
     for (const row of daily) {
-      const areaKey = classifyMapArea(row);
+      const areaKey = row.area_key || classifyMapArea(row);
       const area = areasByKey.get(areaKey) || areasByKey.get("other");
       const isActiveInside = Boolean(row.has_open_interval && !row.has_24h_alarm);
       const has24HourAlarm = Boolean(row.has_24h_alarm);
@@ -1097,14 +1623,16 @@ app.get("/api/workforce/map", async (req, res) => {
         activeInside: areas.reduce((sum, area) => sum + (Number(area.activeCount) || 0), 0),
         occupiedAreas: areas.filter((area) => (Number(area.activeCount) || 0) > 0).length,
         alarmCount: areas.reduce((sum, area) => sum + (Number(area.alarmCount) || 0), 0),
-        latestScan: latestScanMs ? new Date(latestScanMs).toISOString() : null,
+        latestScan: latestScanMs ? new Date(latestScanMs).toISOString() : cachedFingerprint?.source_latest_scan_iso || null,
         countMode: "Map number = people still inside/no valid OUT + 24H No OUT. Popover uses the same list.",
+        skipSync,
       },
       areas,
       people: people
         .filter((person) => person.isActiveInside || person.has24HourAlarm)
         .sort((a, b) => String(a.areaLabel).localeCompare(String(b.areaLabel)) || String(a.person).localeCompare(String(b.person)))
         .slice(0, 500),
+      cacheTable: "app.workforceupdate",
     });
   } catch (err) {
     console.error("❌ WORKFORCE MAP ERROR:", err.message);
@@ -1116,8 +1644,8 @@ app.get("/api/workforce/map", async (req, res) => {
 app.get("/api/workforce/population", async (req, res) => {
   try {
     const workforceDate = String(req.query.date || getWorkforceDateManila());
-    const scans = await queryScans(workforceDate, workforceDate, "ALL", "", { lookaheadDays: OUT_SCAN_LOOKAHEAD_DAYS });
-    const daily = computeDailyRecords(scans, workforceDate, workforceDate);
+    const skipSync = String(req.query.skipSync || "") === "1";
+    const daily = await getCachedDailyRecordsForRange(workforceDate, workforceDate, "ALL", "", { skipSync });
     const groupMap = new Map();
 
     for (const row of daily) {
@@ -1129,7 +1657,7 @@ app.get("/api/workforce/population", async (req, res) => {
       .map(([persongroup, population]) => ({ persongroup, population }))
       .sort((a, b) => (b.population - a.population) || String(a.persongroup).localeCompare(String(b.persongroup)));
 
-    res.json({ workforceDate, rows });
+    res.json({ workforceDate, rows, cacheTable: "app.workforceupdate", skipSync });
   } catch (err) {
     console.error("❌ WORKFORCE POPULATION ERROR:", err.message);
     res.status(500).json({ error: err.message });

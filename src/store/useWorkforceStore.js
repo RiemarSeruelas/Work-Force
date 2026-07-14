@@ -93,6 +93,8 @@ export const useWorkforceStore = create((set, get) => ({
   mapPeople: [],
   loading: false,
   error: "",
+  autoRefreshChecking: false,
+  lastAutoRefreshAt: null,
 
   toggleTheme: () =>
     set((state) => {
@@ -169,8 +171,9 @@ export const useWorkforceStore = create((set, get) => ({
       dailyBucketTotals: { ...EMPTY_DAILY_BUCKET_TOTALS },
     }),
 
-  fetchSummary: async () => {
-    set({ loading: true, error: "" });
+  fetchSummary: async (options = {}) => {
+    const silent = Boolean(options?.silent);
+    set({ loading: silent ? get().loading : true, error: "" });
     try {
       const { workforceDate, group, trendPeriod } = get();
       const params = new URLSearchParams({
@@ -179,6 +182,7 @@ export const useWorkforceStore = create((set, get) => ({
         period: trendPeriod,
         _t: String(Date.now()),
       });
+      if (options?.skipSync) params.set("skipSync", "1");
       const res = await fetch(`/api/workforce/summary?${params.toString()}`, {
         cache: "no-store",
       });
@@ -189,12 +193,12 @@ export const useWorkforceStore = create((set, get) => ({
     }
   },
 
-  fetchDailyRecord: async ({ reset = true, mode, from, to, search: searchOverride } = {}) => {
+  fetchDailyRecord: async ({ reset = true, mode, from, to, search: searchOverride, silent = false, skipSync = false } = {}) => {
     const { dailyLoadingMore, dailyHasMore, dailyRows } = get();
     if (!reset && dailyLoadingMore) return;
     if (!reset && !dailyHasMore && dailyRows.length > 0) return;
 
-    set({ loading: reset, dailyLoadingMore: !reset, error: "" });
+    set({ loading: reset && !silent, dailyLoadingMore: !reset, error: "" });
     try {
       const { workforceDate, dailyDateMode, dailyDateFrom, dailyDateTo, search, group, dailyLimit, dailyOffset } = get();
       const effectiveMode = mode || dailyDateMode || "DAY";
@@ -213,6 +217,7 @@ export const useWorkforceStore = create((set, get) => ({
         offset: String(nextOffset),
         _t: String(Date.now()),
       });
+      if (skipSync) params.set("skipSync", "1");
       const res = await fetch(`/api/workforce/daily-record?${params.toString()}`, {
         cache: "no-store",
       });
@@ -241,9 +246,12 @@ export const useWorkforceStore = create((set, get) => ({
 
   fetchDailyRecordNextPage: async () => get().fetchDailyRecord({ reset: false }),
 
-  fetchCompliance: async (forcedGroup) => {
+  fetchCompliance: async (forcedGroupOrOptions) => {
+    const forcedGroup = typeof forcedGroupOrOptions === "string" ? forcedGroupOrOptions : forcedGroupOrOptions?.group;
+    const silent = typeof forcedGroupOrOptions === "object" && Boolean(forcedGroupOrOptions?.silent);
+
     set({
-      loading: true,
+      loading: silent ? get().loading : true,
       error: "",
       compliancePeople: [],
       compliancePeopleTotal: 0,
@@ -254,6 +262,7 @@ export const useWorkforceStore = create((set, get) => ({
     });
     try {
       const { selectedYear, selectedWeek, group } = get();
+      const skipSync = typeof forcedGroupOrOptions === "object" && Boolean(forcedGroupOrOptions?.skipSync);
       const params = new URLSearchParams({
         year: String(selectedYear),
         week: String(selectedWeek),
@@ -262,6 +271,7 @@ export const useWorkforceStore = create((set, get) => ({
         peopleOffset: "0",
         _t: String(Date.now()),
       });
+      if (skipSync) params.set("skipSync", "1");
       const res = await fetch(`/api/workforce/compliance?${params.toString()}`, {
         cache: "no-store",
       });
@@ -366,14 +376,16 @@ export const useWorkforceStore = create((set, get) => ({
     });
   },
 
-  fetchPopulation: async () => {
-    set({ loading: true, error: "" });
+  fetchPopulation: async (options = {}) => {
+    const silent = Boolean(options?.silent);
+    set({ loading: silent ? get().loading : true, error: "" });
     try {
       const { workforceDate } = get();
       const params = new URLSearchParams({
         date: workforceDate,
         _t: String(Date.now()),
       });
+      if (options?.skipSync) params.set("skipSync", "1");
       const res = await fetch(`/api/workforce/population?${params.toString()}`, {
         cache: "no-store",
       });
@@ -384,8 +396,9 @@ export const useWorkforceStore = create((set, get) => ({
     }
   },
 
-  fetchMap: async () => {
-    set({ loading: true, error: "" });
+  fetchMap: async (options = {}) => {
+    const silent = Boolean(options?.silent);
+    set({ loading: silent ? get().loading : true, error: "" });
     try {
       const { workforceDate, group } = get();
       const params = new URLSearchParams({
@@ -393,6 +406,7 @@ export const useWorkforceStore = create((set, get) => ({
         group,
         _t: String(Date.now()),
       });
+      if (options?.skipSync) params.set("skipSync", "1");
       const res = await fetch(`/api/workforce/map?${params.toString()}`, {
         cache: "no-store",
       });
@@ -410,6 +424,70 @@ export const useWorkforceStore = create((set, get) => ({
         mapAreas: [],
         mapPeople: [],
         loading: false,
+      });
+    }
+  },
+
+  checkForWorkforceUpdates: async () => {
+    const { autoRefreshChecking } = get();
+    if (autoRefreshChecking) return;
+
+    set({ autoRefreshChecking: true });
+    try {
+      const path = window.location.pathname || "";
+      const {
+        workforceDate,
+        selectedYear,
+        selectedWeek,
+        group,
+      } = get();
+
+      const params = new URLSearchParams({
+        _t: String(Date.now()),
+      });
+
+      if (path.includes("/workforce/compliance")) {
+        params.set("year", String(selectedYear));
+        params.set("week", String(selectedWeek));
+        params.set("group", group);
+      } else {
+        params.set("date", workforceDate);
+        params.set("group", group);
+      }
+
+      const res = await fetch(`/api/workforce/check-update?${params.toString()}`, {
+        cache: "no-store",
+      });
+      const data = await parseJsonResponse(res);
+
+      set({
+        autoRefreshChecking: false,
+        lastAutoRefreshAt: new Date().toISOString(),
+      });
+
+      if (!data?.hasUpdate) return;
+
+      if (path.includes("/workforce/daily-record")) {
+        return get().fetchDailyRecord({ reset: true, silent: true, skipSync: true });
+      }
+
+      if (path.includes("/workforce/compliance")) {
+        return get().fetchCompliance({ group, silent: true, skipSync: true });
+      }
+
+      if (path.includes("/workforce/population")) {
+        return get().fetchPopulation({ silent: true, skipSync: true });
+      }
+
+      if (path.includes("/workforce/map")) {
+        return get().fetchMap({ silent: true, skipSync: true });
+      }
+
+      return get().fetchSummary({ silent: true, skipSync: true });
+    } catch (err) {
+      set({
+        autoRefreshChecking: false,
+        lastAutoRefreshAt: new Date().toISOString(),
       });
     }
   },

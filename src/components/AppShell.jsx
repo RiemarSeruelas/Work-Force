@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useWorkforceStore } from "../store/useWorkforceStore.js";
 
@@ -19,6 +20,7 @@ export default function AppShell({
   const location = useLocation();
   const theme = useWorkforceStore((s) => s.theme);
   const toggleTheme = useWorkforceStore((s) => s.toggleTheme);
+  const checkForWorkforceUpdates = useWorkforceStore((s) => s.checkForWorkforceUpdates);
   const isBusy = useWorkforceStore(
     (s) =>
       s.loading ||
@@ -26,6 +28,14 @@ export default function AppShell({
       s.compliancePeopleLoading ||
       s.compliancePeopleLoadingMore
   );
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      checkForWorkforceUpdates?.();
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [checkForWorkforceUpdates, location.pathname]);
 
   const logout = () => {
     sessionStorage.removeItem("appAccess");
