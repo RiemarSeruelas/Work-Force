@@ -866,6 +866,30 @@ async function querySourceFingerprint(workforceDate) {
   };
 }
 
+
+async function queryLatestSourceScan(workforceDate) {
+  const fromMs = startOfManilaDayMs(workforceDate);
+  const toMs = windowEndMs(workforceDate) + OUT_SCAN_LOOKAHEAD_DAYS * DAY_MS;
+  const fromText = new Date(fromMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
+  const toText = new Date(toMs).toLocaleString("sv-SE", { timeZone: MANILA_TZ }).replace("T", " ");
+
+  const result = await pool.query(
+    `
+    SELECT TO_CHAR(("C_Date"::date + "C_Time"::time), 'YYYY-MM-DD HH24:MI:SS') AS latest_scan_text
+    FROM "hkvision"."tbhikvision"
+    WHERE ("C_Date"::date + "C_Time"::time) >= $1::timestamp
+      AND ("C_Date"::date + "C_Time"::time) <= $2::timestamp
+      AND COALESCE(TRIM("Person"), '') <> ''
+    ORDER BY ("C_Date"::date + "C_Time"::time) DESC
+    LIMIT 1
+    `,
+    [fromText, toText]
+  );
+
+  const latestDate = parseScanTs(result.rows[0]?.latest_scan_text);
+  return latestDate ? latestDate.toISOString() : null;
+}
+
 async function getCachedFingerprint(workforceDate) {
   await ensureWorkforceUpdateTable();
 
@@ -1162,12 +1186,17 @@ app.get("/api/workforce/check-update", async (req, res) => {
 
     for (const date of dates) {
       const cached = await getCachedFingerprint(date);
+      const latestSourceScanIso = isRecentWorkforceDate(date) ? await queryLatestSourceScan(date) : null;
+      const latestSourceMs = latestSourceScanIso ? new Date(latestSourceScanIso).getTime() : 0;
+      const cachedLatestMs = cached?.source_latest_scan_iso ? new Date(cached.source_latest_scan_iso).getTime() : 0;
+      const hasNewerLatestScan = Boolean(latestSourceMs && latestSourceMs > cachedLatestMs);
 
       if (!cached) {
         changes.push({
           date,
           reason: "cache-missing",
           isRecent: isRecentWorkforceDate(date),
+          latestSourceScan: latestSourceScanIso,
         });
         continue;
       }
@@ -1178,6 +1207,26 @@ app.get("/api/workforce/check-update", async (req, res) => {
           changed: false,
           skippedSourceCompare: true,
           reason: "historical-cache",
+          latestSourceScan: latestSourceScanIso,
+          cachedLatestScan: cached.source_latest_scan_iso,
+        });
+        continue;
+      }
+
+      if (hasNewerLatestScan) {
+        checked.push({
+          date,
+          changed: true,
+          reason: "latest-source-scan-newer",
+          latestSourceScan: latestSourceScanIso,
+          cachedLatestScan: cached.source_latest_scan_iso,
+        });
+
+        changes.push({
+          date,
+          reason: "latest-source-scan-newer",
+          latestSourceScan: latestSourceScanIso,
+          cachedLatestScan: cached.source_latest_scan_iso,
         });
         continue;
       }
@@ -1191,6 +1240,7 @@ app.get("/api/workforce/check-update", async (req, res) => {
         sourceScanCount: source.source_scan_count,
         cachedScanCount: cached.source_scan_count,
         sourceLatestScan: source.source_latest_scan_iso,
+        latestSourceScan: latestSourceScanIso,
         cachedLatestScan: cached.source_latest_scan_iso,
       });
 
@@ -1201,6 +1251,7 @@ app.get("/api/workforce/check-update", async (req, res) => {
           sourceScanCount: source.source_scan_count,
           cachedScanCount: cached.source_scan_count,
           sourceLatestScan: source.source_latest_scan_iso,
+          latestSourceScan: latestSourceScanIso,
           cachedLatestScan: cached.source_latest_scan_iso,
         });
       }
@@ -1269,7 +1320,9 @@ app.get("/api/workforce/summary", async (req, res) => {
     const selectedDaily = daily.filter((row) => row.workforce_date === workforceDate);
 
     const selectedFingerprint = await getCachedFingerprint(workforceDate);
-    const sourceLatestScanIso = selectedFingerprint?.source_latest_scan_iso || null;
+    const cachedSourceLatestScanIso = selectedFingerprint?.source_latest_scan_iso || null;
+    const rawSourceLatestScanIso = await queryLatestSourceScan(workforceDate);
+    const sourceLatestScanIso = rawSourceLatestScanIso || cachedSourceLatestScanIso;
     const sourceLatestScanMs = sourceLatestScanIso ? new Date(sourceLatestScanIso).getTime() : 0;
     const rowLatestScanMs = selectedDaily.reduce((max, row) => {
       const rowLastScanMs = row.last_scan ? new Date(row.last_scan).getTime() : 0;
@@ -1294,7 +1347,7 @@ app.get("/api/workforce/summary", async (req, res) => {
       greaterThan10Hours: selectedDaily.filter((row) => row.work_hours_raw > 10 && row.work_hours_raw < 12).length,
       greaterThan12Hours: selectedDaily.filter((row) => row.work_hours_raw >= 12).length,
       latestScan: latestScanMs ? new Date(latestScanMs).toISOString() : null,
-      latestScanSource: sourceLatestScanIso ? "app.workforceupdate.meta.source_latest_scan" : "app.workforceupdate.person.last_scan",
+      latestScanSource: rawSourceLatestScanIso ? "hkvision.tbhikvision.latest_source_scan" : cachedSourceLatestScanIso ? "app.workforceupdate.meta.source_latest_scan" : "app.workforceupdate.person.last_scan",
       timeSeries: summarizeDailyForTrend(daily, period),
       daysPeriod,
       daysTimeSeries: summarizeDailyForTrend(daysDaily, daysPeriod),
