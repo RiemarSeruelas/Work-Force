@@ -1,0 +1,49 @@
+services:
+  workforce-app:
+    image: 4thproject-workforce-app:local
+    pull_policy: never
+    build:
+      context: .
+      target: backend
+    container_name: workforce-app
+    env_file:
+      - .env
+    environment:
+      PORT: 5056
+      TZ: Asia/Manila
+      DB_CONNECT_TIMEOUT_MS: "3000"
+      USAGE_LOG_ENABLED: "true"
+      USAGE_LOG_DIR: /app/logs
+    expose:
+      - "5056"
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5056/api/live"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 5
+    networks:
+      - workforce-network
+
+  workforce-nginx:
+    image: 4thproject-workforce-nginx:local
+    pull_policy: never
+    build:
+      context: .
+      target: nginx
+    container_name: workforce-nginx
+    depends_on:
+      workforce-app:
+        condition: service_started
+    ports:
+      - "${PUBLIC_PORT:-5056}:80"
+    restart: unless-stopped
+    networks:
+      - workforce-network
+
+networks:
+  workforce-network:
+    driver: bridge

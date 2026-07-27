@@ -1,12 +1,8 @@
 node_modules
-npm-debug.log
-.git
-.env
-.env.*
 dist
-build
-.vscode
-.idea
-*.zip
-*.tar
+logs
+.git
+.gitignore
+npm-debug.log*
 *.log
+.env

@@ -13,6 +13,8 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Nginx supplies X-Forwarded-For, so Express can record the real visitor IP.
+app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json({ limit: "25mb" }));
 
@@ -22,6 +24,7 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
   port: Number(process.env.DB_PORT || 5432),
+  connectionTimeoutMillis: Number(process.env.DB_CONNECT_TIMEOUT_MS || 3000),
 });
 
 const MANILA_TZ = "Asia/Manila";
@@ -31,6 +34,45 @@ const OUT_SCAN_LOOKAHEAD_DAYS = 1;
 const MAX_WORK_HOURS_PER_PERSON = 24;
 const MAX_WORK_INTERVAL_MS = MAX_WORK_HOURS_PER_PERSON * 60 * 60 * 1000;
 const RECENT_SYNC_DAYS = Number(process.env.WORKFORCE_RECENT_SYNC_DAYS || 14);
+const USAGE_LOG_ENABLED = String(process.env.USAGE_LOG_ENABLED || "true").toLowerCase() !== "false";
+const USAGE_LOG_DIR = path.resolve(process.env.USAGE_LOG_DIR || path.join(__dirname, "logs"));
+const USAGE_LOG_FILE = path.join(USAGE_LOG_DIR, "workforce-usage.log");
+const loggedUsageSessions = new Map();
+const USAGE_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+
+function cleanLogValue(value, maxLength = 500) {
+  return String(value ?? "")
+    .replace(/[\r\n|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function formatManilaLogTimestamp(date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: MANILA_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+
+  const value = (type) => parts.find((part) => part.type === type)?.value || "";
+  return `${value("year")}-${value("month")}-${value("day")} ${value("hour")}:${value("minute")}:${value("second")}`;
+}
+
+function getVisitorIp(req) {
+  return cleanLogValue(req.ip || req.socket?.remoteAddress || "unknown", 100).replace(/^::ffff:/, "");
+}
+
+function removeExpiredUsageSessions(now = Date.now()) {
+  for (const [sessionId, loggedAt] of loggedUsageSessions) {
+    if (now - loggedAt > USAGE_SESSION_TTL_MS) loggedUsageSessions.delete(sessionId);
+  }
+}
 
 function getManilaDateParts(date = new Date()) {
   return new Date(date.toLocaleString("en-US", { timeZone: MANILA_TZ }));
@@ -1280,6 +1322,13 @@ app.get("/api/workforce/check-update", async (req, res) => {
   }
 });
 
+// Docker/Nginx liveness check. This intentionally does not query PostgreSQL,
+// because the PC may switch from Wi-Fi to the isolated database network.
+app.get("/api/live", (_req, res) => {
+  res.json({ ok: true, service: "workforce-app" });
+});
+
+// Full diagnostic check for the application and PostgreSQL.
 app.get("/api/health", async (_req, res) => {
   try {
     await testDb();
@@ -1287,6 +1336,38 @@ app.get("/api/health", async (_req, res) => {
     res.json({ ok: true, db: "connected", workforceupdate: "ready" });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post("/api/usage/visit", async (req, res) => {
+  if (!USAGE_LOG_ENABLED) return res.status(204).end();
+
+  const sessionId = cleanLogValue(req.body?.sessionId, 120);
+  const now = Date.now();
+  removeExpiredUsageSessions(now);
+
+  if (sessionId && loggedUsageSessions.has(sessionId)) {
+    return res.status(204).end();
+  }
+
+  const logLine = [
+    formatManilaLogTimestamp(),
+    "OPEN",
+    `IP: ${getVisitorIp(req)}`,
+    `Session: ${sessionId || "unknown"}`,
+    `Page: ${cleanLogValue(req.body?.page || "/", 300)}`,
+    `Referrer: ${cleanLogValue(req.body?.referrer || "direct", 500) || "direct"}`,
+    `User-Agent: ${cleanLogValue(req.get("user-agent") || "unknown", 1000)}`,
+  ].join(" | ");
+
+  try {
+    await fs.promises.mkdir(USAGE_LOG_DIR, { recursive: true });
+    await fs.promises.appendFile(USAGE_LOG_FILE, `${logLine}\n`, "utf8");
+    if (sessionId) loggedUsageSessions.set(sessionId, now);
+    return res.status(204).end();
+  } catch (err) {
+    console.error("❌ USAGE LOG ERROR:", err.message);
+    return res.status(500).json({ error: "Could not write usage log" });
   }
 });
 
@@ -1732,4 +1813,5 @@ app.use((req, res, next) => {
 const PORT = Number(process.env.PORT) || 5056;
 app.listen(PORT, () => {
   console.log(`🚀 Workforce backend running on http://localhost:${PORT}`);
+  console.log("ℹ️  PostgreSQL is optional at startup; database routes will become available when the DB can be reached.");
 });
