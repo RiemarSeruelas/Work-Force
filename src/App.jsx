@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import PasscodePage from "./pages/PasscodePage.jsx";
 import WorkforceDashboardPage from "./pages/WorkforceDashboardPage.jsx";
@@ -11,6 +11,7 @@ import WorkforceMapPage from "./pages/WorkforceMapPage.jsx";
 const USAGE_SESSION_KEY = "workforce-usage-session-id";
 const USAGE_RECORDED_KEY = "workforce-usage-recorded-session";
 let usageRequestStarted = false;
+let warmupRequestStarted = false;
 
 console.log(
   "%cMade by Riemar R. Seruelas Jr - Data Digital Intern",
@@ -27,6 +28,26 @@ function getUsageSessionId() {
 
   sessionStorage.setItem(USAGE_SESSION_KEY, generatedSessionId);
   return generatedSessionId;
+}
+
+function WorkforceLoginWarmup() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.pathname !== "/passcode" || warmupRequestStarted) return;
+
+    warmupRequestStarted = true;
+
+    fetch("/api/workforce/warmup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    }).catch((error) => {
+      warmupRequestStarted = false;
+      console.warn("Workforce data warmup could not start:", error.message);
+    });
+  }, [location.pathname]);
+
+  return null;
 }
 
 export default function App() {
@@ -64,6 +85,8 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <WorkforceLoginWarmup />
+
       <Routes>
         <Route path="/passcode" element={<PasscodePage />} />
 

@@ -13,7 +13,6 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Nginx supplies X-Forwarded-For, so Express can record the real visitor IP.
 app.set("trust proxy", 1);
 app.use(cors());
 app.use(express.json({ limit: "25mb" }));
@@ -28,17 +27,22 @@ const pool = new Pool({
 });
 
 const MANILA_TZ = "Asia/Manila";
-const APP_PASSWORD = String(process.env.APP_PASSWORD || "Workforce2026").trim();
+const APP_PASSWORD = String(process.env.APP_PASSWORD ?? "").trim();
 const DAY_MS = 24 * 60 * 60 * 1000;
 const OUT_SCAN_LOOKAHEAD_DAYS = 1;
 const MAX_WORK_HOURS_PER_PERSON = 24;
 const MAX_WORK_INTERVAL_MS = MAX_WORK_HOURS_PER_PERSON * 60 * 60 * 1000;
 const RECENT_SYNC_DAYS = Number(process.env.WORKFORCE_RECENT_SYNC_DAYS || 14);
 const USAGE_LOG_ENABLED = String(process.env.USAGE_LOG_ENABLED || "true").toLowerCase() !== "false";
-const USAGE_LOG_DIR = path.resolve(process.env.USAGE_LOG_DIR || path.join(__dirname, "logs"));
-const USAGE_LOG_FILE = path.join(USAGE_LOG_DIR, "workforce-usage.log");
-const loggedUsageSessions = new Map();
-const USAGE_SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const WARMUP_RECHECK_TTL_MS = Number(process.env.WORKFORCE_WARMUP_TTL_MS || 60000);
+const recentlyCheckedWorkforceDates = new Map();
+let workforceWarmupPromise = null;
+let workforceWarmupStatus = {
+  state: "idle",
+  startedAt: null,
+  completedAt: null,
+  error: null,
+};
 
 function cleanLogValue(value, maxLength = 500) {
   return String(value ?? "")
@@ -48,30 +52,24 @@ function cleanLogValue(value, maxLength = 500) {
     .slice(0, maxLength);
 }
 
-function formatManilaLogTimestamp(date = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: MANILA_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(date);
-
-  const value = (type) => parts.find((part) => part.type === type)?.value || "";
-  return `${value("year")}-${value("month")}-${value("day")} ${value("hour")}:${value("minute")}:${value("second")}`;
-}
-
 function getVisitorIp(req) {
   return cleanLogValue(req.ip || req.socket?.remoteAddress || "unknown", 100).replace(/^::ffff:/, "");
 }
 
-function removeExpiredUsageSessions(now = Date.now()) {
-  for (const [sessionId, loggedAt] of loggedUsageSessions) {
-    if (now - loggedAt > USAGE_SESSION_TTL_MS) loggedUsageSessions.delete(sessionId);
+function markWorkforceDateChecked(workforceDate) {
+  recentlyCheckedWorkforceDates.set(workforceDate, Date.now());
+}
+
+function wasWorkforceDateCheckedRecently(workforceDate) {
+  const checkedAt = recentlyCheckedWorkforceDates.get(workforceDate);
+  if (!checkedAt) return false;
+
+  if (Date.now() - checkedAt > WARMUP_RECHECK_TTL_MS) {
+    recentlyCheckedWorkforceDates.delete(workforceDate);
+    return false;
   }
+
+  return true;
 }
 
 function getManilaDateParts(date = new Date()) {
@@ -760,60 +758,102 @@ function compactAreaGroups(groups) {
 
 
 let workforceUpdateReadyPromise = null;
+let workforceLogsReadyPromise = null;
 
 async function ensureWorkforceUpdateTable() {
   if (!workforceUpdateReadyPromise) {
-    workforceUpdateReadyPromise = pool.query(`
-      CREATE SCHEMA IF NOT EXISTS app;
+    workforceUpdateReadyPromise = pool
+      .query(`
+        CREATE SCHEMA IF NOT EXISTS app;
 
-      CREATE TABLE IF NOT EXISTS app.workforceupdate (
-        id BIGSERIAL PRIMARY KEY,
-        record_type TEXT NOT NULL DEFAULT 'person',
-        workforce_date DATE NOT NULL,
-        person_key TEXT NOT NULL,
-        l_uid TEXT,
-        person TEXT,
-        persongroup TEXT,
-        workforce_group TEXT,
-        entry_time TIMESTAMPTZ,
-        display_entry_time TIMESTAMPTZ,
-        last_scan TIMESTAMPTZ,
-        exit_time TIMESTAMPTZ,
-        scan_count INTEGER DEFAULT 0,
-        has_out_scan BOOLEAN DEFAULT FALSE,
-        has_open_interval BOOLEAN DEFAULT FALSE,
-        has_24h_alarm BOOLEAN DEFAULT FALSE,
-        alarm_reason TEXT,
-        work_hours_raw NUMERIC(10, 4) DEFAULT 0,
-        work_hours NUMERIC(10, 2) DEFAULT 0,
-        hours_bucket TEXT,
-        counted_day BOOLEAN DEFAULT FALSE,
-        area_key TEXT,
-        source_scan_count INTEGER DEFAULT 0,
-        source_latest_scan TIMESTAMPTZ,
-        calculated_at TIMESTAMPTZ DEFAULT NOW(),
-        updated_at TIMESTAMPTZ DEFAULT NOW(),
-        UNIQUE (workforce_date, record_type, person_key)
-      );
+        CREATE TABLE IF NOT EXISTS app.workforceupdate (
+          id BIGSERIAL PRIMARY KEY,
+          record_type TEXT NOT NULL DEFAULT 'person',
+          workforce_date DATE NOT NULL,
+          person_key TEXT NOT NULL,    
+          l_uid TEXT,
+          person TEXT,
+          persongroup TEXT,
+          workforce_group TEXT,
+          entry_time TIMESTAMPTZ,
+          display_entry_time TIMESTAMPTZ,
+          last_scan TIMESTAMPTZ,
+          exit_time TIMESTAMPTZ,
+          scan_count INTEGER DEFAULT 0,
+          has_out_scan BOOLEAN DEFAULT FALSE,
+          has_open_interval BOOLEAN DEFAULT FALSE,
+          has_24h_alarm BOOLEAN DEFAULT FALSE,
+          alarm_reason TEXT,
+          work_hours_raw NUMERIC(10, 4) DEFAULT 0,
+          work_hours NUMERIC(10, 2) DEFAULT 0,
+          hours_bucket TEXT,
+          counted_day BOOLEAN DEFAULT FALSE,
+          area_key TEXT,
+          source_scan_count INTEGER DEFAULT 0,
+          source_latest_scan TIMESTAMPTZ,
+          calculated_at TIMESTAMPTZ DEFAULT NOW(),
+          updated_at TIMESTAMPTZ DEFAULT NOW(),
+          UNIQUE (workforce_date, record_type, person_key)
+        );
 
-      CREATE INDEX IF NOT EXISTS idx_workforceupdate_date
-        ON app.workforceupdate (workforce_date);
+        CREATE INDEX IF NOT EXISTS idx_workforceupdate_date
+          ON app.workforceupdate (workforce_date);
 
-      CREATE INDEX IF NOT EXISTS idx_workforceupdate_type_date
-        ON app.workforceupdate (record_type, workforce_date);
+        CREATE INDEX IF NOT EXISTS idx_workforceupdate_type_date
+          ON app.workforceupdate (record_type, workforce_date);
 
-      CREATE INDEX IF NOT EXISTS idx_workforceupdate_group_date
-        ON app.workforceupdate (persongroup, workforce_date);
+        CREATE INDEX IF NOT EXISTS idx_workforceupdate_group_date
+          ON app.workforceupdate (persongroup, workforce_date);
 
-      CREATE INDEX IF NOT EXISTS idx_workforceupdate_area_date
-        ON app.workforceupdate (area_key, workforce_date);
+        CREATE INDEX IF NOT EXISTS idx_workforceupdate_area_date
+          ON app.workforceupdate (area_key, workforce_date);
 
-      CREATE INDEX IF NOT EXISTS idx_workforceupdate_source_latest
-        ON app.workforceupdate (source_latest_scan);
-    `);
+        CREATE INDEX IF NOT EXISTS idx_workforceupdate_source_latest
+          ON app.workforceupdate (source_latest_scan);
+      `)
+      .catch((err) => {
+        workforceUpdateReadyPromise = null;
+        throw err;
+      });
   }
 
   return workforceUpdateReadyPromise;
+}
+
+async function ensureWorkforceLogsTable() {
+  if (!workforceLogsReadyPromise) {
+    workforceLogsReadyPromise = pool
+      .query(`
+        CREATE SCHEMA IF NOT EXISTS app;
+
+        CREATE TABLE IF NOT EXISTS app."workforce-logs" (
+          id BIGSERIAL PRIMARY KEY,
+          event_type TEXT NOT NULL DEFAULT 'OPEN',
+          opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          ip_address TEXT,
+          session_id TEXT,
+          page TEXT,
+          referrer TEXT,
+          user_agent TEXT
+        );
+
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_workforce_logs_session
+          ON app."workforce-logs" (session_id)
+          WHERE session_id IS NOT NULL AND session_id <> '';
+
+        CREATE INDEX IF NOT EXISTS idx_workforce_logs_opened_at
+          ON app."workforce-logs" (opened_at DESC);
+
+        CREATE INDEX IF NOT EXISTS idx_workforce_logs_ip_address
+          ON app."workforce-logs" (ip_address);
+      `)
+      .catch((err) => {
+        workforceLogsReadyPromise = null;
+        throw err;
+      });
+  }
+
+  return workforceLogsReadyPromise;
 }
 
 function toDateOnly(value) {
@@ -971,6 +1011,16 @@ async function refreshWorkforceDateCache(workforceDate, options = {}) {
   await ensureWorkforceUpdateTable();
 
   const force = Boolean(options.force);
+
+  if (!force && wasWorkforceDateCheckedRecently(workforceDate)) {
+    return {
+      workforceDate,
+      updated: false,
+      skippedSourceCompare: true,
+      reason: "recently-warmed",
+    };
+  }
+
   const cached = await getCachedFingerprint(workforceDate);
   const isRecent = isRecentWorkforceDate(workforceDate);
 
@@ -979,6 +1029,7 @@ async function refreshWorkforceDateCache(workforceDate, options = {}) {
   // - Older than 14 days: trust app.workforceupdate if cache already exists, no source compare.
   // - If an old date is missing from cache, calculate it once and store it.
   if (!force && cached && !isRecent) {
+    markWorkforceDateChecked(workforceDate);
     return {
       workforceDate,
       updated: false,
@@ -990,6 +1041,7 @@ async function refreshWorkforceDateCache(workforceDate, options = {}) {
   const source = await querySourceFingerprint(workforceDate);
 
   if (!force && fingerprintMatches(source, cached)) {
+    markWorkforceDateChecked(workforceDate);
     return { workforceDate, updated: false, comparedSource: true };
   }
 
@@ -1105,6 +1157,7 @@ async function refreshWorkforceDateCache(workforceDate, options = {}) {
     }
 
     await client.query("COMMIT");
+    markWorkforceDateChecked(workforceDate);
     return {
       workforceDate,
       updated: true,
@@ -1134,6 +1187,10 @@ async function syncWorkforceCacheForRange(fromDate, toDate, options = {}) {
 }
 
 async function getCachedDailyRecordsForRange(fromDate, toDate, group = "ALL", search = "", options = {}) {
+  if (!options.skipWarmupWait && workforceWarmupPromise) {
+    await workforceWarmupPromise;
+  }
+
   if (!options.skipSync) {
     await syncWorkforceCacheForRange(fromDate, toDate, options);
   }
@@ -1185,6 +1242,55 @@ async function getDailyRecordsWithFallback({ fromDate, toDate, group = "ALL", se
   }
 
   return getCachedDailyRecordsForRange(fromDate, toDate, group, search, { skipSync });
+}
+
+function getDefaultWarmupRange() {
+  const workforceDate = getWorkforceDateManila();
+  const trendStartDate = addDays(workforceDate, -13);
+
+  return {
+    workforceDate,
+    fromDate: periodStartForDate(trendStartDate, "WEEKLY"),
+    toDate: periodEndForDate(workforceDate, "WEEKLY"),
+  };
+}
+
+function startDefaultWorkforceWarmup() {
+  if (workforceWarmupPromise) {
+    return { started: false, status: workforceWarmupStatus };
+  }
+
+  const range = getDefaultWarmupRange();
+  workforceWarmupStatus = {
+    state: "running",
+    startedAt: new Date().toISOString(),
+    completedAt: null,
+    error: null,
+    ...range,
+  };
+
+  workforceWarmupPromise = syncWorkforceCacheForRange(range.fromDate, range.toDate)
+    .then(() => {
+      workforceWarmupStatus = {
+        ...workforceWarmupStatus,
+        state: "ready",
+        completedAt: new Date().toISOString(),
+      };
+    })
+    .catch((err) => {
+      workforceWarmupStatus = {
+        ...workforceWarmupStatus,
+        state: "error",
+        completedAt: new Date().toISOString(),
+        error: err.message,
+      };
+      console.error("❌ WORKFORCE WARMUP ERROR:", err.message);
+    })
+    .finally(() => {
+      workforceWarmupPromise = null;
+    });
+
+  return { started: true, status: workforceWarmupStatus };
 }
 
 
@@ -1333,41 +1439,68 @@ app.get("/api/health", async (_req, res) => {
   try {
     await testDb();
     await ensureWorkforceUpdateTable();
-    res.json({ ok: true, db: "connected", workforceupdate: "ready" });
+    await ensureWorkforceLogsTable();
+    res.json({
+      ok: true,
+      db: "connected",
+      workforceupdate: "ready",
+      workforceLogs: 'app."workforce-logs"',
+    });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }
+});
+
+app.post("/api/workforce/warmup", (_req, res) => {
+  const result = startDefaultWorkforceWarmup();
+
+  res.status(result.started ? 202 : 200).json({
+    ok: true,
+    started: result.started,
+    warmup: result.status,
+  });
+});
+
+app.get("/api/workforce/warmup", (_req, res) => {
+  res.json({
+    ok: true,
+    warmup: workforceWarmupStatus,
+  });
 });
 
 app.post("/api/usage/visit", async (req, res) => {
   if (!USAGE_LOG_ENABLED) return res.status(204).end();
 
   const sessionId = cleanLogValue(req.body?.sessionId, 120);
-  const now = Date.now();
-  removeExpiredUsageSessions(now);
-
-  if (sessionId && loggedUsageSessions.has(sessionId)) {
-    return res.status(204).end();
-  }
-
-  const logLine = [
-    formatManilaLogTimestamp(),
-    "OPEN",
-    `IP: ${getVisitorIp(req)}`,
-    `Session: ${sessionId || "unknown"}`,
-    `Page: ${cleanLogValue(req.body?.page || "/", 300)}`,
-    `Referrer: ${cleanLogValue(req.body?.referrer || "direct", 500) || "direct"}`,
-    `User-Agent: ${cleanLogValue(req.get("user-agent") || "unknown", 1000)}`,
-  ].join(" | ");
 
   try {
-    await fs.promises.mkdir(USAGE_LOG_DIR, { recursive: true });
-    await fs.promises.appendFile(USAGE_LOG_FILE, `${logLine}\n`, "utf8");
-    if (sessionId) loggedUsageSessions.set(sessionId, now);
+    await ensureWorkforceLogsTable();
+    await pool.query(
+      `
+      INSERT INTO app."workforce-logs" (
+        event_type,
+        ip_address,
+        session_id,
+        page,
+        referrer,
+        user_agent
+      )
+      VALUES ('OPEN', $1, NULLIF($2, ''), $3, $4, $5)
+      ON CONFLICT DO NOTHING
+      `,
+      [
+        getVisitorIp(req),
+        sessionId,
+        cleanLogValue(req.body?.page || "/", 300),
+        cleanLogValue(req.body?.referrer || "direct", 500) || "direct",
+        cleanLogValue(req.get("user-agent") || "unknown", 1000),
+      ]
+    );
+
     return res.status(204).end();
   } catch (err) {
-    console.error("❌ USAGE LOG ERROR:", err.message);
-    return res.status(500).json({ error: "Could not write usage log" });
+    console.error("❌ WORKFORCE DB LOG ERROR:", err.message);
+    return res.status(503).json({ error: "Could not save the visit to app.workforce-logs" });
   }
 });
 

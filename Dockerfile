@@ -23,7 +23,7 @@ RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit
 COPY server.js ./
 COPY --from=build /app/dist ./dist
 
-RUN mkdir -p /app/logs && chown -R node:node /app
+RUN chown -R node:node /app
 
 USER node
 

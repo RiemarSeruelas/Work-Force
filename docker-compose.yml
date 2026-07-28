@@ -13,11 +13,9 @@ services:
       TZ: Asia/Manila
       DB_CONNECT_TIMEOUT_MS: "3000"
       USAGE_LOG_ENABLED: "true"
-      USAGE_LOG_DIR: /app/logs
+      WORKFORCE_WARMUP_TTL_MS: "60000"
     expose:
       - "5056"
-    volumes:
-      - ./logs:/app/logs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5056/api/live"]
