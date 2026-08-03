@@ -1,3 +1,5 @@
+name: Workforce-Monitoring
+
 services:
   workforce-app:
     image: 4thproject-workforce-app:local
